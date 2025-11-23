@@ -97,8 +97,20 @@ const App: React.FC = () => {
       });
 
       setTenants(mappedTenants);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading tenants:', error);
+      // If Forbidden, user might not be super admin or token expired
+      if (error.message && (error.message.includes('Forbidden') || error.message.includes('403'))) {
+        // Clear auth and redirect to login
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('isAuthenticated');
+        sessionStorage.removeItem('isAuthenticated');
+        setIsAuthenticated(false);
+        setActivePage('Login');
+      }
+      // Set empty array on error to show "no tenants" message
+      setTenants([]);
     } finally {
       setIsLoadingTenants(false);
     }
