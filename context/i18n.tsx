@@ -325,7 +325,9 @@ const arTranslations = {
   "login.errorNoActiveAccount": "لم يتم العثور على حساب نشط بالبيانات المقدمة",
   "login.errorUnableToLogin": "تعذر تسجيل الدخول بالبيانات المقدمة",
   "login.errorAccountInactive": "الحساب غير نشط",
-  "login.errorInvalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة"
+  "login.errorInvalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة",
+  "logout.confirmTitle": "تأكيد تسجيل الخروج",
+  "logout.confirmMessage": "هل أنت متأكد أنك تريد تسجيل الخروج؟"
 };
 
 const enTranslations = {
@@ -653,7 +655,9 @@ const enTranslations = {
   "login.errorNoActiveAccount": "No active account found with the given credentials",
   "login.errorUnableToLogin": "Unable to log in with provided credentials",
   "login.errorAccountInactive": "Account is inactive",
-  "login.errorInvalidCredentials": "Invalid username or password"
+  "login.errorInvalidCredentials": "Invalid username or password",
+  "logout.confirmTitle": "Confirm Logout",
+  "logout.confirmMessage": "Are you sure you want to log out?"
 };
 
 type Language = 'en' | 'ar';

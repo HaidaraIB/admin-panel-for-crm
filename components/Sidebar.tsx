@@ -10,9 +10,10 @@ interface SidebarProps {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
   onLogout: () => void;
+  onLogoutClick: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarOpen, setIsSidebarOpen, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarOpen, setIsSidebarOpen, onLogout, onLogoutClick }) => {
   const { t, language } = useI18n();
 
   const menuItems: { name: Page; labelKey: string; icon: string }[] = [
@@ -89,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                onLogout();
+                onLogoutClick();
               }}
               className="flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
             >

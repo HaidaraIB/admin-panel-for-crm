@@ -17,7 +17,7 @@ import FullPageLoader from './components/FullPageLoader';
 import { getCompaniesAPI, getSubscriptionsAPI, createCompanyAPI, updateCompanyAPI, deleteCompanyAPI } from './services/api';
 
 const App: React.FC = () => {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const [activePage, setActivePage] = useState<Page>('Dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -128,6 +128,8 @@ const App: React.FC = () => {
     setIsAuthenticated(true);
   };
 
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+
   const handleLogout = () => {
     sessionStorage.removeItem('isAuthenticated');
     localStorage.removeItem('isAuthenticated');
@@ -210,6 +212,7 @@ const App: React.FC = () => {
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         onLogout={handleLogout}
+        onLogoutClick={() => setIsLogoutConfirmOpen(true)}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header setIsSidebarOpen={setIsSidebarOpen} />
@@ -220,6 +223,38 @@ const App: React.FC = () => {
           </div>
         </main>
       </div>
+      {/* Logout Confirmation Dialog */}
+      {isLogoutConfirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={() => setIsLogoutConfirmOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md transform transition-all" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                {t('logout.confirmTitle')}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                {t('logout.confirmMessage')}
+              </p>
+              <div className={`flex gap-3 ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
+                <button
+                  onClick={() => setIsLogoutConfirmOpen(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setIsLogoutConfirmOpen(false);
+                  }}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium transition-colors"
+                >
+                  {t('sidebar.logout')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
