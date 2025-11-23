@@ -16,8 +16,28 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }: LoginPageProps)
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { t, language } = useI18n();
+  const { t, language, setLanguage } = useI18n();
   const [colorTheme, toggleTheme] = useDarkMode();
+
+  const translateLoginError = (errorMessage: string): string => {
+    const lowerMessage = errorMessage.toLowerCase();
+    
+    if (lowerMessage.includes('no active account') || lowerMessage.includes('active account')) {
+      return t('login.errorNoActiveAccount') || 'No active account found with the given credentials';
+    }
+    if (lowerMessage.includes('unable to log in') || lowerMessage.includes('unable to login')) {
+      return t('login.errorUnableToLogin') || 'Unable to log in with provided credentials';
+    }
+    if (lowerMessage.includes('account is inactive') || lowerMessage.includes('inactive')) {
+      return t('login.errorAccountInactive') || 'Account is inactive';
+    }
+    if (lowerMessage.includes('invalid') || lowerMessage.includes('incorrect')) {
+      return t('login.errorInvalidCredentials') || 'Invalid username or password';
+    }
+    
+    // Default fallback
+    return t('login.invalidCredentials') || 'Invalid username or password';
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,15 +60,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }: LoginPageProps)
       // Call success callback
       onLoginSuccess();
     } catch (error: any) {
-      setError(error.message || t('login.invalidCredentials'));
+      const errorMessage = error.message || '';
+      setError(translateLoginError(errorMessage));
       setIsLoading(false);
     }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Theme Toggle Button */}
-      <div className={`absolute top-4 z-10 ${language === 'ar' ? 'left-4' : 'right-4'}`}>
+      {/* Theme and Language Toggle Buttons */}
+      <div className={`absolute top-4 z-10 flex gap-2 ${language === 'ar' ? 'left-4' : 'right-4'}`}>
+        <button
+          onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+          className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+          aria-label={`Switch to ${language === 'ar' ? 'English' : 'Arabic'}`}
+        >
+          <span className="font-bold text-sm">{language === 'ar' ? 'EN' : 'AR'}</span>
+        </button>
         <button
           onClick={toggleTheme}
           className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"

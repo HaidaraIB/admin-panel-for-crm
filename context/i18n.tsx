@@ -319,7 +319,11 @@ const arTranslations = {
   "login.welcomeMessage": "مرحباً بعودتك! إدارة منصة SaaS بالكامل من مركز واحد.",
   "login.hidePassword": "إخفاء كلمة المرور",
   "login.showPassword": "إظهار كلمة المرور",
-  "login.invalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة"
+  "login.invalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة",
+  "login.errorNoActiveAccount": "لم يتم العثور على حساب نشط بالبيانات المقدمة",
+  "login.errorUnableToLogin": "تعذر تسجيل الدخول بالبيانات المقدمة",
+  "login.errorAccountInactive": "الحساب غير نشط",
+  "login.errorInvalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة"
 };
 
 const enTranslations = {
@@ -641,7 +645,11 @@ const enTranslations = {
   "login.welcomeMessage": "Welcome back! Manage your entire SaaS platform from one central hub.",
   "login.hidePassword": "Hide password",
   "login.showPassword": "Show password",
-  "login.invalidCredentials": "Invalid username or password"
+  "login.invalidCredentials": "Invalid username or password",
+  "login.errorNoActiveAccount": "No active account found with the given credentials",
+  "login.errorUnableToLogin": "Unable to log in with provided credentials",
+  "login.errorAccountInactive": "Account is inactive",
+  "login.errorInvalidCredentials": "Invalid username or password"
 };
 
 type Language = 'en' | 'ar';

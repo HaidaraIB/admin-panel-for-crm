@@ -3,7 +3,7 @@
  * Connects to Django REST Framework backend
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const BASE_URL = (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_API_URL || 'https://haidaraib.pythonanywhere.com/api';
 
 /**
  * Helper function to make API requests with JWT authentication

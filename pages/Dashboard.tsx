@@ -355,7 +355,11 @@ const Dashboard: React.FC = () => {
                             width={language === 'ar' ? 60 : 50}
                         />
                         <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }}/>
-                        <Legend />
+                        <Legend 
+                            wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
+                            formatter={(value) => ` ${value}`}
+                            iconSize={12}
+                        />
                         <Line type="monotone" dataKey="revenue" name={t('dashboard.revenueGrowth.revenue')} stroke="hsl(var(--color-primary-500))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}/>
                         <Line type="monotone" dataKey="profit" name={t('dashboard.revenueGrowth.profit')} stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}/>
                     </LineChart>
@@ -371,7 +375,11 @@ const Dashboard: React.FC = () => {
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="name" width={80} tickLine={false} axisLine={false} />
                         <Tooltip cursor={{fill: 'rgba(107, 114, 128, 0.1)'}} contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }}/>
-                        <Legend />
+                        <Legend 
+                            wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
+                            formatter={(value) => ` ${value}`}
+                            iconSize={12}
+                        />
                         <Bar dataKey="count" name={t('dashboard.planDistribution.tenants')} fill="hsl(var(--color-primary-500))" barSize={20} />
                     </BarChart>
                 </ResponsiveContainer>
