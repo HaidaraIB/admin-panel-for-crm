@@ -7,6 +7,187 @@
     <title>Super Admin Panel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/AlexanderPoellmann/PaymentFont/css/paymentfont.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        --scrollbar-size: 10px;
+        --scrollbar-track-color: hsl(var(--color-primary-500) / 0.12);
+        --scrollbar-thumb-color: hsl(var(--color-primary-400));
+        --scrollbar-thumb-hover: hsl(var(--color-primary-500));
+        --scrollbar-thumb-active: hsl(var(--color-primary-600));
+        --control-border: rgba(148, 163, 184, 0.55);
+        --control-bg: #fff;
+        --control-checked: hsl(var(--color-primary-500));
+        --control-focus: hsl(var(--color-primary-300));
+        --control-arrow: #ffffff;
+      }
+
+      .dark {
+        --scrollbar-track-color: hsl(var(--color-primary-300) / 0.3);
+        --scrollbar-thumb-color: hsl(var(--color-primary-500));
+        --scrollbar-thumb-hover: hsl(var(--color-primary-400));
+        --scrollbar-thumb-active: hsl(var(--color-primary-300));
+        --control-border: rgba(226, 232, 240, 0.35);
+        --control-bg: rgb(30 41 59);
+        --control-checked: hsl(var(--color-primary-400));
+        --control-focus: hsl(var(--color-primary-200));
+        --control-arrow: #0f172a;
+      }
+
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
+      }
+
+      *::-webkit-scrollbar {
+        width: var(--scrollbar-size);
+        height: var(--scrollbar-size);
+      }
+
+      *::-webkit-scrollbar-track {
+        background: var(--scrollbar-track-color);
+        border-radius: 999px;
+      }
+
+      *::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb-color);
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+        box-shadow: inset 0 0 0 1px hsl(var(--color-primary-900) / 0.05);
+      }
+
+      *::-webkit-scrollbar-thumb:hover {
+        background: var(--scrollbar-thumb-hover);
+        background-clip: content-box;
+      }
+
+      *::-webkit-scrollbar-thumb:active {
+        background: var(--scrollbar-thumb-active);
+        background-clip: content-box;
+      }
+
+      input[type="checkbox"]:not(.sr-only) {
+        appearance: none;
+        width: 1.05rem;
+        height: 1.05rem;
+        border-radius: 0.35rem;
+        border: 2px solid var(--control-border);
+        background-color: var(--control-bg);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        position: relative;
+      }
+
+      input[type="checkbox"]:not(.sr-only)::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 8.5L6.5 11L12 5' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 70%;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+      }
+
+      input[type="checkbox"]:not(.sr-only):checked {
+        border-color: var(--control-checked);
+        background-color: var(--control-checked);
+        box-shadow: 0 0 0 2px hsl(var(--color-primary-500) / 0.15);
+      }
+
+      input[type="checkbox"]:not(.sr-only):checked::after {
+        opacity: 1;
+      }
+
+      input[type="checkbox"]:not(.sr-only):focus-visible {
+        outline: 2px solid var(--control-focus);
+        outline-offset: 2px;
+      }
+
+      input[type="checkbox"]:not(.sr-only):disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      input.placeholder-ltr::placeholder {
+        direction: ltr;
+        text-align: left;
+        unicode-bidi: embed;
+      }
+      
+      input.placeholder-ltr[dir="rtl"]::placeholder {
+        direction: ltr;
+        text-align: left;
+        unicode-bidi: embed;
+      }
+
+      input[type="number"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+        position: relative;
+      }
+
+      input[type="number"]::-webkit-inner-spin-button,
+      input[type="number"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        appearance: none;
+        border-radius: 0.45rem;
+        border: 1px solid hsl(var(--color-primary-200));
+        width: 1.35rem;
+        height: 1.35rem;
+        margin: 3px;
+        opacity: 1;
+        transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+        position: relative;
+        box-shadow: inset 0 0 0 1px hsl(var(--color-primary-900) / 0.05);
+        background-color: hsl(var(--color-primary-50));
+        background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L9 3.5L13 7.5' stroke='%239333ea' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 10.5L9 14.5L13 10.5' stroke='%239333ea' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 65%;
+      }
+
+      input[type="number"]::-webkit-inner-spin-button:hover,
+      input[type="number"]::-webkit-outer-spin-button:hover {
+        background-color: hsl(var(--color-primary-100));
+        background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L9 3.5L13 7.5' stroke='%237c3aed' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 10.5L9 14.5L13 10.5' stroke='%237c3aed' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        border-color: hsl(var(--color-primary-300));
+        transform: translateY(-0.5px);
+      }
+
+      input[type="number"]::-webkit-inner-spin-button:active,
+      input[type="number"]::-webkit-outer-spin-button:active {
+        background-color: hsl(var(--color-primary-200));
+        background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L9 3.5L13 7.5' stroke='%236d28d9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 10.5L9 14.5L13 10.5' stroke='%236d28d9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        border-color: hsl(var(--color-primary-400));
+        transform: scale(0.96);
+      }
+
+      .dark input[type="number"]::-webkit-inner-spin-button,
+      .dark input[type="number"]::-webkit-outer-spin-button {
+        background-color: hsl(var(--color-primary-800));
+        background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L9 3.5L13 7.5' stroke='%23f3e8ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 10.5L9 14.5L13 10.5' stroke='%23f3e8ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        border-color: hsl(var(--color-primary-600));
+        box-shadow: inset 0 0 0 1px hsl(var(--color-primary-900) / 0.2);
+      }
+
+      .dark input[type="number"]::-webkit-inner-spin-button:hover,
+      .dark input[type="number"]::-webkit-outer-spin-button:hover {
+        background-color: hsl(var(--color-primary-700));
+        background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L9 3.5L13 7.5' stroke='%23faf5ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 10.5L9 14.5L13 10.5' stroke='%23faf5ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        border-color: hsl(var(--color-primary-400));
+      }
+
+      .dark input[type="number"]::-webkit-inner-spin-button:active,
+      .dark input[type="number"]::-webkit-outer-spin-button:active {
+        background-color: hsl(var(--color-primary-600));
+        background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L9 3.5L13 7.5' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M5 10.5L9 14.5L13 10.5' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        border-color: hsl(var(--color-primary-300));
+      }
+    </style>
     <script>
       tailwind.config = {
         darkMode: 'class',

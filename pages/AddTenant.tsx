@@ -105,13 +105,11 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave, setActivePage }) => {
           
           // Create tenant object for callback (will be reloaded from API)
           const newTenant: Omit<Tenant, 'id'> = {
-              companyName,
-              subdomain: `${subdomain}.platform.com`,
-              currentPlan: plan,
-              status: plan === 'التجريبية' ? TenantStatus.Trial : TenantStatus.Active,
-              startDate: new Date().toISOString().split('T')[0],
-              endDate: '2025-01-01', // Will be set by subscription
-              users: '1/1', // Admin user created
+              name: companyName,
+              domain: subdomain,
+              specialization: 'real_estate',
+              owner: 0, // Will be set by API
+              created_at: new Date().toISOString(),
           };
           onSave(newTenant);
       } catch (error: any) {

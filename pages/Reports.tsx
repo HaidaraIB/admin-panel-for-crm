@@ -1,24 +1,103 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Icon from '../components/Icon';
 import { useI18n } from '../context/i18n';
 import { getPaymentsAPI, getSubscriptionsAPI, getCompaniesAPI } from '../services/api';
 import Skeleton from '../components/Skeleton';
+import ReportsFilterDrawer, { ReportsFilters, reportsFilterDefaults } from '../components/ReportsFilterDrawer';
 
 const COLORS = ['#3b82f6', '#ef4444'];
 
+const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
-const RevenueReports: React.FC = () => {
+const parseDateValue = (value?: string) => {
+    if (!value) {
+        return null;
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const buildMonthSequence = (filters: ReportsFilters): Date[] => {
+    const now = new Date();
+    const defaultStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const defaultEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const startDate = parseDateValue(filters.fromDate) ?? defaultStart;
+    const endDate = parseDateValue(filters.toDate) ?? defaultEnd;
+
+    const normalizedStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const normalizedEnd = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+
+    if (normalizedStart > normalizedEnd) {
+        return [normalizedStart];
+    }
+
+    const sequence: Date[] = [];
+    const cursor = new Date(normalizedStart);
+    let guard = 0;
+
+    while (cursor <= normalizedEnd && guard < 60) {
+        sequence.push(new Date(cursor));
+        cursor.setMonth(cursor.getMonth() + 1);
+        guard += 1;
+    }
+
+    if (sequence.length === 0) {
+        sequence.push(new Date(normalizedEnd));
+    }
+
+    return sequence.length > 12 ? sequence.slice(sequence.length - 12) : sequence;
+};
+
+const getRangeBounds = (filters: ReportsFilters) => {
+    const start = parseDateValue(filters.fromDate);
+    if (start) {
+        start.setHours(0, 0, 0, 0);
+    }
+    const end = parseDateValue(filters.toDate);
+    if (end) {
+        end.setHours(23, 59, 59, 999);
+    }
+    return { start, end };
+};
+
+const formatRangeLabel = (filters: ReportsFilters, language: string, t: (key: string) => string) => {
+    const formatterLocale = language === 'ar' ? 'ar-EG' : 'en-US';
+    const formatter = new Intl.DateTimeFormat(formatterLocale, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
+
+    const start = parseDateValue(filters.fromDate);
+    const end = parseDateValue(filters.toDate);
+
+    if (start && end) {
+        return `${formatter.format(start)} - ${formatter.format(end)}`;
+    }
+
+    if (start) {
+        return `${t('reports.filter.from')} ${formatter.format(start)}`;
+    }
+
+    if (end) {
+        return `${t('reports.filter.to')} ${formatter.format(end)}`;
+    }
+
+    return t('reports.filters.allTime');
+};
+
+
+const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
     const { t, language } = useI18n();
     const [mrrData, setMrrData] = useState<Array<{month: string; MRR: number; ARR: number}>>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [fromDate, setFromDate] = useState('');
-    const [toDate, setToDate] = useState('');
 
     useEffect(() => {
         loadRevenueData();
-    }, [language, t]);
+    }, [language, t, filters]);
 
     const loadRevenueData = async () => {
         setIsLoading(true);
@@ -26,37 +105,54 @@ const RevenueReports: React.FC = () => {
             const paymentsRes = await getPaymentsAPI();
             const payments = paymentsRes.results || [];
 
-            // Calculate MRR and ARR by month
-            const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-            const revenueByMonth: Array<{month: string; MRR: number; ARR: number}> = [];
-            
-            // Initialize last 12 months with translated names
-            const now = new Date();
-            for (let i = 11; i >= 0; i--) {
-                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthSequence = buildMonthSequence(filters);
+            const revenueByMonth = monthSequence.map(date => {
                 const monthIndex = date.getMonth();
-                const monthKey = monthKeys[monthIndex];
+                const monthKey = MONTH_KEYS[monthIndex];
                 const monthName = t(`dashboard.months.${monthKey}`);
-                revenueByMonth.push({ month: monthName, MRR: 0, ARR: 0 });
-            }
+                return {
+                    key: `${date.getFullYear()}-${monthIndex}`,
+                    month: monthName,
+                    MRR: 0,
+                    ARR: 0,
+                };
+            });
 
-            // Process payments (API field: payment_status, amount, created_at)
+            const { start: rangeStart, end: rangeEnd } = getRangeBounds(filters);
+            const isWithinRange = (value?: string | null) => {
+                if (!value) {
+                    return true;
+                }
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return true;
+                }
+                if (rangeStart && date < rangeStart) {
+                    return false;
+                }
+                if (rangeEnd && date > rangeEnd) {
+                    return false;
+                }
+                return true;
+            };
+
             payments.forEach((payment: any) => {
-                if (payment.payment_status === 'successful' || payment.payment_status === 'Success') {
-                    const paymentDate = new Date(payment.created_at);
-                    const monthIndex = paymentDate.getMonth();
-                    const monthKey = monthKeys[monthIndex];
-                    const monthName = t(`dashboard.months.${monthKey}`);
-                    const monthData = revenueByMonth.find(m => m.month === monthName);
-                    if (monthData) {
-                        const amount = parseFloat(payment.amount || 0);
-                        monthData.MRR += amount;
-                        monthData.ARR += amount * 12; // Annualized
-                    }
+                const isSuccessful = payment.payment_status === 'successful' || payment.payment_status === 'Success';
+                if (!isSuccessful || !isWithinRange(payment.created_at)) {
+                    return;
+                }
+
+                const paymentDate = new Date(payment.created_at);
+                const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth()}`;
+                const monthData = revenueByMonth.find((m) => m.key === key);
+                if (monthData) {
+                    const amount = parseFloat(payment.amount || 0);
+                    monthData.MRR += amount;
+                    monthData.ARR += amount * 12; // Annualized
                 }
             });
 
-            setMrrData(revenueByMonth);
+            setMrrData(revenueByMonth.map(({ key, ...rest }) => rest));
         } catch (error) {
             console.error('Error loading revenue data:', error);
         } finally {
@@ -80,31 +176,16 @@ const RevenueReports: React.FC = () => {
     return (
     <div className="space-y-6">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <h2 className="text-2xl font-semibold">{t('reports.revenue.title')}</h2>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                    <label htmlFor="revenueFromDate" className="text-sm font-medium whitespace-nowrap">{t('reports.filter.from')}</label>
-                    <input 
-                        id="revenueFromDate" 
-                        type="date" 
-                        className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 text-sm w-full"
-                        value={fromDate}
-                        onChange={(e) => setFromDate(e.target.value)}
-                    />
-                </div>
-                <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                    <label htmlFor="revenueToDate" className="text-sm font-medium whitespace-nowrap">{t('reports.filter.to')}</label>
-                    <input 
-                        id="revenueToDate" 
-                        type="date" 
-                        className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 text-sm w-full"
-                        value={toDate}
-                        onChange={(e) => setToDate(e.target.value)}
-                    />
-                </div>
+            <div>
+                <h2 className="text-2xl font-semibold">{t('reports.revenue.title')}</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {formatRangeLabel(filters, language, t)}
+                </p>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button 
                     onClick={handleExport} 
-                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 flex items-center justify-center"
+                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 flex items-center justify-center w-full sm:w-auto"
                     disabled={isLoading}
                 >
                     <Icon name="pdf" className="w-5 h-5 mx-2"/> {t('reports.revenue.export')}
@@ -148,7 +229,7 @@ const RevenueReports: React.FC = () => {
 )};
 
 
-const SubscriberReports: React.FC = () => {
+const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
     const { t, language } = useI18n();
     const [subscriberData, setSubscriberData] = useState<Array<{month: string; new: number; churned: number}>>([]);
     const [conversionData, setConversionData] = useState<Array<{name: string; value: number}>>([]);
@@ -156,7 +237,7 @@ const SubscriberReports: React.FC = () => {
 
     useEffect(() => {
         loadSubscriberData();
-    }, [language, t]);
+    }, [language, t, filters]);
 
     const loadSubscriberData = async () => {
         setIsLoading(true);
@@ -169,51 +250,71 @@ const SubscriberReports: React.FC = () => {
             const subscriptions = subscriptionsRes.results || [];
             const companies = companiesRes.results || [];
 
-            // Calculate new and churned subscriptions by month
-            const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-            const subscriberByMonth: Array<{month: string; new: number; churned: number}> = [];
-            
-            // Initialize last 12 months with translated names
-            const now = new Date();
-            for (let i = 11; i >= 0; i--) {
-                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthSequence = buildMonthSequence(filters);
+            const subscriberByMonth = monthSequence.map(date => {
                 const monthIndex = date.getMonth();
-                const monthKey = monthKeys[monthIndex];
+                const monthKey = MONTH_KEYS[monthIndex];
                 const monthName = t(`dashboard.months.${monthKey}`);
-                subscriberByMonth.push({ month: monthName, new: 0, churned: 0 });
-            }
+                return {
+                    key: `${date.getFullYear()}-${monthIndex}`,
+                    month: monthName,
+                    new: 0,
+                    churned: 0,
+                };
+            });
 
-            // Process subscriptions (API fields: created_at, is_active, end_date)
+            const { start: rangeStart, end: rangeEnd } = getRangeBounds(filters);
+            const isWithinRange = (value?: string | null) => {
+                if (!value) {
+                    return true;
+                }
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return true;
+                }
+                if (rangeStart && date < rangeStart) {
+                    return false;
+                }
+                if (rangeEnd && date > rangeEnd) {
+                    return false;
+                }
+                return true;
+            };
+
+            const now = new Date();
+
             subscriptions.forEach((sub: any) => {
-                const createdDate = new Date(sub.created_at);
-                const monthIndex = createdDate.getMonth();
-                const monthKey = monthKeys[monthIndex];
-                const monthName = t(`dashboard.months.${monthKey}`);
-                const monthData = subscriberByMonth.find(m => m.month === monthName);
-                if (monthData) {
-                    monthData.new += 1;
+                if (isWithinRange(sub.created_at)) {
+                    const createdDate = new Date(sub.created_at);
+                    const key = `${createdDate.getFullYear()}-${createdDate.getMonth()}`;
+                    const monthData = subscriberByMonth.find((m) => m.key === key);
+                    if (monthData) {
+                        monthData.new += 1;
+                    }
                 }
 
-                // Check if churned (ended and not active)
-                if (!sub.is_active && sub.end_date) {
+                if (!sub.is_active && sub.end_date && isWithinRange(sub.end_date)) {
                     const endDate = new Date(sub.end_date);
-                    const endMonthIndex = endDate.getMonth();
-                    const endMonthKey = monthKeys[endMonthIndex];
-                    const endMonthName = t(`dashboard.months.${endMonthKey}`);
-                    const endMonthData = subscriberByMonth.find(m => m.month === endMonthName);
-                    if (endMonthData && endDate < now) {
-                        endMonthData.churned += 1;
+                    if (endDate < now) {
+                        const key = `${endDate.getFullYear()}-${endDate.getMonth()}`;
+                        const endMonthData = subscriberByMonth.find((m) => m.key === key);
+                        if (endMonthData) {
+                            endMonthData.churned += 1;
+                        }
                     }
                 }
             });
 
-            setSubscriberData(subscriberByMonth);
+            setSubscriberData(subscriberByMonth.map(({ key, ...rest }) => rest));
 
-            // Calculate conversion rate (active subscriptions vs total companies)
-            const activeSubscriptions = subscriptions.filter((sub: any) => sub.is_active).length;
-            const totalCompanies = companies.length;
+            const filteredSubscriptions = subscriptions.filter((sub: any) => isWithinRange(sub.created_at));
+            const filteredCompanies = companies.filter((company: any) => isWithinRange(company.created_at));
+            const activeSubscriptions = filteredSubscriptions.filter((sub: any) => sub.is_active).length;
+
+            const shouldUseFilteredCompanies = (filters.fromDate || filters.toDate) && filteredCompanies.length > 0;
+            const totalCompanies = shouldUseFilteredCompanies ? filteredCompanies.length : companies.length;
             const converted = activeSubscriptions;
-            const notConverted = Math.max(0, totalCompanies - activeSubscriptions);
+            const notConverted = Math.max(0, totalCompanies - converted);
 
             setConversionData([
                 { name: t('reports.subscribers.converted'), value: converted },
@@ -242,11 +343,16 @@ const SubscriberReports: React.FC = () => {
     return (
      <div className="space-y-6">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <h2 className="text-2xl font-semibold">{t('reports.subscribers.title')}</h2>
+            <div>
+                <h2 className="text-2xl font-semibold">{t('reports.subscribers.title')}</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {formatRangeLabel(filters, language, t)}
+                </p>
+            </div>
              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 <button 
                     onClick={handleExport} 
-                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 flex items-center justify-center"
+                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 flex items-center justify-center w-full sm:w-auto"
                     disabled={isLoading}
                 >
                     <Icon name="pdf" className="w-5 h-5 mx-2"/> {t('reports.revenue.export')}
@@ -324,17 +430,58 @@ const SubscriberReports: React.FC = () => {
 
 
 const Reports: React.FC = () => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [activeTab, setActiveTab] = useState('revenue');
+  const [filters, setFilters] = useState<ReportsFilters>(reportsFilterDefaults);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   const tabs = [
     { id: 'revenue', label: t('reports.tabs.revenue') },
     { id: 'subscribers', label: t('reports.tabs.subscribers') },
   ];
 
+  const hasActiveFilters = useMemo(
+    () => filters.fromDate !== '' || filters.toDate !== '',
+    [filters]
+  );
+
+  const rangeLabel = useMemo(
+    () => formatRangeLabel(filters, language, t),
+    [filters, language, t]
+  );
+
+  const handleApplyFilters = (nextFilters: ReportsFilters) => {
+    setFilters(nextFilters);
+    setIsFilterDrawerOpen(false);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(reportsFilterDefaults);
+  };
+
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">{t('reports.title')}</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('reports.title')}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{rangeLabel}</p>
+        </div>
+        <div className="flex gap-2 self-start md:self-auto">
+          <button
+            onClick={() => setIsFilterDrawerOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:border-primary-400 dark:hover:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition"
+            type="button"
+          >
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-300">
+              <Icon name="filter" className="w-4 h-4" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+              {t('reports.filters.open')}
+            </span>
+            {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary-500" />}
+          </button>
+        </div>
+      </div>
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="-mb-px flex gap-8" aria-label="Tabs">
           {tabs.map(tab => (
@@ -353,8 +500,16 @@ const Reports: React.FC = () => {
         </nav>
       </div>
       
-      {activeTab === 'revenue' && <RevenueReports />}
-      {activeTab === 'subscribers' && <SubscriberReports />}
+      {activeTab === 'revenue' && <RevenueReports filters={filters} />}
+      {activeTab === 'subscribers' && <SubscriberReports filters={filters} />}
+
+      <ReportsFilterDrawer
+        isOpen={isFilterDrawerOpen}
+        filters={filters}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+      />
     </div>
   );
 };

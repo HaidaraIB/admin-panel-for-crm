@@ -23,7 +23,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
     { name: 'PaymentGateways', labelKey: 'sidebar.paymentGateways', icon: 'cash' },
     { name: 'Reports', labelKey: 'sidebar.reports', icon: 'reports' },
     { name: 'Communication', labelKey: 'sidebar.communication', icon: 'communication' },
-    { name: 'Settings', labelKey: 'sidebar.settings', icon: 'settings' },
   ];
 
   const sidebarBaseClasses = "flex-shrink-0 w-64 bg-white dark:bg-gray-900 flex flex-col fixed md:relative inset-y-0 z-40 transform transition-transform duration-300 ease-in-out";
@@ -85,17 +84,33 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
             );
           })}
         </nav>
-        <div className="px-4 py-6 border-t border-gray-200 dark:border-gray-700">
-           <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onLogoutClick();
-              }}
-              className="flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <Icon name="logout" className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
-              {t('sidebar.logout')}
+        <div className="px-4 py-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setActivePage('Settings');
+              setIsSidebarOpen(false);
+            }}
+            className={`flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 ${
+              activePage === 'Settings'
+                ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <Icon name="settings" className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
+            {t('sidebar.settings')}
+          </a>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onLogoutClick();
+            }}
+            className="flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <Icon name="logout" className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
+            {t('sidebar.logout')}
           </a>
         </div>
       </div>

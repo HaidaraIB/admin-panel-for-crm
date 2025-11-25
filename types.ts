@@ -10,18 +10,25 @@ export enum TenantStatus {
 
 export interface Tenant {
   id: number;
-  companyName: string;
-  subdomain: string;
-  currentPlan: string;
-  status: TenantStatus;
-  startDate: string;
-  endDate: string;
-  users: string;
+  name: string;
+  domain: string;
+  specialization: string;
+  owner: number;
+  owner_username?: string;
+  owner_email?: string;
+  created_at: string;
+  updated_at?: string;
+  // Legacy fields for compatibility (derived from subscriptions)
+  currentPlan?: string;
+  status?: TenantStatus;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface Plan {
     id: number;
     name: string;
+    nameAr?: string;
     type: 'Trial' | 'Paid' | 'Free';
     priceMonthly: number;
     priceYearly: number;
@@ -29,7 +36,8 @@ export interface Plan {
     users: number | 'unlimited';
     clients: number | 'unlimited';
     storage: number; // In GB
-    features: string; // Use a single string for textarea, lines separated by newline
+    features: string; // English description / features list
+    featuresAr?: string; // Arabic description / features list
     visible: boolean;
 }
 
@@ -61,13 +69,18 @@ export interface Invoice {
     status: InvoiceStatus;
 }
 
+export type BroadcastTarget = 'all' | `plan_${number}`;
+export type BroadcastStatus = 'sent' | 'scheduled' | 'draft';
+
 export interface Broadcast {
     id: number;
     subject: string;
-    target: string;
-    date: string;
-    status: 'Sent' | 'Scheduled';
     content: string;
+    target: BroadcastTarget;
+    status: BroadcastStatus;
+    createdAt: string;
+    scheduledAt?: string | null;
+    sentAt?: string | null;
 }
 
 export interface AdminUser {

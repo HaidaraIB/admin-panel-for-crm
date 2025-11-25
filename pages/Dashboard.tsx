@@ -1,9 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import Icon from '../components/Icon';
 import Skeleton from '../components/Skeleton';
 import { useI18n } from '../context/i18n';
 import { getCompaniesAPI, getSubscriptionsAPI, getPaymentsAPI, getPlansAPI } from '../services/api';
+
+type DateRange = {
+  start: string;
+  end: string;
+};
+
+const formatDateInput = (date: Date) => date.toISOString().split('T')[0];
+
+const getDefaultDateRange = (): DateRange => {
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth() - 11, 1);
+  return {
+    start: formatDateInput(start),
+    end: formatDateInput(end),
+  };
+};
+
+const buildMonthSequence = (range: DateRange): Date[] => {
+  const fallbackSequence = () => {
+    const fallbackEnd = new Date();
+    const fallbackStart = new Date(fallbackEnd.getFullYear(), fallbackEnd.getMonth() - 11, 1);
+    const seq: Date[] = [];
+    const cursor = new Date(fallbackStart);
+    while (cursor <= fallbackEnd) {
+      seq.push(new Date(cursor));
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return seq;
+  };
+
+  const start = new Date(range.start);
+  const end = new Date(range.end);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+    return fallbackSequence();
+  }
+
+  const normalizedStart = new Date(start.getFullYear(), start.getMonth(), 1);
+  const normalizedEnd = new Date(end.getFullYear(), end.getMonth(), 1);
+  const sequence: Date[] = [];
+  const cursor = new Date(normalizedStart);
+  let guard = 0;
+
+  while (cursor <= normalizedEnd && guard < 60) {
+    sequence.push(new Date(cursor));
+    cursor.setMonth(cursor.getMonth() + 1);
+    guard += 1;
+  }
+
+  if (sequence.length === 0) {
+    return fallbackSequence();
+  }
+
+  return sequence.length > 12 ? sequence.slice(sequence.length - 12) : sequence;
+};
 
 interface KpiCardProps {
   title: string;
@@ -20,43 +75,69 @@ interface KpiCardProps {
 }
 
 const KpiCard: React.FC<KpiCardProps> = ({ title, value, change, changeType, icon, colors, loading }) => {
-    const { language } = useI18n();
-    const changeColor = changeType === 'increase' ? 'text-green-500' : 'text-red-500';
+  const { language } = useI18n();
+  const changeColor = changeType === 'increase' ? 'text-green-500' : 'text-red-500';
 
-    if (loading) {
-        return (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                        <Skeleton className="h-4 w-3/4 mb-4" />
-                        <Skeleton className="h-8 w-1/2" />
-                    </div>
-                    <Skeleton className="w-12 h-12 rounded-full" />
-                </div>
-                <Skeleton className="h-4 w-1/4 mt-4" />
-            </div>
-        );
-    }
-
+  if (loading) {
     return (
-      <div className={`relative p-6 rounded-lg shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-xl ${colors.bg}`}>
-        <div>
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">{title}</h3>
-            <p className="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">{value}</p>
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <Skeleton className="h-4 w-3/4 mb-4" />
+            <Skeleton className="h-8 w-1/2" />
+          </div>
+          <Skeleton className="w-12 h-12 rounded-full" />
         </div>
-        <p className={`mt-2 text-sm ${changeColor}`}>{change}</p>
-        
-        <div className={`absolute bottom-4 ${language === 'ar' ? 'left-4' : 'right-4'} p-3 rounded-full ${colors.iconContainer}`}>
-            <Icon name={icon} className={`w-6 h-6 ${colors.icon}`} />
-        </div>
+        <Skeleton className="h-4 w-1/4 mt-4" />
       </div>
     );
+  }
+
+  return (
+    <div className={`relative p-6 rounded-lg shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-xl ${colors.bg}`}>
+      <div>
+        <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">{title}</h3>
+        <p className="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">{value}</p>
+      </div>
+      <p className={`mt-2 text-sm ${changeColor}`}>{change}</p>
+
+      <div className={`absolute bottom-4 ${language === 'ar' ? 'left-4' : 'right-4'} p-3 rounded-full ${colors.iconContainer}`}>
+        <Icon name={icon} className={`w-6 h-6 ${colors.icon}`} />
+      </div>
+    </div>
+  );
 };
 
 const Dashboard: React.FC = () => {
   const { t, language } = useI18n();
-  
+
+  const [dateRange, setDateRange] = useState<DateRange>(() => getDefaultDateRange());
+  const [tempRange, setTempRange] = useState<DateRange>(() => getDefaultDateRange());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [dateError, setDateError] = useState('');
+  const datePickerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setTempRange(dateRange);
+  }, [dateRange]);
+
+  useEffect(() => {
+    if (!isDatePickerOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+        setIsDatePickerOpen(false);
+        setDateError('');
+        setTempRange(dateRange);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDatePickerOpen, dateRange]);
   const [kpiData, setKpiData] = useState([
     {
       title: t('dashboard.kpi.mrr'),
@@ -107,17 +188,67 @@ const Dashboard: React.FC = () => {
       }
     },
   ]);
-  const [revenueData, setRevenueData] = useState<Array<{name: string; revenue: number; profit: number}>>([]);
-  const [planData, setPlanData] = useState<Array<{name: string; count: number}>>([]);
-  const [recentCompanies, setRecentCompanies] = useState<Array<{name: string; plan: string}>>([]);
-  const [recentPayments, setRecentPayments] = useState<Array<{name: string; amount: string}>>([]);
+  const [revenueData, setRevenueData] = useState<Array<{ name: string; revenue: number; profit: number }>>([]);
+  const [planData, setPlanData] = useState<Array<{ name: string; count: number }>>([]);
+  const [recentCompanies, setRecentCompanies] = useState<Array<{ name: string; plan: string }>>([]);
+  const [recentPayments, setRecentPayments] = useState<Array<{ name: string; amount: string }>>([]);
 
-  useEffect(() => {
-    loadDashboardData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
+  const dateRangeLabel = useMemo(() => {
+    if (!dateRange.start || !dateRange.end) {
+      return '';
+    }
 
-  const loadDashboardData = async () => {
+    try {
+      const formatter = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      const startLabel = formatter.format(new Date(dateRange.start));
+      const endLabel = formatter.format(new Date(dateRange.end));
+      return `${startLabel} - ${endLabel}`;
+    } catch {
+      return '';
+    }
+  }, [dateRange, language]);
+
+  const handleTempRangeChange = (field: keyof DateRange, value: string) => {
+    setTempRange(prev => ({ ...prev, [field]: value }));
+  };
+
+  const applyDateRange = () => {
+    if (!tempRange.start || !tempRange.end) {
+      setDateError(t('dashboard.filters.invalidRange'));
+      return;
+    }
+
+    const startDate = new Date(tempRange.start);
+    const endDate = new Date(tempRange.end);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) {
+      setDateError(t('dashboard.filters.invalidRange'));
+      return;
+    }
+
+    setDateError('');
+    setDateRange(tempRange);
+    setIsDatePickerOpen(false);
+  };
+
+  const resetDateRange = () => {
+    const defaults = getDefaultDateRange();
+    setTempRange(defaults);
+    setDateRange(defaults);
+    setDateError('');
+  };
+
+  const toggleDatePicker = () => {
+    setIsDatePickerOpen(prev => !prev);
+    setDateError('');
+    setTempRange(dateRange);
+  };
+
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       const [companiesRes, subscriptionsRes, paymentsRes, plansRes] = await Promise.all([
@@ -132,30 +263,39 @@ const Dashboard: React.FC = () => {
       const payments = paymentsRes.results || [];
       const plans = plansRes.results || [];
 
-      // Calculate MRR from active subscriptions
-      const activeSubscriptions = subscriptions.filter((sub: any) => sub.is_active);
-      const mrr = activeSubscriptions.reduce((sum: number, sub: any) => {
+      const rangeStart = new Date(dateRange.start);
+      rangeStart.setHours(0, 0, 0, 0);
+      const rangeEnd = new Date(dateRange.end);
+      rangeEnd.setHours(23, 59, 59, 999);
+
+      const isWithinSelectedRange = (value?: string | null) => {
+        if (!value) return false;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return false;
+        return date >= rangeStart && date <= rangeEnd;
+      };
+
+      const filteredCompanies = companies.filter((company: any) => isWithinSelectedRange(company.created_at));
+      const filteredSubscriptions = subscriptions.filter((sub: any) => isWithinSelectedRange(sub.created_at));
+      const filteredPayments = payments.filter((payment: any) => isWithinSelectedRange(payment.created_at));
+      const activeSubscriptionsInRange = filteredSubscriptions.filter((sub: any) => sub.is_active);
+
+      // Calculate MRR from filtered active subscriptions
+      const mrr = activeSubscriptionsInRange.reduce((sum: number, sub: any) => {
         const plan = plans.find((p: any) => p.id === sub.plan);
         return sum + (plan ? parseFloat(plan.price_monthly || 0) : 0);
       }, 0);
 
-      // Count active tenants (companies with active subscriptions)
-      const activeTenants = activeSubscriptions.length;
+      // Count active tenants within range
+      const activeTenants = activeSubscriptionsInRange.length;
 
-      // New subscriptions this month
-      const now = new Date();
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const newSubscriptions = subscriptions.filter((sub: any) => {
-        const created = new Date(sub.created_at);
-        return created >= thisMonth;
-      }).length;
+      // New subscriptions within the selected range
+      const newSubscriptions = filteredSubscriptions.length;
 
-      // Expiring subscriptions (within 30 days)
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      // Expiring subscriptions within range (based on end_date)
       const expiringSubscriptions = subscriptions.filter((sub: any) => {
         if (!sub.is_active || !sub.end_date) return false;
-        const endDate = new Date(sub.end_date);
-        return endDate <= thirtyDaysFromNow && endDate > now;
+        return isWithinSelectedRange(sub.end_date);
       }).length;
 
       // Update KPIs
@@ -210,27 +350,25 @@ const Dashboard: React.FC = () => {
         },
       ]);
 
-      // Calculate revenue data (last 12 months)
+      // Calculate revenue data for the selected range
       const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-      const revenueByMonth: Array<{name: string; revenue: number; profit: number}> = [];
-      
-      // Create month data with translated names in order - ensure all 12 months are created
-      for (let i = 11; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthIndex = date.getMonth(); // 0-11
+      const monthSequence = buildMonthSequence(dateRange);
+      const revenueByMonth = monthSequence.map(date => {
+        const monthIndex = date.getMonth();
         const monthKey = monthKeys[monthIndex];
-        const monthName = t(`dashboard.months.${monthKey}`);
-        revenueByMonth.push({ name: monthName, revenue: 0, profit: 0 });
-      }
+        return {
+          name: t(`dashboard.months.${monthKey}`),
+          key: `${date.getFullYear()}-${monthIndex}`,
+          revenue: 0,
+          profit: 0,
+        };
+      });
 
-      // Update revenue data from payments
-      payments.forEach((payment: any) => {
+      filteredPayments.forEach((payment: any) => {
         if (payment.payment_status === 'successful' || payment.payment_status === 'Success') {
           const paymentDate = new Date(payment.created_at);
-          const monthIndex = paymentDate.getMonth();
-          const monthKey = monthKeys[monthIndex];
-          const monthName = t(`dashboard.months.${monthKey}`);
-          const monthData = revenueByMonth.find(m => m.name === monthName);
+          const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth()}`;
+          const monthData = revenueByMonth.find(m => m.key === key);
           if (monthData) {
             monthData.revenue += parseFloat(payment.amount || 0);
             monthData.profit += parseFloat(payment.amount || 0) * 0.7; // Assume 70% profit margin
@@ -238,31 +376,25 @@ const Dashboard: React.FC = () => {
         }
       });
 
-      // Ensure we have exactly 12 months
-      if (revenueByMonth.length !== 12) {
-        console.warn(`Expected 12 months but got ${revenueByMonth.length}`, revenueByMonth.map(m => m.name));
-      }
-
-      // Debug: Log all months to verify
-      console.log('Revenue data months:', revenueByMonth.map(m => m.name));
-
-      setRevenueData(revenueByMonth);
+      setRevenueData(revenueByMonth.map(({ key, ...rest }) => rest));
 
       // Plan distribution
-      const planCounts: {[key: string]: number} = {};
+      const planCounts: { [key: string]: number } = {};
       plans.forEach((plan: any) => {
-        planCounts[plan.name] = 0;
+        const planName = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
+        planCounts[planName] = 0;
       });
-      activeSubscriptions.forEach((sub: any) => {
+      activeSubscriptionsInRange.forEach((sub: any) => {
         const plan = plans.find((p: any) => p.id === sub.plan);
         if (plan) {
-          planCounts[plan.name] = (planCounts[plan.name] || 0) + 1;
+          const planName = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
+          planCounts[planName] = (planCounts[planName] || 0) + 1;
         }
       });
       setPlanData(Object.entries(planCounts).map(([name, count]) => ({ name, count })));
 
       // Recent companies (last 5)
-      const recent = companies
+      const recent = filteredCompanies
         .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
         .map((company: any) => {
@@ -276,7 +408,7 @@ const Dashboard: React.FC = () => {
       setRecentCompanies(recent);
 
       // Recent payments (last 5)
-      const recentPaymentsList = payments
+      const recentPaymentsList = filteredPayments
         .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
         .map((payment: any) => ({
@@ -289,20 +421,20 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange, t, language]);
 
-  const handleRefresh = () => {
+  useEffect(() => {
     loadDashboardData();
-  };
-  
+  }, [loadDashboardData]);
+
   const ListSkeleton: React.FC = () => (
     <div className="space-y-3">
-        {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex justify-between items-center">
-                <Skeleton className="h-5 w-1/2" />
-                <Skeleton className="h-5 w-1/4" />
-            </div>
-        ))}
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex justify-between items-center">
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-5 w-1/4" />
+        </div>
+      ))}
     </div>
   );
 
@@ -311,108 +443,181 @@ const Dashboard: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
         <div className="flex items-center gap-2">
-            <input type="date" className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm"/>
-            <button 
-              onClick={handleRefresh}
-              className="p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
-              disabled={loading}
+          <div className="relative" ref={datePickerRef}>
+            <button
+              type="button"
+              onClick={toggleDatePicker}
+              className="flex items-center gap-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
             >
-                <Icon name="refresh" className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-50 dark:bg-gray-700/60 text-blue-600 dark:text-blue-300">
+                <Icon name="calendar" className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('dashboard.filters.dateRange')}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{dateRangeLabel}</p>
+              </div>
+              <Icon name="chevronDown" className={`w-4 h-4 text-gray-500 transition-transform ${isDatePickerOpen ? 'rotate-180' : ''}`} />
             </button>
+
+            {isDatePickerOpen && (
+              <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-4 space-y-4 z-50">
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400">{t('dashboard.filters.from')}</label>
+                  <input
+                    type="date"
+                    value={tempRange.start}
+                    onChange={(event) => handleTempRangeChange('start', event.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400">{t('dashboard.filters.to')}</label>
+                  <input
+                    type="date"
+                    value={tempRange.end}
+                    onChange={(event) => handleTempRangeChange('end', event.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                  />
+                </div>
+                {dateError && <p className="text-xs text-red-500">{dateError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={resetDateRange}
+                    className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    {t('dashboard.filters.reset')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyDateRange}
+                    className="flex-1 rounded-lg bg-primary-600 text-white px-3 py-2 text-sm font-semibold hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {t('dashboard.filters.apply')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpiData.map((item, index) => <KpiCard key={index} {...item} loading={loading} />)}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
         <div className="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-4">{t('dashboard.revenueGrowth.title')}</h3>
-            {loading ? <Skeleton className="w-full h-[350px]" /> : (
-                <ResponsiveContainer width="100%" height={350}>
-                    <LineChart 
-                        data={revenueData}
-                        margin={{ 
-                            top: 20, 
-                            right: language === 'ar' ? 20 : 30, 
-                            left: language === 'ar' ? 50 : 20, 
-                            bottom: language === 'ar' ? 60 : 40 
-                        }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                        <XAxis 
-                            dataKey="name" 
-                            interval={0}
-                            angle={0}
-                            textAnchor="middle"
-                            height={60}
-                            tick={{ fontSize: 11 }}
-                            dy={10}
-                        />
-                        <YAxis 
-                            tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0 }}
-                            width={language === 'ar' ? 60 : 50}
-                        />
-                        <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }}/>
-                        <Legend 
-                            wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
-                            formatter={(value) => ` ${value}`}
-                            iconSize={12}
-                        />
-                        <Line type="monotone" dataKey="revenue" name={t('dashboard.revenueGrowth.revenue')} stroke="hsl(var(--color-primary-500))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}/>
-                        <Line type="monotone" dataKey="profit" name={t('dashboard.revenueGrowth.profit')} stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}/>
-                    </LineChart>
-                </ResponsiveContainer>
-            )}
+          <h3 className="text-lg font-semibold mb-4">{t('dashboard.revenueGrowth.title')}</h3>
+          {loading ? <Skeleton className="w-full h-[350px]" /> : (
+            <ResponsiveContainer width="100%" height={350}>
+              <LineChart
+                data={revenueData}
+                margin={{
+                  top: 20,
+                  right: language === 'ar' ? 20 : 30,
+                  left: language === 'ar' ? 50 : 20,
+                  bottom: language === 'ar' ? 60 : 40
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                <XAxis
+                  dataKey="name"
+                  interval={0}
+                  angle={0}
+                  textAnchor="middle"
+                  height={60}
+                  tick={{ fontSize: 11 }}
+                  dy={10}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0 }}
+                  width={language === 'ar' ? 60 : 50}
+                />
+                <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }} />
+                <Legend
+                  wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }}
+                  formatter={(value) => ` ${value}`}
+                  iconSize={12}
+                />
+                <Line type="monotone" dataKey="revenue" name={t('dashboard.revenueGrowth.revenue')} stroke="hsl(var(--color-primary-500))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="profit" name={t('dashboard.revenueGrowth.profit')} stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-4">{t('dashboard.planDistribution.title')}</h3>
-             {loading ? <Skeleton className="w-full h-[300px]" /> : (
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={planData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                        <XAxis type="number" hide />
-                        <YAxis type="category" dataKey="name" width={80} tickLine={false} axisLine={false} />
-                        <Tooltip cursor={{fill: 'rgba(107, 114, 128, 0.1)'}} contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }}/>
-                        <Legend 
-                            wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
-                            formatter={(value) => ` ${value}`}
-                            iconSize={12}
-                        />
-                        <Bar dataKey="count" name={t('dashboard.planDistribution.tenants')} fill="hsl(var(--color-primary-500))" barSize={20} />
-                    </BarChart>
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          <div className="p-6 pb-4">
+            <h3 className="text-lg font-semibold">{t('dashboard.planDistribution.title')}</h3>
+          </div>
+          <div className="px-6 pb-6">
+            {loading ? (
+              <Skeleton className="w-full h-[350px]" />
+            ) : (
+              <div className="w-full h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={planData}
+                    layout="vertical"
+                    margin={{
+                      top: 0,
+                      right: 0,
+                      left: -70,
+                      bottom: 0,
+                    }}
+                    barCategoryGap={16}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={language === 'ar' ? 160 : 120}
+                      tick={{ fontSize: 12, dx: language === 'ar' ? -70 : 0 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip cursor={{ fill: 'rgba(107, 114, 128, 0.1)' }} contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }} />
+                    <Legend
+                      wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }}
+                      formatter={(value) => ` ${value}`}
+                      iconSize={12}
+                    />
+                    <Bar dataKey="count" name={t('dashboard.planDistribution.tenants')} fill="hsl(var(--color-primary-500))" barSize={56} />
+                  </BarChart>
                 </ResponsiveContainer>
-             )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentCompanies.title')}</h3>
-            {loading ? <ListSkeleton /> : (
-                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {recentCompanies.map((company, index) => (
-                        <li key={index} className="py-3 flex justify-between items-center">
-                            <span className="font-medium">{company.name}</span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">{company.plan}</span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+          <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentCompanies.title')}</h3>
+          {loading ? <ListSkeleton /> : (
+            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+              {recentCompanies.map((company, index) => (
+                <li key={index} className="py-3 flex justify-between items-center">
+                  <span className="font-medium">{company.name}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{company.plan}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentPayments.title')}</h3>
-            {loading ? <ListSkeleton /> : (
-                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {recentPayments.map((payment, index) => (
-                        <li key={index} className="py-3 flex justify-between items-center">
-                            <span className="font-medium">{payment.name}</span>
-                            <span className="text-sm font-semibold text-green-500">{payment.amount}</span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+          <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentPayments.title')}</h3>
+          {loading ? <ListSkeleton /> : (
+            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+              {recentPayments.map((payment, index) => (
+                <li key={index} className="py-3 flex justify-between items-center">
+                  <span className="font-medium">{payment.name}</span>
+                  <span className="text-sm font-semibold text-green-500">{payment.amount}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

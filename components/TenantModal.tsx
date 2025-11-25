@@ -13,7 +13,7 @@ interface TenantModalProps {
 }
 
 const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose, onSave }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [formData, setFormData] = useState<Tenant | null>(null);
 
   useEffect(() => {
@@ -64,62 +64,73 @@ const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose
             <div>
               <label className={labelClasses}>{t('tenants.table.companyName')}</label>
               {isEditMode ? (
-                <input name="companyName" value={formData.companyName} onChange={handleChange} className={inputClasses} />
+                <input name="name" value={formData.name} onChange={handleChange} className={inputClasses} />
               ) : (
-                <p className={valueClasses}>{tenant.companyName}</p>
+                <p className={valueClasses}>{tenant.name}</p>
               )}
             </div>
             <div>
               <label className={labelClasses}>{t('tenants.table.subdomain')}</label>
                {isEditMode ? (
-                <input name="subdomain" value={formData.subdomain} onChange={handleChange} className={inputClasses} />
+                <input name="domain" value={formData.domain} onChange={handleChange} className={inputClasses} />
               ) : (
-                <p className={valueClasses}>{tenant.subdomain}</p>
+                <p className={valueClasses}>{tenant.domain}</p>
               )}
             </div>
             <div>
-              <label className={labelClasses}>{t('tenants.table.currentPlan')}</label>
-               {isEditMode ? (
-                <select name="currentPlan" value={formData.currentPlan} onChange={handleChange} className={inputClasses}>
-                  <option>المجانية</option>
-                  <option>التجريبية</option>
-                  <option>الفضية</option>
-                  <option>الذهبية</option>
+              <label className={labelClasses}>{t('tenants.modal.specialization')}</label>
+              {isEditMode ? (
+                <select name="specialization" value={formData.specialization} onChange={handleChange} className={inputClasses}>
+                  <option value="real_estate">{t('specialization.real_estate')}</option>
+                  <option value="services">{t('specialization.services')}</option>
+                  <option value="products">{t('specialization.products')}</option>
                 </select>
               ) : (
+                <p className={valueClasses}>{t(`specialization.${formData.specialization}`) || formData.specialization}</p>
+              )}
+            </div>
+            <div>
+              <label className={labelClasses}>{t('tenants.modal.owner')}</label>
+              <p className={valueClasses}>{tenant.owner_username || tenant.owner_email || `ID: ${tenant.owner}`}</p>
+            </div>
+            <div>
+              <label className={labelClasses}>{t('tenants.modal.createdAt')}</label>
+              <p className={valueClasses}>
+                {tenant.created_at 
+                  ? new Date(tenant.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })
+                  : 'N/A'}
+              </p>
+            </div>
+            {tenant.currentPlan && (
+              <div>
+                <label className={labelClasses}>{t('tenants.table.currentPlan')}</label>
                 <p className={valueClasses}>{tenant.currentPlan}</p>
-              )}
-            </div>
-            <div>
-              <label className={labelClasses}>{t('tenants.table.status')}</label>
-              <div className={valueClasses}>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[tenant.status]}`}>{t(`status.${tenant.status}`)}</span>
               </div>
-            </div>
-             <div>
-              <label className={labelClasses}>{t('tenants.table.startDate')}</label>
-              {isEditMode ? (
-                <input name="startDate" type="date" value={formData.startDate} onChange={handleChange} className={inputClasses} />
-              ) : (
+            )}
+            {tenant.status && (
+              <div>
+                <label className={labelClasses}>{t('tenants.table.status')}</label>
+                <div className={valueClasses}>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[tenant.status]}`}>{t(`status.${tenant.status}`)}</span>
+                </div>
+              </div>
+            )}
+            {tenant.startDate && (
+              <div>
+                <label className={labelClasses}>{t('tenants.table.startDate')}</label>
                 <p className={valueClasses}>{tenant.startDate}</p>
-              )}
-            </div>
-            <div>
-              <label className={labelClasses}>{t('tenants.table.endDate')}</label>
-              {isEditMode ? (
-                <input name="endDate" type="date" value={formData.endDate} onChange={handleChange} className={inputClasses} />
-              ) : (
+              </div>
+            )}
+            {tenant.endDate && (
+              <div>
+                <label className={labelClasses}>{t('tenants.table.endDate')}</label>
                 <p className={valueClasses}>{tenant.endDate}</p>
-              )}
-            </div>
-            <div>
-              <label className={labelClasses}>{t('tenants.table.users')}</label>
-              {isEditMode ? (
-                <input name="users" value={formData.users} onChange={handleChange} className={inputClasses} />
-              ) : (
-                <p className={valueClasses}>{tenant.users}</p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
         <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">

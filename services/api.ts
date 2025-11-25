@@ -269,9 +269,14 @@ export const getPlanAPI = async (id: number) => {
  * POST /api/plans/
  */
 export const createPlanAPI = async (planData: any) => {
+  const payload = {
+    ...planData,
+    description_ar: planData.description_ar ?? planData.description ?? '',
+    name_ar: planData.name_ar ?? planData.name ?? '',
+  };
   return apiRequest<any>('/plans/', {
     method: 'POST',
-    body: JSON.stringify(planData),
+    body: JSON.stringify(payload),
   });
 };
 
@@ -280,9 +285,14 @@ export const createPlanAPI = async (planData: any) => {
  * PUT /api/plans/{id}/
  */
 export const updatePlanAPI = async (id: number, planData: any) => {
+  const payload = {
+    ...planData,
+    description_ar: planData.description_ar ?? planData.description ?? '',
+    name_ar: planData.name_ar ?? planData.name ?? '',
+  };
   return apiRequest<any>(`/plans/${id}/`, {
     method: 'PUT',
-    body: JSON.stringify(planData),
+    body: JSON.stringify(payload),
   });
 };
 

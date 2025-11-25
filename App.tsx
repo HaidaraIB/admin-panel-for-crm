@@ -14,7 +14,7 @@ import { Page, Tenant, TenantStatus } from './types';
 import { useAuditLog } from './context/AuditLogContext';
 import { useI18n } from './context/i18n';
 import FullPageLoader from './components/FullPageLoader';
-import { getCompaniesAPI, getSubscriptionsAPI, createCompanyAPI, updateCompanyAPI, deleteCompanyAPI } from './services/api';
+import { getCompaniesAPI, getSubscriptionsAPI, getPlansAPI, createCompanyAPI, updateCompanyAPI, deleteCompanyAPI } from './services/api';
 
 const App: React.FC = () => {
   const { language, t } = useI18n();
@@ -40,14 +40,16 @@ const App: React.FC = () => {
   const loadTenants = async () => {
     setIsLoadingTenants(true);
     try {
-      // Fetch companies and subscriptions
-      const [companiesResponse, subscriptionsResponse] = await Promise.all([
+      // Fetch companies, subscriptions, and plans
+      const [companiesResponse, subscriptionsResponse, plansResponse] = await Promise.all([
         getCompaniesAPI(),
-        getSubscriptionsAPI()
+        getSubscriptionsAPI(),
+        getPlansAPI()
       ]);
 
       const companies = companiesResponse.results || [];
       const subscriptions = subscriptionsResponse.results || [];
+      const plans = plansResponse.results || [];
 
       // Create a map of company_id -> active subscription
       const subscriptionMap = new Map();
@@ -63,10 +65,10 @@ const App: React.FC = () => {
         const subscription = subscriptionMap.get(company.id);
         const endDate = subscription?.end_date 
           ? new Date(subscription.end_date).toISOString().split('T')[0]
-          : 'N/A';
+          : undefined;
         const startDate = subscription?.start_date
           ? new Date(subscription.start_date).toISOString().split('T')[0]
-          : company.created_at ? new Date(company.created_at).toISOString().split('T')[0] : 'N/A';
+          : company.created_at ? new Date(company.created_at).toISOString().split('T')[0] : undefined;
 
         // Determine status based on API subscription data
         let status = TenantStatus.Deactivated;
@@ -84,15 +86,32 @@ const App: React.FC = () => {
           }
         }
 
+        // Get plan name with Arabic support
+        let currentPlan = '';
+        if (subscription?.plan) {
+          const plan = plans.find((p: any) => p.id === subscription.plan);
+          if (plan) {
+            currentPlan = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
+          } else {
+            currentPlan = subscription.plan_name || '';
+          }
+        }
+
         return {
           id: company.id,
-          companyName: company.name, // API field: name
-          subdomain: company.domain || `${company.name.toLowerCase().replace(/\s+/g, '')}.platform.com`, // API field: domain
-          currentPlan: subscription?.plan_name || '', // From subscription relation - will be translated in component
+          name: company.name,
+          domain: company.domain,
+          specialization: company.specialization,
+          owner: company.owner,
+          owner_username: company.owner_username,
+          owner_email: company.owner_email,
+          created_at: company.created_at,
+          updated_at: company.updated_at,
+          // Legacy fields from subscriptions
+          currentPlan: currentPlan,
           status: status,
           startDate: startDate,
           endDate: endDate,
-          users: '0/0', // TODO: Get actual user count from API
         };
       });
 
@@ -142,13 +161,13 @@ const App: React.FC = () => {
     try {
       // Use API field names: name, domain, specialization
       const companyData = {
-        name: newTenant.companyName, // API expects 'name'
-        domain: newTenant.subdomain.replace('.platform.com', ''), // Remove domain suffix if present
-        specialization: 'real_estate', // Default, can be made configurable
+        name: newTenant.name,
+        domain: newTenant.domain.replace('.platform.com', ''), // Remove domain suffix if present
+        specialization: newTenant.specialization || 'real_estate',
       };
 
       const createdCompany = await createCompanyAPI(companyData);
-      addLog('audit.log.tenantCreated', { companyName: newTenant.companyName });
+      addLog('audit.log.tenantCreated', { companyName: newTenant.name });
       
       // Reload tenants to get updated list
       await loadTenants();
@@ -163,13 +182,13 @@ const App: React.FC = () => {
     try {
       // Use API field names: name, domain, specialization
       const companyData = {
-        name: updatedTenant.companyName, // API expects 'name'
-        domain: updatedTenant.subdomain.replace('.platform.com', ''), // Remove domain suffix if present
-        specialization: 'real_estate', // Default, can be made configurable
+        name: updatedTenant.name,
+        domain: updatedTenant.domain.replace('.platform.com', ''), // Remove domain suffix if present
+        specialization: updatedTenant.specialization || 'real_estate',
       };
 
       await updateCompanyAPI(updatedTenant.id, companyData);
-      addLog('audit.log.tenantUpdated', { companyName: updatedTenant.companyName });
+      addLog('audit.log.tenantUpdated', { companyName: updatedTenant.name });
       
       // Reload tenants to get updated list
       await loadTenants();

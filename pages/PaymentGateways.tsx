@@ -4,10 +4,9 @@ import { PaymentGateway, PaymentGatewayStatus } from '../types';
 import { useI18n } from '../context/i18n';
 import Icon from '../components/Icon';
 import GatewaySettingsModal from '../components/GatewaySettingsModal';
-import AddGatewayModal from '../components/AddGatewayModal';
 import { useAuditLog } from '../context/AuditLogContext';
 import GatewayCardSkeleton from '../components/GatewayCardSkeleton';
-import { getPaymentGatewaysAPI, createPaymentGatewayAPI, updatePaymentGatewayAPI, deletePaymentGatewayAPI, togglePaymentGatewayAPI } from '../services/api';
+import { getPaymentGatewaysAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI } from '../services/api';
 
 const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onToggle: (enabled: boolean) => void }> = ({ gateway, onManage, onToggle }) => {
     const { t } = useI18n();
@@ -55,7 +54,6 @@ const PaymentGateways: React.FC = () => {
     const { addLog } = useAuditLog();
     const [gateways, setGateways] = useState<PaymentGateway[]>([]);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -130,43 +128,29 @@ const PaymentGateways: React.FC = () => {
         }
     };
 
-    const handleAddGateway = async ({ name, description }: { name: string; description: string }) => {
-        try {
-            // Use API field names: name, description, status, enabled, config
-            await createPaymentGatewayAPI({
-                name, // API field: name
-                description, // API field: description
-                status: 'setup_required', // API field: status
-                enabled: false, // API field: enabled
-                config: {}, // API field: config
-            });
-            await loadGateways();
-            addLog('audit.log.gatewayAdded', { gatewayName: name });
-            setIsAddModalOpen(false);
-        } catch (error: any) {
-            console.error('Error adding gateway:', error);
-            alert(error.message || 'Failed to add gateway');
-        }
-    };
-
-
     return (
         <div>
-            <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('paymentGateways.title')}</h1>
-                    <p className="mt-2 text-gray-600 dark:text-gray-400">{t('paymentGateways.subtitle')}</p>
-                </div>
-                <button onClick={() => setIsAddModalOpen(true)} className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center justify-center space-x-2 rtl:space-x-reverse self-start md:self-center">
-                    <Icon name="plus" className="w-5 h-5" />
-                    <span>{t('paymentGateways.addGateway')}</span>
-                </button>
+            <div className="mb-6">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('paymentGateways.title')}</h1>
+                <p className="mt-2 text-gray-600 dark:text-gray-400">{t('paymentGateways.subtitle')}</p>
             </div>
 
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
                 {isLoading ? (
                     [...Array(3)].map((_, i) => <GatewayCardSkeleton key={i} />)
+                ) : gateways.length === 0 ? (
+                    <div className="col-span-full">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center border dark:border-gray-700">
+                            <Icon name="cash" className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" />
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                {t('paymentGateways.noGateways')}
+                            </h3>
+                            <p className="text-gray-500 dark:text-gray-400">
+                                {t('paymentGateways.noGatewaysDescription')}
+                            </p>
+                        </div>
+                    </div>
                 ) : (
                     gateways.map(gw => (
                         <GatewayCard 
@@ -184,12 +168,6 @@ const PaymentGateways: React.FC = () => {
                 onClose={() => setIsSettingsModalOpen(false)}
                 gateway={selectedGateway}
                 onSave={handleSaveSettings}
-            />
-
-            <AddGatewayModal
-                isOpen={isAddModalOpen}
-                onClose={() => setIsAddModalOpen(false)}
-                onSave={handleAddGateway}
             />
         </div>
     );

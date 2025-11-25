@@ -13,6 +13,7 @@ import { useAuditLog } from '../context/AuditLogContext';
 import PlanCardSkeleton from '../components/PlanCardSkeleton';
 import { getPlansAPI, createPlanAPI, updatePlanAPI, deletePlanAPI, getSubscriptionsAPI, updateSubscriptionAPI, getCompaniesAPI, getInvoicesAPI } from '../services/api';
 import { getPaymentsAPI } from '../services/api';
+import AlertDialog from '../components/AlertDialog';
 
 
 interface SubscriptionsProps {
@@ -26,6 +27,12 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [planToDelete, setPlanToDelete] = useState<Plan | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeletingPlan, setIsDeletingPlan] = useState(false);
+    const [planToToggleVisibility, setPlanToToggleVisibility] = useState<Plan | null>(null);
+    const [isVisibilityDialogOpen, setIsVisibilityDialogOpen] = useState(false);
+    const [isTogglingVisibility, setIsTogglingVisibility] = useState(false);
 
     useEffect(() => {
         loadPlans();
@@ -39,6 +46,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             const apiPlans = (response.results || []).map((plan: any) => ({
                 id: plan.id,
                 name: plan.name, // API field: name
+                nameAr: plan.name_ar || '', // API field: name_ar
                 type: 'Paid' as const, // Default to Paid, can be enhanced based on plan.type if available
                 priceMonthly: parseFloat(plan.price_monthly || 0), // API field: price_monthly
                 priceYearly: parseFloat(plan.price_yearly || 0), // API field: price_yearly
@@ -47,6 +55,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 clients: plan.clients || 'unlimited' as const, // API field: clients
                 storage: plan.storage || 10, // API field: storage
                 features: plan.description || '', // API field: description
+                featuresAr: plan.description_ar || '', // API field: description_ar (if available)
                 visible: plan.visible !== false, // API field: visible
             }));
             setPlans(apiPlans);
@@ -67,13 +76,18 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         setEditingPlan(null);
     };
 
+    const [isSavingPlan, setIsSavingPlan] = useState(false);
+
     const handleSavePlan = async (planToSave: Omit<Plan, 'id'> & { id?: number }) => {
+        setIsSavingPlan(true);
         try {
-            if (planToSave.id) {
+        if (planToSave.id) {
                 // Use API field names
                 await updatePlanAPI(planToSave.id, {
                     name: planToSave.name, // API field: name
+                    name_ar: planToSave.nameAr || planToSave.name, // API field: name_ar
                     description: planToSave.features, // API field: description
+                    description_ar: planToSave.featuresAr || planToSave.features, // API field: description_ar
                     price_monthly: planToSave.priceMonthly, // API field: price_monthly
                     price_yearly: planToSave.priceYearly, // API field: price_yearly
                     trial_days: planToSave.trialDays, // API field: trial_days
@@ -82,12 +96,14 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     storage: planToSave.storage, // API field: storage
                     visible: planToSave.visible, // API field: visible
                 });
-                addLog('audit.log.planUpdated', { planName: planToSave.name });
-            } else {
+            addLog('audit.log.planUpdated', { planName: planToSave.name });
+        } else {
                 // Use API field names
                 await createPlanAPI({
                     name: planToSave.name, // API field: name
+                    name_ar: planToSave.nameAr || planToSave.name, // API field: name_ar
                     description: planToSave.features, // API field: description
+                    description_ar: planToSave.featuresAr || planToSave.features, // API field: description_ar
                     price_monthly: planToSave.priceMonthly, // API field: price_monthly
                     price_yearly: planToSave.priceYearly, // API field: price_yearly
                     trial_days: planToSave.trialDays, // API field: trial_days
@@ -99,40 +115,79 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 addLog('audit.log.planCreated', { planName: planToSave.name });
             }
             await loadPlans();
-            handleCloseModal();
+        handleCloseModal();
         } catch (error: any) {
             console.error('Error saving plan:', error);
             alert(error.message || 'Failed to save plan');
+        } finally {
+            setIsSavingPlan(false);
         }
     };
 
-    const handleDeletePlan = async (planId: number) => {
-        if(window.confirm('Are you sure you want to delete this plan?')) {
-            try {
-                await deletePlanAPI(planId);
-                addLog('audit.log.planDeleted', { planId });
-                await loadPlans();
-            } catch (error: any) {
-                console.error('Error deleting plan:', error);
-                alert(error.message || 'Failed to delete plan');
-            }
-        }
+    const openDeleteDialog = (plan: Plan) => {
+        setPlanToDelete(plan);
+        setIsDeleteDialogOpen(true);
     };
 
-    const handleToggleVisibility = async (planId: number) => {
-        const planToToggle = plans.find(p => p.id === planId);
-        if (!planToToggle) return;
+    const closeDeleteDialog = () => {
+        if (isDeletingPlan) return;
+        setIsDeleteDialogOpen(false);
+        setPlanToDelete(null);
+    };
 
+    const handleDeletePlan = async () => {
+        if (!planToDelete) return;
+        setIsDeletingPlan(true);
         try {
-            // Use API field names
-            await updatePlanAPI(planId, {
-                visible: !planToToggle.visible, // API field: visible
+            await deletePlanAPI(planToDelete.id);
+            addLog('audit.log.planDeleted', { planId: planToDelete.id });
+            await loadPlans();
+        } catch (error: any) {
+            console.error('Error deleting plan:', error);
+            alert(error.message || 'Failed to delete plan');
+        } finally {
+            setIsDeletingPlan(false);
+            closeDeleteDialog();
+        }
+    };
+
+    const openVisibilityDialog = (plan: Plan) => {
+        setPlanToToggleVisibility(plan);
+        setIsVisibilityDialogOpen(true);
+    };
+
+    const closeVisibilityDialog = () => {
+        if (isTogglingVisibility) return;
+        setIsVisibilityDialogOpen(false);
+        setPlanToToggleVisibility(null);
+    };
+
+    const handleToggleVisibility = async () => {
+        if (!planToToggleVisibility) return;
+        setIsTogglingVisibility(true);
+        try {
+            // Send all required fields to avoid validation errors
+            await updatePlanAPI(planToToggleVisibility.id, {
+                name: planToToggleVisibility.name,
+                name_ar: planToToggleVisibility.nameAr || planToToggleVisibility.name,
+                description: planToToggleVisibility.features,
+                description_ar: planToToggleVisibility.featuresAr || planToToggleVisibility.features,
+                price_monthly: planToToggleVisibility.priceMonthly,
+                price_yearly: planToToggleVisibility.priceYearly,
+                trial_days: planToToggleVisibility.trialDays,
+                users: planToToggleVisibility.users,
+                clients: planToToggleVisibility.clients,
+                storage: planToToggleVisibility.storage,
+                visible: !planToToggleVisibility.visible,
             });
             await loadPlans();
-            addLog('audit.log.planVisibilityToggled', { planName: planToToggle.name });
+            addLog('audit.log.planVisibilityToggled', { planName: planToToggleVisibility.name });
         } catch (error: any) {
             console.error('Error toggling plan visibility:', error);
             alert(error.message || 'Failed to toggle plan visibility');
+        } finally {
+            setIsTogglingVisibility(false);
+            closeVisibilityDialog();
         }
     };
 
@@ -153,10 +208,16 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 </div>
             ) : (
                 plans.map(plan => {
+                    const planDescription = language === 'ar' && (plan.featuresAr?.trim()?.length)
+                        ? plan.featuresAr
+                        : plan.features;
+                    const planNameForDisplay = language === 'ar' && (plan.nameAr?.trim()?.length)
+                        ? plan.nameAr
+                        : plan.name;
                     const isDeletable = !tenants.some(tenant => tenant.currentPlan === plan.name);
                     return (
                         <div key={plan.id} className="bg-primary-50 dark:bg-gray-800 rounded-lg shadow-md p-6 border-t-4 border-primary-500 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{plan.name}</h3>
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{planNameForDisplay}</h3>
                             
                             <div className="my-4">
                                 {plan.type === 'Paid' ? (
@@ -167,44 +228,62 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                                 {plan.type === 'Paid' && <p className="text-sm text-gray-500 dark:text-gray-400">${plan.priceYearly}/{t('common.year')}</p>}
                             </div>
 
-                            {plan.features && (
+                            {planDescription && (
                                 <div className="mb-4">
-                                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">{plan.features}</p>
+                                    <p
+                                        className={`text-sm text-gray-600 dark:text-gray-300 line-clamp-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                                        dir={language === 'ar' ? 'rtl' : 'ltr'}
+                                    >
+                                        {planDescription}
+                                    </p>
                                 </div>
                             )}
                             <ul className="space-y-2 text-gray-600 dark:text-gray-300 flex-grow mb-6">
                                 <li className="flex items-center">
                                     <Icon name="users" className="w-4 h-4 mr-2 text-primary-600" />
-                                    <span className="font-semibold">{plan.users === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.users}</span> {t('subscriptions.plans.users')}
+                                    <span className="font-semibold">{plan.users === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.users}</span>
+                                    <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.users')}</span>
                                 </li>
                                 <li className="flex items-center">
                                     <Icon name="users" className="w-4 h-4 mr-2 text-primary-600" />
-                                    <span className="font-semibold">{plan.clients === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.clients}</span> {t('subscriptions.plans.clients')}
+                                    <span className="font-semibold">{plan.clients === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.clients}</span>
+                                    <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.clients')}</span>
                                 </li>
                                 <li className="flex items-center">
                                     <Icon name="database" className="w-4 h-4 mr-2 text-primary-600" />
-                                    <span className="font-semibold">{plan.storage}</span> {t('subscriptions.plans.storageGB')}
+                                    <span className="font-semibold">{plan.storage}</span>
+                                    <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.storageGB')}</span>
                                 </li>
                                 {plan.trialDays > 0 && (
                                     <li className="flex items-center">
                                         <Icon name="clock" className="w-4 h-4 mr-2 text-primary-600" />
-                                        <span className="font-semibold">{plan.trialDays}</span> {t('subscriptions.plans.trialDays') || 'Trial Days'}
+                                        <span className="font-semibold">{plan.trialDays}</span>
+                                        <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.trialDays') || 'Trial Days'}</span>
                                     </li>
                                 )}
                             </ul>
 
                             <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                                <div className="flex justify-between items-center mb-4">
+                                <div className={`flex items-center mb-4 ${language === 'ar' ? 'flex-row-reverse text-right' : 'justify-between gap-3'}`}>
+                                    {language !== 'ar' && (
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 text-left" dir="rtl">
+                                            {t('subscriptions.plans.show')}
+                                        </span>
+                                    )}
                                     <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked={plan.visible} onChange={() => handleToggleVisibility(plan.id)} className="sr-only peer" />
+                                        <input type="checkbox" checked={plan.visible} onChange={() => openVisibilityDialog(plan)} className="sr-only peer" />
                                         <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                                        <span className="mx-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('subscriptions.plans.show')}</span>
                                     </label>
+                                    {language === 'ar' && (
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 ml-3 text-right">
+                                            {t('subscriptions.plans.show')}
+                                        </span>
+                                    )}
                                 </div>
-                                <div className="flex items-center justify-end space-x-2">
+                                <div className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse justify-end' : 'justify-start'}`}>
                                     <button onClick={() => handleOpenModal(plan)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t('subscriptions.plans.editPlan')}><Icon name="edit" className="w-5 h-5"/></button>
                                     <button 
-                                        onClick={() => handleDeletePlan(plan.id)} 
+                                        onClick={() => openDeleteDialog(plan)} 
                                         disabled={!isDeletable}
                                         className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-500"
                                         title={isDeletable ? t('subscriptions.plans.deletePlan') : t('subscriptions.plans.deleteDisabledTooltip')}
@@ -223,6 +302,29 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             onClose={handleCloseModal}
             onSave={handleSavePlan}
             planToEdit={editingPlan}
+            isLoading={isSavingPlan}
+        />
+        <AlertDialog
+            isOpen={isDeleteDialogOpen}
+            onClose={closeDeleteDialog}
+            title={t('subscriptions.plans.deletePlan')}
+            message={t('subscriptions.plans.deleteConfirmMessage') || `Are you sure you want to delete the ${(language === 'ar' && planToDelete?.nameAr?.trim()?.length ? planToDelete?.nameAr : planToDelete?.name) || ''} plan? This action cannot be undone.`}
+            type="warning"
+            confirmText={isDeletingPlan ? t('common.deleting') || 'Deleting...' : t('subscriptions.plans.deletePlan')}
+            onConfirm={isDeletingPlan ? undefined : handleDeletePlan}
+            showCancel
+            cancelText={t('common.cancel')}
+        />
+        <AlertDialog
+            isOpen={isVisibilityDialogOpen}
+            onClose={closeVisibilityDialog}
+            title={t('subscriptions.plans.toggleVisibility')}
+            message={t('subscriptions.plans.toggleVisibilityConfirm') || `Are you sure you want to ${planToToggleVisibility?.visible ? 'hide' : 'show'} the "${(language === 'ar' && planToToggleVisibility?.nameAr?.trim()?.length ? planToToggleVisibility?.nameAr : planToToggleVisibility?.name) || ''}" plan?`}
+            type="info"
+            confirmText={isTogglingVisibility ? (t('common.updating') || 'Updating...') : (t('common.confirm') || 'Confirm')}
+            onConfirm={isTogglingVisibility ? undefined : handleToggleVisibility}
+            showCancel
+            cancelText={t('common.cancel')}
         />
     </div>
 )};
@@ -264,45 +366,8 @@ const PaymentsTab: React.FC = () => {
         [PaymentStatus.Failed]: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
     };
 
-    const handleExport = () => {
-        const headers = [
-            `"${t('subscriptions.payments.table.transactionId')}"`,
-            `"${t('subscriptions.payments.table.companyName')}"`,
-            `"${t('subscriptions.payments.table.amount')}"`,
-            `"${t('subscriptions.payments.table.status')}"`,
-            `"${t('subscriptions.payments.table.date')}"`
-        ];
-
-        const rows = payments.map(p => 
-            [
-                `"${p.id}"`,
-                `"${p.companyName}"`,
-                `"${p.amount}"`,
-                `"${t(`status.${p.status}`)}"`,
-                `"${p.date}"`
-            ].join(',')
-        );
-
-        const csvContent = [headers.join(','), ...rows].join('\n');
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "payments-history.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     return (
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-             <div className="flex justify-end mb-4">
-                <button onClick={handleExport} className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center">
-                    <Icon name="export" className="w-5 h-5 mx-2"/>
-                    {t('subscriptions.payments.export')}
-                </button>
-            </div>
             <div className="overflow-x-auto">
                 <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
                      <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -318,7 +383,7 @@ const PaymentsTab: React.FC = () => {
                         {isLoading ? (
                             <tr>
                                 <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    Loading payments...
+                                    {t('subscriptions.payments.loading')}
                                 </td>
                             </tr>
                         ) : payments.length === 0 ? (
@@ -329,13 +394,13 @@ const PaymentsTab: React.FC = () => {
                             </tr>
                         ) : (
                             payments.map(p => (
-                                <tr key={p.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                    <td className="px-6 py-4 font-mono">{p.id}</td>
-                                    <td className="px-6 py-4">{p.companyName}</td>
-                                    <td className="px-6 py-4">${p.amount}</td>
-                                    <td className="px-6 py-4"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
-                                    <td className="px-6 py-4">{p.date}</td>
-                                </tr>
+                            <tr key={p.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                <td className="px-6 py-4 font-mono">{p.id}</td>
+                                <td className="px-6 py-4">{p.companyName}</td>
+                                <td className="px-6 py-4">${p.amount}</td>
+                                <td className="px-6 py-4"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
+                                <td className="px-6 py-4">{p.date}</td>
+                            </tr>
                             ))
                         )}
                     </tbody>
@@ -442,48 +507,9 @@ const InvoicesTab: React.FC = () => {
         }
         setDownloadingId(null);
     };
-
-
-    const handleExport = () => {
-        const headers = [
-            `"${t('subscriptions.invoices.table.invoiceNo')}"`,
-            `"${t('subscriptions.invoices.table.companyName')}"`,
-            `"${t('subscriptions.invoices.table.amount')}"`,
-            `"${t('subscriptions.invoices.table.status')}"`,
-            `"${t('subscriptions.invoices.table.dueDate')}"`
-        ];
-
-        const rows = invoices.map(i => 
-            [
-                `"${i.id}"`,
-                `"${i.companyName}"`,
-                `"${i.amount}"`,
-                `"${t(`status.${i.status}`)}"`,
-                `"${i.dueDate}"`
-            ].join(',')
-        );
-
-        const csvContent = [headers.join(','), ...rows].join('\n');
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "invoices.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     return (
         <>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-                <div className="flex justify-end mb-4">
-                    <button onClick={handleExport} className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center">
-                        <Icon name="export" className="w-5 h-5 mx-2"/>
-                        {t('subscriptions.payments.export')}
-                    </button>
-                </div>
                  <div className="overflow-x-auto">
                      <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
                          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -500,7 +526,7 @@ const InvoicesTab: React.FC = () => {
                             {isLoading ? (
                                 <tr>
                                     <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                        Loading invoices...
+                                        {t('subscriptions.invoices.loading')}
                                     </td>
                                 </tr>
                             ) : invoices.length === 0 ? (
@@ -615,7 +641,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             {isLoading ? (
               <tr>
                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                  Loading subscriptions...
+                  {t('subscriptions.subscriptions.loading')}
                 </td>
               </tr>
             ) : subscriptions.length === 0 ? (

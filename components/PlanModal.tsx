@@ -3,16 +3,19 @@ import React, { useState, useEffect } from 'react';
 import { Plan } from '../types';
 import { useI18n } from '../context/i18n';
 import Icon from './Icon';
+import LoadingButton from './LoadingButton';
 
 interface PlanModalProps {
   planToEdit: Plan | null;
   isOpen: boolean;
   onClose: () => void;
   onSave: (plan: Omit<Plan, 'id'> & { id?: number }) => void;
+  isLoading?: boolean;
 }
 
 const emptyPlan: Omit<Plan, 'id'> = {
   name: '',
+  nameAr: '',
   type: 'Paid',
   priceMonthly: 0,
   priceYearly: 0,
@@ -21,11 +24,12 @@ const emptyPlan: Omit<Plan, 'id'> = {
   clients: 100,
   storage: 10,
   features: '',
+  featuresAr: '',
   visible: true,
 };
 
-const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSave }) => {
-  const { t } = useI18n();
+const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSave, isLoading = false }) => {
+  const { t, language } = useI18n();
   const [formData, setFormData] = useState(planToEdit || emptyPlan);
 
   useEffect(() => {
@@ -65,6 +69,16 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const containsArabic = /[\u0600-\u06FF]/;
+    const containsLatin = /[A-Za-z]/;
+    if (containsArabic.test(formData.name)) {
+      alert(t('subscriptions.plans.invalidEnglishName') || 'English name cannot include Arabic characters.');
+      return;
+    }
+    if (formData.nameAr && containsLatin.test(formData.nameAr)) {
+      alert(t('subscriptions.plans.invalidArabicName') || 'Arabic name cannot include English characters.');
+      return;
+    }
     onSave(formData);
   };
   
@@ -87,12 +101,33 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
           <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
               <div>
                   <label htmlFor="planName" className={labelClasses}>{t('subscriptions.plans.planName')}</label>
-                  <input id="planName" name="name" value={formData.name} onChange={handleInputChange} className={inputClasses} required />
+                  <input
+                      id="planName"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                      dir={language === 'ar' ? 'rtl' : 'ltr'}
+                      placeholder={t('subscriptions.plans.planNamePlaceholder') || ''}
+                      required
+                  />
+              </div>
+              <div>
+                  <label htmlFor="planNameAr" className={labelClasses}>{t('subscriptions.plans.planNameAr')}</label>
+                  <input
+                      id="planNameAr"
+                      name="nameAr"
+                      value={formData.nameAr || ''}
+                      onChange={handleInputChange}
+                      className={`${inputClasses} ${formData.nameAr ? 'text-right' : (language === 'ar' ? 'text-right' : 'text-left')}`}
+                      dir={formData.nameAr ? 'rtl' : (language === 'ar' ? 'rtl' : 'ltr')}
+                      placeholder={t('subscriptions.plans.planNameArPlaceholder') || ''}
+                  />
               </div>
               
               <div>
                 <label className={labelClasses}>{t('subscriptions.plans.planType')}</label>
-                <div className="flex space-x-4">
+                <div className={`flex ${language === 'ar' ? 'flex-row-reverse gap-3 justify-end' : 'gap-4'}`}>
                     {(['Paid', 'Trial', 'Free'] as const).map(type => (
                         <button type="button" key={type} onClick={() => handleTypeChange(type)} className={`px-4 py-2 rounded-md border text-sm font-medium ${formData.type === type ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'}`}>
                             {t(`subscriptions.plans.type.${type}`)}
@@ -133,7 +168,7 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                            <label htmlFor="users" className={labelClasses}>{t('subscriptions.plans.maxUsers')}</label>
-                           <div className="flex items-center space-x-2">
+                           <div className={`flex items-center ${language === 'ar' ? 'flex-row-reverse gap-2' : 'gap-2'}`}>
                                <input id="users" name="users" type="number" value={formData.users === 'unlimited' ? '' : formData.users} onChange={handleInputChange} className={`${inputClasses} disabled:bg-gray-200 dark:disabled:bg-gray-600`} disabled={formData.users === 'unlimited'}/>
                                <input id="usersUnlimited" type="checkbox" checked={formData.users === 'unlimited'} onChange={(e) => handleUnlimitedChange('users', e.target.checked)} className="h-4 w-4 rounded text-primary-600 focus:ring-primary-500" />
                                <label htmlFor="usersUnlimited">{t('subscriptions.plans.unlimited')}</label>
@@ -141,7 +176,7 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
                         </div>
                         <div>
                            <label htmlFor="clients" className={labelClasses}>{t('subscriptions.plans.maxClients')}</label>
-                            <div className="flex items-center space-x-2">
+                            <div className={`flex items-center ${language === 'ar' ? 'flex-row-reverse gap-2' : 'gap-2'}`}>
                                <input id="clients" name="clients" type="number" value={formData.clients === 'unlimited' ? '' : formData.clients} onChange={handleInputChange} className={`${inputClasses} disabled:bg-gray-200 dark:disabled:bg-gray-600`} disabled={formData.clients === 'unlimited'}/>
                                <input id="clientsUnlimited" type="checkbox" checked={formData.clients === 'unlimited'} onChange={(e) => handleUnlimitedChange('clients', e.target.checked)} className="h-4 w-4 rounded text-primary-600 focus:ring-primary-500" />
                                <label htmlFor="clientsUnlimited">{t('subscriptions.plans.unlimited')}</label>
@@ -156,17 +191,49 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
 
                 <div>
                     <label htmlFor="features" className={labelClasses}>{t('subscriptions.plans.features')}</label>
-                    <textarea id="features" name="features" value={formData.features} onChange={handleInputChange} rows={4} className={inputClasses} placeholder={t('subscriptions.plans.featuresPlaceholder')}></textarea>
+                    <textarea
+                      id="features"
+                      name="features"
+                      value={formData.features}
+                      onChange={handleInputChange}
+                      rows={4}
+                      className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                      dir={language === 'ar' ? 'rtl' : 'ltr'}
+                      placeholder={t('subscriptions.plans.featuresPlaceholder')}
+                    ></textarea>
+                </div>
+                <div>
+                    <label htmlFor="featuresAr" className={labelClasses}>{t('subscriptions.plans.featuresAr')}</label>
+                    <textarea
+                        id="featuresAr"
+                        name="featuresAr"
+                        value={formData.featuresAr || ''}
+                        onChange={handleInputChange}
+                        rows={4}
+                        className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                        dir={language === 'ar' ? 'rtl' : 'ltr'}
+                        placeholder={t('subscriptions.plans.featuresArPlaceholder')}
+                    ></textarea>
                 </div>
           </div>
 
           <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
-            <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
+            <LoadingButton
+              type="button"
+              onClick={onClose}
+              variant="secondary"
+              disabled={isLoading}
+            >
               {t('common.cancel')}
-            </button>
-            <button type="submit" className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium">
+            </LoadingButton>
+            <LoadingButton
+              type="submit"
+              variant="primary"
+              isLoading={isLoading}
+              loadingText={planToEdit ? t('common.updating') : t('common.saving')}
+            >
               {t('common.savePlan')}
-            </button>
+            </LoadingButton>
           </div>
         </form>
       </div>
