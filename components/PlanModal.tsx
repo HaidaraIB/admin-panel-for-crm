@@ -4,6 +4,8 @@ import { Plan } from '../types';
 import { useI18n } from '../context/i18n';
 import Icon from './Icon';
 import LoadingButton from './LoadingButton';
+import { NumberInput } from './NumberInput';
+import { Checkbox } from './Checkbox';
 
 interface PlanModalProps {
   planToEdit: Plan | null;
@@ -51,11 +53,11 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
       newFormData.priceYearly = 0;
       if (newFormData.trialDays === 0) newFormData.trialDays = 14;
     } else if (type === 'Paid') {
-        newFormData.trialDays = 0;
+      newFormData.trialDays = 0;
     } else if (type === 'Free') {
-        newFormData.priceMonthly = 0;
-        newFormData.priceYearly = 0;
-        newFormData.trialDays = 0;
+      newFormData.priceMonthly = 0;
+      newFormData.priceYearly = 0;
+      newFormData.trialDays = 0;
     }
     setFormData(newFormData);
   };
@@ -81,7 +83,7 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
     }
     onSave(formData);
   };
-  
+
   const inputClasses = "w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500";
   const labelClasses = "block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300";
 
@@ -97,124 +99,137 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
               <Icon name="x" className="w-6 h-6" />
             </button>
           </div>
-          
+
           <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-              <div>
-                  <label htmlFor="planName" className={labelClasses}>{t('subscriptions.plans.planName')}</label>
-                  <input
-                      id="planName"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                      dir={language === 'ar' ? 'rtl' : 'ltr'}
-                      placeholder={t('subscriptions.plans.planNamePlaceholder') || ''}
-                      required
-                  />
-              </div>
-              <div>
-                  <label htmlFor="planNameAr" className={labelClasses}>{t('subscriptions.plans.planNameAr')}</label>
-                  <input
-                      id="planNameAr"
-                      name="nameAr"
-                      value={formData.nameAr || ''}
-                      onChange={handleInputChange}
-                      className={`${inputClasses} ${formData.nameAr ? 'text-right' : (language === 'ar' ? 'text-right' : 'text-left')}`}
-                      dir={formData.nameAr ? 'rtl' : (language === 'ar' ? 'rtl' : 'ltr')}
-                      placeholder={t('subscriptions.plans.planNameArPlaceholder') || ''}
-                  />
-              </div>
-              
-              <div>
-                <label className={labelClasses}>{t('subscriptions.plans.planType')}</label>
-                <div className={`flex ${language === 'ar' ? 'flex-row-reverse gap-3 justify-end' : 'gap-4'}`}>
-                    {(['Paid', 'Trial', 'Free'] as const).map(type => (
-                        <button type="button" key={type} onClick={() => handleTypeChange(type)} className={`px-4 py-2 rounded-md border text-sm font-medium ${formData.type === type ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'}`}>
-                            {t(`subscriptions.plans.type.${type}`)}
-                        </button>
-                    ))}
-                </div>
-              </div>
+            <div>
+              <label htmlFor="planName" className={labelClasses}>{t('subscriptions.plans.planName')}</label>
+              <input
+                id="planName"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
+                placeholder={t('subscriptions.plans.planNamePlaceholder') || ''}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="planNameAr" className={labelClasses}>{t('subscriptions.plans.planNameAr')}</label>
+              <input
+                id="planNameAr"
+                name="nameAr"
+                value={formData.nameAr || ''}
+                onChange={handleInputChange}
+                className={`${inputClasses} ${formData.nameAr ? 'text-right' : (language === 'ar' ? 'text-right' : 'text-left')}`}
+                dir={formData.nameAr ? 'rtl' : (language === 'ar' ? 'rtl' : 'ltr')}
+                placeholder={t('subscriptions.plans.planNameArPlaceholder') || ''}
+              />
+            </div>
 
-              {formData.type === 'Trial' && (
+            <div>
+              <label className={labelClasses}>{t('subscriptions.plans.planType')}</label>
+              <div className={`flex ${language === 'ar' ? 'flex-row-reverse gap-3 justify-end' : 'gap-4'}`}>
+                {(['Paid', 'Trial', 'Free'] as const).map(type => (
+                  <button type="button" key={type} onClick={() => handleTypeChange(type)} className={`px-4 py-2 rounded-md border text-sm font-medium ${formData.type === type ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'}`}>
+                    {t(`subscriptions.plans.type.${type}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {formData.type === 'Trial' && (
+              <div>
+                <label htmlFor="trialDays" className={labelClasses}>{t('subscriptions.plans.trialDuration')}</label>
+                <NumberInput id="trialDays" name="trialDays" value={formData.trialDays} onChange={handleInputChange} min={0} step={1} />
+              </div>
+            )}
+
+            {formData.type === 'Paid' && (
+              <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                <h3 className="font-medium mb-3">{t('subscriptions.plans.pricing')}</h3>
                   <div>
-                      <label htmlFor="trialDays" className={labelClasses}>{t('subscriptions.plans.trialDuration')}</label>
-                      <div className="relative">
-                          <input id="trialDays" name="trialDays" type="number" value={formData.trialDays} onChange={handleInputChange} className={inputClasses} />
-                           <span className="absolute inset-y-0 right-3 flex items-center text-gray-500">{t('subscriptions.plans.days')}</span>
-                      </div>
-                  </div>
-              )}
-
-              {formData.type === 'Paid' && (
-                  <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
-                      <h3 className="font-medium mb-3">{t('subscriptions.plans.pricing')}</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                              <label htmlFor="priceMonthly" className={labelClasses}>{t('subscriptions.plans.priceMonthly')}</label>
-                              <input id="priceMonthly" name="priceMonthly" type="number" value={formData.priceMonthly} onChange={handleInputChange} className={inputClasses} />
-                          </div>
-                           <div>
-                              <label htmlFor="priceYearly" className={labelClasses}>{t('subscriptions.plans.priceYearly')}</label>
-                              <input id="priceYearly" name="priceYearly" type="number" value={formData.priceYearly} onChange={handleInputChange} className={inputClasses} />
-                              <p className="text-xs text-gray-500 mt-1">{t('subscriptions.plans.yearlyDiscount')}</p>
-                          </div>
-                      </div>
-                  </div>
-              )}
-
-               <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
-                    <h3 className="font-medium mb-3">{t('subscriptions.plans.resourceLimits')}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                           <label htmlFor="users" className={labelClasses}>{t('subscriptions.plans.maxUsers')}</label>
-                           <div className={`flex items-center ${language === 'ar' ? 'flex-row-reverse gap-2' : 'gap-2'}`}>
-                               <input id="users" name="users" type="number" value={formData.users === 'unlimited' ? '' : formData.users} onChange={handleInputChange} className={`${inputClasses} disabled:bg-gray-200 dark:disabled:bg-gray-600`} disabled={formData.users === 'unlimited'}/>
-                               <input id="usersUnlimited" type="checkbox" checked={formData.users === 'unlimited'} onChange={(e) => handleUnlimitedChange('users', e.target.checked)} className="h-4 w-4 rounded text-primary-600 focus:ring-primary-500" />
-                               <label htmlFor="usersUnlimited">{t('subscriptions.plans.unlimited')}</label>
-                           </div>
-                        </div>
-                        <div>
-                           <label htmlFor="clients" className={labelClasses}>{t('subscriptions.plans.maxClients')}</label>
-                            <div className={`flex items-center ${language === 'ar' ? 'flex-row-reverse gap-2' : 'gap-2'}`}>
-                               <input id="clients" name="clients" type="number" value={formData.clients === 'unlimited' ? '' : formData.clients} onChange={handleInputChange} className={`${inputClasses} disabled:bg-gray-200 dark:disabled:bg-gray-600`} disabled={formData.clients === 'unlimited'}/>
-                               <input id="clientsUnlimited" type="checkbox" checked={formData.clients === 'unlimited'} onChange={(e) => handleUnlimitedChange('clients', e.target.checked)} className="h-4 w-4 rounded text-primary-600 focus:ring-primary-500" />
-                               <label htmlFor="clientsUnlimited">{t('subscriptions.plans.unlimited')}</label>
-                           </div>
-                        </div>
-                        <div>
-                           <label htmlFor="storage" className={labelClasses}>{t('subscriptions.plans.storageGB')}</label>
-                           <input id="storage" name="storage" type="number" value={formData.storage} onChange={handleInputChange} className={inputClasses} />
-                        </div>
-                    </div>
+                    <label htmlFor="priceMonthly" className={labelClasses}>{t('subscriptions.plans.priceMonthly')}</label>
+                    <NumberInput id="priceMonthly" name="priceMonthly" value={formData.priceMonthly} onChange={handleInputChange} min={0} step={0.1} />
                 </div>
+                  <div>
+                    <label htmlFor="priceYearly" className={labelClasses}>{t('subscriptions.plans.priceYearly')}</label>
+                    <NumberInput id="priceYearly" name="priceYearly" value={formData.priceYearly} onChange={handleInputChange} min={0} step={0.1} />
+                    <p className="text-xs text-gray-500 mt-1">{t('subscriptions.plans.yearlyDiscount')}</p>
+                  </div>
+              </div>
+            )}
 
+            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+              <h3 className="font-medium mb-3">{t('subscriptions.plans.resourceLimits')}</h3>
+              <div className="space-y-4">
                 <div>
-                    <label htmlFor="features" className={labelClasses}>{t('subscriptions.plans.features')}</label>
-                    <textarea
-                      id="features"
-                      name="features"
-                      value={formData.features}
-                      onChange={handleInputChange}
-                      rows={4}
-                      className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                      dir={language === 'ar' ? 'rtl' : 'ltr'}
-                      placeholder={t('subscriptions.plans.featuresPlaceholder')}
-                    ></textarea>
+                  <label htmlFor="users" className={labelClasses}>{t('subscriptions.plans.maxUsers')}</label>
+                  <div className={`flex items-center gap-2 ${language === 'ar' ? 'justify-start' : ''}`}>
+                    {language === 'ar' ? (
+                      <>
+                        <NumberInput id="users" name="users" value={formData.users === 'unlimited' ? '' : formData.users} onChange={handleInputChange} min={0} step={1} disabled={formData.users === 'unlimited'} className="max-w-xs" />
+                        <Checkbox id="usersUnlimited" checked={formData.users === 'unlimited'} onChange={(e) => handleUnlimitedChange('users', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
+                      </>
+                    ) : (
+                      <>
+                        <NumberInput id="users" name="users" value={formData.users === 'unlimited' ? '' : formData.users} onChange={handleInputChange} min={0} step={1} disabled={formData.users === 'unlimited'} />
+                        <Checkbox id="usersUnlimited" checked={formData.users === 'unlimited'} onChange={(e) => handleUnlimitedChange('users', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div>
-                    <label htmlFor="featuresAr" className={labelClasses}>{t('subscriptions.plans.featuresAr')}</label>
-                    <textarea
-                        id="featuresAr"
-                        name="featuresAr"
-                        value={formData.featuresAr || ''}
-                        onChange={handleInputChange}
-                        rows={4}
-                        className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                        dir={language === 'ar' ? 'rtl' : 'ltr'}
-                        placeholder={t('subscriptions.plans.featuresArPlaceholder')}
-                    ></textarea>
+                  <label htmlFor="clients" className={labelClasses}>{t('subscriptions.plans.maxClients')}</label>
+                  <div className={`flex items-center gap-2 ${language === 'ar' ? 'justify-start' : ''}`}>
+                    {language === 'ar' ? (
+                      <>
+                        <NumberInput id="clients" name="clients" value={formData.clients === 'unlimited' ? '' : formData.clients} onChange={handleInputChange} min={0} step={1} disabled={formData.clients === 'unlimited'} className="max-w-xs" />
+                        <Checkbox id="clientsUnlimited" checked={formData.clients === 'unlimited'} onChange={(e) => handleUnlimitedChange('clients', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
+                      </>
+                    ) : (
+                      <>
+                        <NumberInput id="clients" name="clients" value={formData.clients === 'unlimited' ? '' : formData.clients} onChange={handleInputChange} min={0} step={1} disabled={formData.clients === 'unlimited'} />
+                        <Checkbox id="clientsUnlimited" checked={formData.clients === 'unlimited'} onChange={(e) => handleUnlimitedChange('clients', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
+                      </>
+                    )}
+                  </div>
                 </div>
+                <div>
+                  <label htmlFor="storage" className={labelClasses}>{t('subscriptions.plans.storageGB')}</label>
+                  <div className={language === 'ar' ? 'flex justify-start' : ''}>
+                    <NumberInput id="storage" name="storage" value={formData.storage} onChange={handleInputChange} min={0} step={1} className={language === 'ar' ? 'max-w-xs' : ''} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="features" className={labelClasses}>{t('subscriptions.plans.features')}</label>
+              <textarea
+                id="features"
+                name="features"
+                value={formData.features}
+                onChange={handleInputChange}
+                rows={4}
+                className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
+                placeholder={t('subscriptions.plans.featuresPlaceholder')}
+              ></textarea>
+            </div>
+            <div>
+              <label htmlFor="featuresAr" className={labelClasses}>{t('subscriptions.plans.featuresAr')}</label>
+              <textarea
+                id="featuresAr"
+                name="featuresAr"
+                value={formData.featuresAr || ''}
+                onChange={handleInputChange}
+                rows={4}
+                className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
+                placeholder={t('subscriptions.plans.featuresArPlaceholder')}
+              ></textarea>
+            </div>
           </div>
 
           <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">

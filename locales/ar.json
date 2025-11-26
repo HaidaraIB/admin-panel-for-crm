@@ -137,7 +137,7 @@
   "subscriptions.plans.type.Trial": "تجريبية",
   "subscriptions.plans.type.Paid": "مدفوعة",
   "subscriptions.plans.type.Free": "مجانية",
-  "subscriptions.plans.trialDuration": "مدة التجربة",
+  "subscriptions.plans.trialDuration": "مدة التجربة (أيام)",
   "subscriptions.plans.days": "أيام",
   "subscriptions.plans.pricing": "التسعير",
   "subscriptions.plans.priceMonthly": "السعر الشهري ($)",

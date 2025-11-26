@@ -599,6 +599,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
           ...sub,
           company_name: company?.name || 'Unknown',
           plan_name: plan?.name || 'Unknown',
+          plan_name_ar: plan?.name_ar || '',
         };
       });
 
@@ -655,12 +656,15 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 const statusColor = sub.is_active 
                   ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
                   : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+                const planNameForDisplay = language === 'ar' && (sub.plan_name_ar?.trim()?.length)
+                  ? sub.plan_name_ar
+                  : sub.plan_name;
                 return (
                 <tr key={sub.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                   <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                     {sub.company_name}
                   </td>
-                  <td className="px-6 py-4">{sub.plan_name}</td>
+                  <td className="px-6 py-4">{planNameForDisplay}</td>
                   <td className="px-6 py-4">
                     {sub.start_date ? new Date(sub.start_date).toISOString().split('T')[0] : 'N/A'}
                   </td>

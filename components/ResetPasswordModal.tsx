@@ -19,6 +19,19 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    
+    // Link new password and confirm password visibility - when one changes, update both
+    const handleNewPasswordVisibilityToggle = () => {
+        const newValue = !showNewPassword;
+        setShowNewPassword(newValue);
+        setShowConfirmPassword(newValue);
+    };
+    
+    const handleConfirmPasswordVisibilityToggle = () => {
+        const newValue = !showConfirmPassword;
+        setShowNewPassword(newValue);
+        setShowConfirmPassword(newValue);
+    };
     const [showSuccess, setShowSuccess] = useState(false);
 
     // Function to translate error messages
@@ -208,7 +221,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                    onClick={handleNewPasswordVisibilityToggle}
                                     className={`absolute top-1/2 -translate-y-1/2 ${language === 'ar' ? 'left-3' : 'right-3'} text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200`}
                                 >
                                     <Icon name={showNewPassword ? "eye-off" : "eye"} className="w-5 h-5" />
@@ -244,7 +257,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    onClick={handleConfirmPasswordVisibilityToggle}
                                     className={`absolute top-1/2 -translate-y-1/2 ${language === 'ar' ? 'left-3' : 'right-3'} text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200`}
                                 >
                                     <Icon name={showConfirmPassword ? "eye-off" : "eye"} className="w-5 h-5" />

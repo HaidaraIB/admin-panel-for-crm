@@ -137,7 +137,7 @@
   "subscriptions.plans.type.Trial": "Trial",
   "subscriptions.plans.type.Paid": "Paid",
   "subscriptions.plans.type.Free": "Free",
-  "subscriptions.plans.trialDuration": "Trial Duration",
+  "subscriptions.plans.trialDuration": "Trial Duration (days)",
   "subscriptions.plans.days": "days",
   "subscriptions.plans.pricing": "Pricing",
   "subscriptions.plans.priceMonthly": "Monthly Price ($)",
