@@ -97,11 +97,23 @@ export interface AuditLog {
     timestamp: string;
 }
 
-export interface BackupLog {
+export type BackupStatus = 'in_progress' | 'completed' | 'failed';
+export type BackupInitiator = 'manual' | 'scheduled';
+
+export interface SystemBackup {
     id: string;
-    date: Date;
-    status: 'Completed' | 'Failed';
-    initiator: 'Manual' | 'Scheduled';
+    status: BackupStatus;
+    initiator: BackupInitiator;
+    file?: string | null;
+    file_size: number;
+    created_by?: number | null;
+    created_by_email?: string | null;
+    notes?: string;
+    error_message?: string;
+    metadata?: Record<string, any>;
+    created_at: string;
+    completed_at?: string | null;
+    download_url?: string | null;
 }
 
 export enum PaymentGatewayStatus {

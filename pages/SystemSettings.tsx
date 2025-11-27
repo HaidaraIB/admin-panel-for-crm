@@ -1,39 +1,33 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Icon from '../components/Icon';
-import { AdminUser, AuditLog as AuditLogType, BackupLog } from '../types';
+import { SystemBackup } from '../types';
 import { useI18n } from '../context/i18n';
-import { useTheme } from '../context/ThemeContext';
-import AdminUserModal from '../components/AdminUserModal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuditLog } from '../context/AuditLogContext';
-import { getUsersAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI } from '../services/api';
 
-const mockBackupLogs: BackupLog[] = [
-    { id: 'backup-1698058200000', date: new Date('2023-10-23T10:50:00'), status: 'Completed', initiator: 'Manual' },
-    { id: 'backup-1697971800000', date: new Date('2023-10-22T10:50:00'), status: 'Completed', initiator: 'Scheduled' },
-    { id: 'backup-1697885400000', date: new Date('2023-10-21T10:50:00'), status: 'Failed', initiator: 'Scheduled' },
-    { id: 'backup-1697799000000', date: new Date('2023-10-20T10:50:00'), status: 'Completed', initiator: 'Scheduled' },
-    { id: 'backup-1697712600000', date: new Date('2023-10-19T10:50:00'), status: 'Completed', initiator: 'Scheduled' },
-    { id: 'backup-1697626200000', date: new Date('2023-10-18T10:50:00'), status: 'Completed', initiator: 'Manual' },
-    { id: 'backup-1697539800000', date: new Date('2023-10-17T10:50:00'), status: 'Completed', initiator: 'Scheduled' },
-];
+type BackupSchedule = 'daily' | 'weekly' | 'monthly';
+
+const BACKUP_SCHEDULE_STORAGE_KEY = 'systemSettings.backupSchedule';
+
+const loadStoredSchedule = (): BackupSchedule => {
+    if (typeof window === 'undefined') return 'daily';
+    const saved = localStorage.getItem(BACKUP_SCHEDULE_STORAGE_KEY);
+    if (saved === 'weekly' || saved === 'monthly' || saved === 'daily') {
+        return saved;
+    }
+    return 'daily';
+};
+
+const persistSchedule = (schedule: BackupSchedule) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(BACKUP_SCHEDULE_STORAGE_KEY, schedule);
+};
 
 const GeneralSettings: React.FC = () => {
     const { t } = useI18n();
-    const { logoUrl, setLogoUrl } = useTheme();
     const { addLog } = useAuditLog();
-
-    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setLogoUrl(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
     
     const handleSaveChanges = () => {
         // In a real app, this would save all settings.
@@ -46,22 +40,6 @@ const GeneralSettings: React.FC = () => {
     <div className="space-y-6">
         <h3 className="text-xl font-semibold">{t('settings.general.title')}</h3>
         <div className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium mb-1">{t('settings.general.platformName')}</label>
-                <input type="text" defaultValue="MySaaS Platform" className="w-full max-w-lg px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"/>
-            </div>
-            <div>
-                <label className="block text-sm font-medium mb-1">{t('settings.general.platformLogo')}</label>
-                <div className="flex items-center space-x-4 rtl:space-x-reverse">
-                    {logoUrl && <img src={logoUrl} alt="Logo Preview" className="h-16 w-auto bg-gray-100 dark:bg-gray-700 p-1 rounded-md border border-gray-300 dark:border-gray-600 object-contain" />}
-                    <input type="file" accept="image/*" onChange={handleLogoChange} className="block w-full max-w-xs text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/40 dark:file:text-primary-300 dark:hover:file:bg-primary-900/60"/>
-                    {logoUrl && <button onClick={() => setLogoUrl(null)} className="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-500">{t('settings.general.removeLogo')}</button>}
-                </div>
-            </div>
-             <div>
-                <label className="block text-sm font-medium mb-1">{t('settings.general.smtpHost')}</label>
-                <input type="text" placeholder="smtp.example.com" className="w-full max-w-lg px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"/>
-            </div>
             <button onClick={handleSaveChanges} className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm font-medium">{t('settings.general.save')}</button>
         </div>
     </div>
@@ -70,108 +48,205 @@ const GeneralSettings: React.FC = () => {
 const SecurityBackups: React.FC = () => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
-    const [backupStatus, setBackupStatus] = useState<'idle' | 'in-progress' | 'completed'>('idle');
-    const [lastBackupDate, setLastBackupDate] = useState<Date | null>(mockBackupLogs.find(l => l.status === 'Completed')?.date || null);
-    const [backupLogs, setBackupLogs] = useState<BackupLog[]>(mockBackupLogs);
+    const [backupStatus, setBackupStatus] = useState<'idle' | 'in-progress'>('idle');
+    const [backups, setBackups] = useState<SystemBackup[]>([]);
+    const [backupSchedule, setBackupSchedule] = useState<BackupSchedule>(() => loadStoredSchedule());
     const [currentPage, setCurrentPage] = useState(1);
+    const [totalBackups, setTotalBackups] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
     const [restoringId, setRestoringId] = useState<string | null>(null);
-    const ITEMS_PER_PAGE = 5;
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const PAGE_SIZE = 20;
 
-    const handleBackupNow = () => {
-        setBackupStatus('in-progress');
-        setTimeout(() => {
-            const newBackup: BackupLog = {
-                id: `backup-${Date.now()}`,
-                date: new Date(),
-                status: Math.random() > 0.1 ? 'Completed' : 'Failed',
-                initiator: 'Manual'
-            };
+    const loadBackups = useCallback(async (page = 1) => {
+        setIsLoading(true);
+        try {
+            const response = await getSystemBackupsAPI({ page });
+            setBackups(response.results || []);
+            setTotalBackups(response.count || 0);
+        } catch (error) {
+            console.error('Failed to load backups', error);
+            setFeedback({ type: 'error', message: t('settings.security.loadError') });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [t]);
 
-            setBackupLogs(prev => [newBackup, ...prev]);
-            addLog('audit.log.backupManual', { backupId: newBackup.id });
-            
-            if (newBackup.status === 'Completed') {
-                setLastBackupDate(newBackup.date);
-                setBackupStatus('completed');
-                setTimeout(() => {
-                    setBackupStatus('idle');
-                }, 4000);
-            } else {
-                setBackupStatus('idle');
-                alert('Backup Failed!');
-            }
-        }, 3000);
+    useEffect(() => {
+        loadBackups(currentPage);
+    }, [currentPage, loadBackups]);
+
+    useEffect(() => {
+        const maxPage = Math.max(1, Math.ceil(totalBackups / PAGE_SIZE));
+        if (currentPage > maxPage) {
+            setCurrentPage(maxPage);
+        }
+    }, [totalBackups, currentPage]);
+
+    useEffect(() => {
+        persistSchedule(backupSchedule);
+    }, [backupSchedule]);
+
+    useEffect(() => {
+        if (!feedback) return;
+        const timer = setTimeout(() => setFeedback(null), 6000);
+        return () => clearTimeout(timer);
+    }, [feedback]);
+
+    const scheduleOptions = useMemo(
+        () => ([
+            { value: 'daily', label: t('settings.security.schedule.daily') },
+            { value: 'weekly', label: t('settings.security.schedule.weekly') },
+            { value: 'monthly', label: t('settings.security.schedule.monthly') },
+        ]),
+        [t]
+    );
+
+    const lastBackupDate = useMemo(() => {
+        const completed = backups.find((log) => log.status === 'completed');
+        if (!completed) return null;
+        return new Date(completed.completed_at || completed.created_at);
+    }, [backups]);
+
+    const totalPages = Math.max(1, Math.ceil(totalBackups / PAGE_SIZE));
+
+    const statusColors: Record<string, string> = {
+        completed: 'bg-primary-100 text-primary-900 dark:bg-primary-900 dark:text-primary-100',
+        failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+        in_progress: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
     };
 
-    const handleDeleteBackup = (id: string) => {
-        if (window.confirm(t('settings.security.deleteConfirm'))) {
-            setBackupLogs(prev => prev.filter(log => log.id !== id));
-            addLog('audit.log.backupDeleted', { backupId: id });
+    const handleBackupNow = async () => {
+        if (backupStatus === 'in-progress') return;
+        setFeedback(null);
+        setBackupStatus('in-progress');
+        try {
+            const newBackup = await createSystemBackupAPI();
+            addLog('audit.log.backupManual', { backupId: newBackup.id });
+            setFeedback({ type: 'success', message: t('settings.security.backupCompleted') });
+            setCurrentPage(1);
+            await loadBackups(1);
+        } catch (error) {
+            console.error('Failed to create backup', error);
+            setFeedback({ type: 'error', message: t('settings.security.backupFailedMessage') });
+        } finally {
+                setBackupStatus('idle');
         }
     };
 
-    const handleDownloadBackup = (log: BackupLog) => {
-        const fileContent = JSON.stringify({
-            id: log.id,
-            date: log.date.toISOString(),
-            status: log.status,
-            initiator: log.initiator,
-            data: "This is a dummy backup file. In a real application, this would contain the actual backup data.",
-        }, null, 2);
+    const handleScheduleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const newSchedule = event.target.value as BackupSchedule;
+        setBackupSchedule(newSchedule);
+        addLog('audit.log.backupScheduleUpdated', { schedule: t(`settings.security.schedule.${newSchedule}`) });
+        setFeedback({ type: 'success', message: t('settings.security.scheduleSaved') });
+    };
 
-        const blob = new Blob([fileContent], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
+    const handleDeleteBackup = async (backup: SystemBackup) => {
+        if (!window.confirm(t('settings.security.deleteConfirm'))) return;
+        try {
+            await deleteSystemBackupAPI(backup.id);
+            addLog('audit.log.backupDeleted', { backupId: backup.id });
+            setFeedback({ type: 'success', message: t('settings.security.backupDeletedMessage') });
+            await loadBackups(currentPage);
+        } catch (error) {
+            console.error('Failed to delete backup', error);
+            setFeedback({ type: 'error', message: t('settings.security.deleteError') });
+        }
+    };
+
+    const handleDownloadBackup = async (backup: SystemBackup) => {
+        if (!backup.download_url) {
+            setFeedback({ type: 'error', message: t('settings.security.downloadError') });
+            return;
+        }
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(backup.download_url, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!response.ok) {
+                throw new Error('Download failed');
+            }
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = url;
-        link.download = `${log.id}.json`;
+            const filename = backup.download_url.split('/').filter(Boolean).pop() || `${backup.id}.sqlite3`;
+            link.href = blobUrl;
+            link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
-    const handleRestoreBackup = (log: BackupLog) => {
-        if (restoringId || backupStatus === 'in-progress') return;
-
-        if (window.confirm(t('settings.security.restoreConfirm'))) {
-            setRestoringId(log.id);
-            addLog('audit.log.backupRestored', { backupId: log.id });
-            setTimeout(() => {
-                alert(`${t('settings.security.restoreSuccess')} ${log.id}`);
-                setRestoringId(null);
-            }, 4000);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Failed to download backup', error);
+            setFeedback({ type: 'error', message: t('settings.security.downloadError') });
         }
     };
 
-    const paginatedLogs = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return backupLogs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [backupLogs, currentPage]);
+    const handleRestoreBackup = async (backup: SystemBackup) => {
+        if (restoringId || backupStatus === 'in-progress') return;
+        if (!window.confirm(t('settings.security.restoreConfirm'))) return;
+        setRestoringId(backup.id);
+        try {
+            await restoreSystemBackupAPI(backup.id);
+            addLog('audit.log.backupRestored', { backupId: backup.id });
+            setFeedback({ type: 'success', message: `${t('settings.security.restoreSuccess')} ${backup.id}` });
+        } catch (error) {
+            console.error('Failed to restore backup', error);
+            setFeedback({ type: 'error', message: t('settings.security.restoreError') });
+        } finally {
+                setRestoringId(null);
+        }
+    };
 
-    const totalPages = Math.ceil(backupLogs.length / ITEMS_PER_PAGE);
-
-    const statusColors: { [key in BackupLog['status']]: string } = {
-        'Completed': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-        'Failed': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+    const renderFeedback = () => {
+        if (!feedback) return null;
+        const isSuccess = feedback.type === 'success';
+        return (
+            <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
+                isSuccess
+                    ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
+                    : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
+            }`}>
+                <Icon name={isSuccess ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span>{feedback.message}</span>
+            </div>
+        );
     };
     
     return (
         <div className="space-y-6">
-            <h3 className="text-xl font-semibold">{t('settings.security.title')}</h3>
+            <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.security.title')}</h3>
+                <div className="text-xs uppercase tracking-wide text-primary-600 dark:text-primary-300 font-semibold">
+                    {t('settings.security.schedule')}: {scheduleOptions.find(opt => opt.value === backupSchedule)?.label}
+                </div>
+            </div>
+
+            {renderFeedback()}
+
             <div>
-                <label className="block text-sm font-medium mb-1">{t('settings.security.schedule')}</label>
-                <select className="max-w-lg px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600">
-                    <option>{t('settings.security.schedule.daily')}</option>
-                    <option>{t('settings.security.schedule.weekly')}</option>
-                    <option>{t('settings.security.schedule.monthly')}</option>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.security.schedule')}</label>
+                <select
+                    value={backupSchedule}
+                    onChange={handleScheduleChange}
+                    className="max-w-lg w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                    {scheduleOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
                 </select>
             </div>
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
+
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center space-x-4 rtl:space-x-reverse">
                     <button 
                         onClick={handleBackupNow}
                         disabled={backupStatus === 'in-progress'}
-                        className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium flex items-center justify-center w-44 transition-colors hover:bg-green-700 disabled:bg-green-400 dark:disabled:bg-green-800 disabled:cursor-wait"
+                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center w-48 transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
                     >
                         {backupStatus === 'in-progress' ? (
                             <>
@@ -182,26 +257,21 @@ const SecurityBackups: React.FC = () => {
                             t('settings.security.backupNow')
                         )}
                     </button>
-                    {backupStatus === 'completed' && (
-                         <p className="text-sm text-green-600 dark:text-green-400 flex items-center animate-pulse">
-                            <Icon name="check" className="w-5 h-5 mx-1" />
-                            {t('settings.security.backupCompleted')}
-                         </p>
-                    )}
                 </div>
                  <div>
-                    <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('settings.security.lastBackup')}:</h4>
-                    <p className="text-sm text-gray-800 dark:text-gray-200 mt-1 font-mono">
+                        <h4 className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('settings.security.lastBackup')}:</h4>
+                        <p className="text-sm text-gray-900 dark:text-gray-100 mt-1 font-mono">
                         {lastBackupDate ? lastBackupDate.toLocaleString(language) : t('settings.security.noBackup')}
                     </p>
+                    </div>
                 </div>
             </div>
 
-             <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
-                <h4 className="text-lg font-semibold">{t('settings.security.historyTitle')}</h4>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.security.historyTitle')}</h4>
                  <div className="overflow-x-auto">
-                    <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-600 dark:text-gray-300`}>
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800 dark:text-gray-300">
                             <tr>
                                 <th scope="col" className="px-6 py-3">{t('settings.security.table.id')}</th>
                                 <th scope="col" className="px-6 py-3">{t('settings.security.table.date')}</th>
@@ -211,37 +281,91 @@ const SecurityBackups: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedLogs.map((log) => (
-                                <tr key={log.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                    <td className="px-6 py-4 font-mono">{log.id}</td>
-                                    <td className="px-6 py-4">{log.date.toLocaleString(language)}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[log.status]}`}>{t(`settings.security.status.${log.status.toLowerCase()}`)}</span>
-                                    </td>
-                                    <td className="px-6 py-4">{t(`settings.security.initiator.${log.initiator.toLowerCase()}`)}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-center space-x-2">
-                                            <button onClick={() => handleDownloadBackup(log)} disabled={restoringId === log.id} className="p-1 text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed" title={t('settings.security.actions.download')}><Icon name="download" className="w-5 h-5"/></button>
-                                            <button onClick={() => handleRestoreBackup(log)} disabled={restoringId === log.id} className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50 disabled:cursor-wait" title={restoringId === log.id ? t('settings.security.restoring') : t('settings.security.actions.restore')}>
-                                                {restoringId === log.id ? <div className="w-5 h-5"><LoadingSpinner/></div> : <Icon name="restore" className="w-5 h-5"/>}
-                                            </button>
-                                            <button onClick={() => handleDeleteBackup(log.id)} disabled={restoringId === log.id} className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed" title={t('settings.security.actions.delete')}><Icon name="trash" className="w-5 h-5"/></button>
-                                        </div>
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-6 text-center">
+                                        <LoadingSpinner />
                                     </td>
                                 </tr>
-                            ))}
+                            ) : backups.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                                        {t('settings.security.noBackup')}
+                                    </td>
+                                </tr>
+                            ) : (
+                                backups.map((backup) => {
+                                    const statusKey = backup.status.replace('-', '_');
+                                    return (
+                                        <tr key={backup.id} className="bg-white border-b dark:bg-gray-900/30 dark:border-gray-800 hover:bg-primary-50/50 dark:hover:bg-primary-900/20 transition-colors">
+                                            <td className="px-6 py-4 font-mono text-xs break-all">{backup.id}</td>
+                                            <td className="px-6 py-4">{new Date(backup.created_at).toLocaleString(language)}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[statusKey] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'}`}>
+                                                    {t(`settings.security.status.${statusKey}`)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">{t(`settings.security.initiator.${backup.initiator.toLowerCase()}`)}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-center space-x-2 rtl:space-x-reverse">
+                                                    <button
+                                                        onClick={() => handleDownloadBackup(backup)}
+                                                        disabled={restoringId === backup.id}
+                                                        className="p-1 text-primary-600 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        title={t('settings.security.actions.download')}
+                                                    >
+                                                        <Icon name="download" className="w-5 h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRestoreBackup(backup)}
+                                                        disabled={restoringId === backup.id}
+                                                        className="p-1 text-primary-600 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-100 disabled:opacity-40 disabled:cursor-wait"
+                                                        title={restoringId === backup.id ? t('settings.security.restoring') : t('settings.security.actions.restore')}
+                                                    >
+                                                        {restoringId === backup.id ? (
+                                                            <div className="w-5 h-5">
+                                                                <LoadingSpinner />
+                                                            </div>
+                                                        ) : (
+                                                            <Icon name="restore" className="w-5 h-5" />
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteBackup(backup)}
+                                                        disabled={restoringId === backup.id}
+                                                        className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        title={t('settings.security.actions.delete')}
+                                                    >
+                                                        <Icon name="trash" className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
                         </tbody>
                     </table>
                 </div>
 
-                 {totalPages > 1 && (
+                {totalBackups > PAGE_SIZE && (
                     <nav className="flex items-center justify-between pt-4" aria-label="Table navigation">
-                        <span className="text-sm font-normal text-gray-500 dark:text-gray-400">{t('settings.security.pagination.page')} <span className="font-semibold text-gray-900 dark:text-white">{currentPage}</span> {t('settings.security.pagination.of')} <span className="font-semibold text-gray-900 dark:text-white">{totalPages}</span></span>
+                        <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+                            {t('settings.security.pagination.page')} <span className="font-semibold text-gray-900 dark:text-white">{currentPage}</span> {t('settings.security.pagination.of')} <span className="font-semibold text-gray-900 dark:text-white">{totalPages}</span>
+                        </span>
                         <div className="flex space-x-2 rtl:space-x-reverse">
-                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-3 py-1 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 hover:text-gray-900 dark:bg-gray-900/30 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                                 {t('settings.security.pagination.previous')}
                             </button>
-                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-3 py-1 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 hover:text-gray-900 dark:bg-gray-900/30 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                                 {t('settings.security.pagination.next')}
                             </button>
                         </div>
@@ -251,81 +375,6 @@ const SecurityBackups: React.FC = () => {
         </div>
     );
 };
-
-interface AdminUsersProps {
-    admins: AdminUser[];
-    onAdd: () => void;
-    onDelete: (id: number) => void;
-}
-
-const AdminUsers: React.FC<AdminUsersProps> = ({ admins, onAdd, onDelete }) => {
-    const { t, language } = useI18n();
-    const [isLoading, setIsLoading] = useState(false);
-
-    const handleDelete = (id: number) => {
-        if (window.confirm(t('settings.admins.deleteConfirm'))) {
-            onDelete(id);
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold">{t('settings.admins.title')}</h3>
-                <button onClick={onAdd} className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center">
-                    <Icon name="plus" className="w-5 h-5 mx-2" />
-                    {t('settings.admins.add')}
-                </button>
-            </div>
-            <div className="overflow-x-auto">
-                <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                        <tr>
-                            <th className="px-6 py-3">{t('settings.admins.table.name')}</th>
-                            <th className="px-6 py-3">{t('settings.admins.table.email')}</th>
-                            <th className="px-6 py-3">{t('settings.admins.table.role')}</th>
-                            <th className="px-6 py-3">{t('settings.admins.table.actions')}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {isLoading ? (
-                            <tr>
-                                <td colSpan={4} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    Loading admins...
-                                </td>
-                            </tr>
-                        ) : admins.length === 0 ? (
-                            <tr>
-                                <td colSpan={4} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    No admin users found
-                                </td>
-                            </tr>
-                        ) : (
-                            admins.map(admin => (
-                                <tr key={admin.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                    <td className="px-6 py-4">{admin.name}</td>
-                                    <td className="px-6 py-4">{admin.email}</td>
-                                    <td className="px-6 py-4">{admin.role}</td>
-                                    <td className="px-6 py-4">
-                                        <button
-                                            onClick={() => handleDelete(admin.id)}
-                                            className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            disabled={admins.length <= 1}
-                                            title={admins.length <= 1 ? "Cannot delete the only admin" : "Delete"}
-                                        >
-                                            <Icon name="trash" className="w-5 h-5"/>
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
 
 const AuditLog: React.FC = () => {
     const { t, language } = useI18n();
@@ -392,62 +441,10 @@ const AuditLog: React.FC = () => {
 const SystemSettings: React.FC = () => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
-    const [activeSetting, setActiveSetting] = useState('general');
-    const [admins, setAdmins] = useState<AdminUser[]>([]);
-    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-    const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
-
-    useEffect(() => {
-        loadAdmins();
-    }, []);
-
-    const loadAdmins = async () => {
-        setIsLoadingAdmins(true);
-        try {
-            const response = await getUsersAPI({ search: 'admin' }); // Filter for admin users
-            // API returns users with fields: id, username, email, first_name, last_name, role
-            const adminUsers: AdminUser[] = (response.results || [])
-                .filter((user: any) => user.role === 'super_admin' || user.role === 'admin') // Filter super admins
-                .map((user: any) => ({
-                    id: user.id, // API field: id
-                    name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username, // API fields: first_name, last_name, username
-                    email: user.email, // API field: email
-                    role: user.role === 'super_admin' ? 'Super Admin' : 'Admin', // API field: role
-                }));
-            setAdmins(adminUsers);
-        } catch (error) {
-            console.error('Error loading admin users:', error);
-            // Fallback to empty array on error
-            setAdmins([]);
-        } finally {
-            setIsLoadingAdmins(false);
-        }
-    };
-
-    const handleAddAdmin = ({ name, email }: { name: string; email: string }) => {
-        // TODO: Create admin user via API when endpoint is available
-        // For now, this is a placeholder
-        const newAdmin: AdminUser = {
-            id: admins.length > 0 ? Math.max(...admins.map(a => a.id)) + 1 : 1,
-            name,
-            email,
-            role: 'Super Admin',
-        };
-        setAdmins(prevAdmins => [...prevAdmins, newAdmin]);
-        addLog('audit.log.adminAdded', { email });
-        setIsAdminModalOpen(false);
-    };
-
-    const handleDeleteAdmin = (adminId: number) => {
-        // TODO: Delete admin user via API when endpoint is available
-        setAdmins(prevAdmins => prevAdmins.filter(admin => admin.id !== adminId));
-        addLog('audit.log.adminDeleted', { adminId });
-    };
+    const [activeSetting, setActiveSetting] = useState('security');
 
     const settingsMenu = [
-        { id: 'general', label: t('settings.menu.general') },
         { id: 'security', label: t('settings.menu.security') },
-        { id: 'admins', label: t('settings.menu.admins') },
         { id: 'audit', label: t('settings.menu.audit') },
     ];
     
@@ -455,7 +452,6 @@ const SystemSettings: React.FC = () => {
         switch (activeSetting) {
             case 'general': return <GeneralSettings />;
             case 'security': return <SecurityBackups />;
-            case 'admins': return <AdminUsers admins={admins} onAdd={() => setIsAdminModalOpen(true)} onDelete={handleDeleteAdmin} />;
             case 'audit': return <AuditLog />;
             default: return <GeneralSettings />;
         }
@@ -486,11 +482,6 @@ const SystemSettings: React.FC = () => {
                    {renderSetting()}
                 </div>
             </div>
-             <AdminUserModal 
-                isOpen={isAdminModalOpen}
-                onClose={() => setIsAdminModalOpen(false)}
-                onSave={handleAddAdmin}
-            />
         </div>
     );
 };

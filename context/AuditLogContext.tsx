@@ -1,6 +1,7 @@
 
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { AuditLog } from '../types';
+import { getSystemAuditLogsAPI } from '../services/api';
 
 interface AuditLogContextType {
   logs: AuditLog[];
@@ -9,14 +10,8 @@ interface AuditLogContextType {
 
 const AuditLogContext = createContext<AuditLogContextType | undefined>(undefined);
 
-const initialLogs: AuditLog[] = [
-    { id: 3, user: 'admin1@system.com', action: { key: 'audit.log.initial.smtpChanged', params: {} }, timestamp: new Date('2023-10-19T15:00:00Z').toISOString() },
-    { id: 2, user: 'admin2@system.com', action: { key: 'audit.log.initial.planCreated', params: { planName: 'البلاتينية' } }, timestamp: new Date('2023-10-20T09:15:00Z').toISOString() },
-    { id: 1, user: 'admin1@system.com', action: { key: 'audit.log.initial.accountDeactivated', params: { companyName: 'ABC' } }, timestamp: new Date('2023-10-20T10:30:00Z').toISOString() },
-];
-
 export const AuditLogProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [logs, setLogs] = useState<AuditLog[]>(initialLogs);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
 
   const addLog = useCallback((actionKey: string, params: Record<string, string | number> = {}) => {
     const newLog: AuditLog = {
@@ -27,6 +22,25 @@ export const AuditLogProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     setLogs(prevLogs => [newLog, ...prevLogs]);
   }, []);
+
+  const loadLogs = useCallback(async () => {
+    try {
+        const response = await getSystemAuditLogsAPI();
+        const apiLogs = (response.results || []).map((log: any) => ({
+            id: log.id,
+            user: log.actor_email || 'system',
+            action: { key: log.action, params: log.metadata || {} },
+            timestamp: log.created_at,
+        })) as AuditLog[];
+        setLogs(apiLogs);
+    } catch (error) {
+        console.error('Failed to load audit logs', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   return (
     <AuditLogContext.Provider value={{ logs, addLog }}>

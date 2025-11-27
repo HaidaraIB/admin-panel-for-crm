@@ -597,3 +597,59 @@ export const togglePaymentGatewayAPI = async (id: number) => {
   });
 };
 
+// ==================== System Settings APIs ====================
+
+/**
+ * Get system backups
+ * GET /api/settings/backups/
+ */
+export const getSystemBackupsAPI = async (params?: { page?: number }) => {
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append('page', String(params.page));
+  const query = queryParams.toString();
+  return apiRequest<{ results: any[]; count: number }>(`/settings/backups/${query ? `?${query}` : ''}`);
+};
+
+/**
+ * Trigger a new system backup
+ * POST /api/settings/backups/
+ */
+export const createSystemBackupAPI = async (notes?: string) => {
+  const payload = notes ? { notes } : {};
+  return apiRequest<any>('/settings/backups/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
+/**
+ * Restore a backup
+ * POST /api/settings/backups/{id}/restore/
+ */
+export const restoreSystemBackupAPI = async (id: string) => {
+  return apiRequest<any>(`/settings/backups/${id}/restore/`, {
+    method: 'POST',
+  });
+};
+
+/**
+ * Delete a backup
+ * DELETE /api/settings/backups/{id}/
+ */
+export const deleteSystemBackupAPI = async (id: string) => {
+  return apiRequest<void>(`/settings/backups/${id}/`, {
+    method: 'DELETE',
+  });
+};
+
+/**
+ * Get audit logs for system actions
+ * GET /api/settings/audit-logs/
+ */
+export const getSystemAuditLogsAPI = async (params?: { page?: number }) => {
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append('page', String(params.page));
+  const query = queryParams.toString();
+  return apiRequest<{ results: any[]; count: number }>(`/settings/audit-logs/${query ? `?${query}` : ''}`);
+};
+
