@@ -118,8 +118,11 @@ const App: React.FC = () => {
       setTenants(mappedTenants);
     } catch (error: any) {
       console.error('Error loading tenants:', error);
-      // If Forbidden, user might not be super admin or token expired
-      if (error.message && (error.message.includes('Forbidden') || error.message.includes('403'))) {
+      // If Forbidden or Unauthorized, user might not be super admin or token expired
+      const errorMessage = error.message || '';
+      if (errorMessage.includes('Forbidden') || errorMessage.includes('403') || 
+          errorMessage.includes('Session expired') || errorMessage.includes('401') ||
+          errorMessage.includes('Unauthorized')) {
         // Clear auth and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');

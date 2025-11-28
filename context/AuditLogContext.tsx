@@ -24,6 +24,12 @@ export const AuditLogProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   const loadLogs = useCallback(async () => {
+    // Only load logs if user is authenticated
+    const hasToken = localStorage.getItem('accessToken');
+    if (!hasToken) {
+      return;
+    }
+    
     try {
         const response = await getSystemAuditLogsAPI();
         const apiLogs = (response.results || []).map((log: any) => ({
@@ -35,6 +41,8 @@ export const AuditLogProvider: React.FC<{ children: ReactNode }> = ({ children }
         setLogs(apiLogs);
     } catch (error) {
         console.error('Failed to load audit logs', error);
+        // Clear logs on error to prevent stale data
+        setLogs([]);
     }
   }, []);
 

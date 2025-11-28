@@ -33,7 +33,9 @@ async function apiRequest<T>(
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('isAuthenticated');
-      window.location.href = '/login';
+      sessionStorage.removeItem('isAuthenticated');
+      // Don't use window.location.href as it causes infinite refresh loop
+      // Let the App component handle the redirect based on isAuthenticated state
       throw new Error('Session expired. Please login again.');
     }
   }
