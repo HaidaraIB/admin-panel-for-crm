@@ -188,7 +188,7 @@ const Dashboard: React.FC = () => {
       }
     },
   ]);
-  const [revenueData, setRevenueData] = useState<Array<{ name: string; revenue: number; profit: number }>>([]);
+  const [revenueData, setRevenueData] = useState<Array<{ name: string; revenue: number }>>([]);
   const [planData, setPlanData] = useState<Array<{ name: string; count: number }>>([]);
   const [recentCompanies, setRecentCompanies] = useState<Array<{ name: string; plan: string }>>([]);
   const [recentPayments, setRecentPayments] = useState<Array<{ name: string; amount: string }>>([]);
@@ -275,27 +275,46 @@ const Dashboard: React.FC = () => {
         return date >= rangeStart && date <= rangeEnd;
       };
 
+      // Filter data based on date range
       const filteredCompanies = companies.filter((company: any) => isWithinSelectedRange(company.created_at));
       const filteredSubscriptions = subscriptions.filter((sub: any) => isWithinSelectedRange(sub.created_at));
       const filteredPayments = payments.filter((payment: any) => isWithinSelectedRange(payment.created_at));
-      const activeSubscriptionsInRange = filteredSubscriptions.filter((sub: any) => sub.is_active);
-
-      // Calculate MRR from filtered active subscriptions
-      const mrr = activeSubscriptionsInRange.reduce((sum: number, sub: any) => {
+      
+      // Get ALL currently active subscriptions (not filtered by date range for MRR and active tenants)
+      // MRR and Active Tenants should reflect current state, not historical state
+      const allActiveSubscriptions = subscriptions.filter((sub: any) => sub.is_active);
+      
+      // Calculate MRR from ALL currently active subscriptions (current state)
+      const mrr = allActiveSubscriptions.reduce((sum: number, sub: any) => {
         const plan = plans.find((p: any) => p.id === sub.plan);
         return sum + (plan ? parseFloat(plan.price_monthly || 0) : 0);
       }, 0);
 
-      // Count active tenants within range
-      const activeTenants = activeSubscriptionsInRange.length;
+      // Count ALL active tenants (current state)
+      const activeTenants = allActiveSubscriptions.length;
 
-      // New subscriptions within the selected range
-      const newSubscriptions = filteredSubscriptions.length;
+      // New subscriptions created within the selected range (last 30 days from end date)
+      const endDate = new Date(dateRange.end);
+      const thirtyDaysAgo = new Date(endDate);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const newSubscriptions = subscriptions.filter((sub: any) => {
+        if (!sub.created_at) return false;
+        const createdDate = new Date(sub.created_at);
+        return createdDate >= thirtyDaysAgo && createdDate <= endDate;
+      }).length;
 
-      // Expiring subscriptions within range (based on end_date)
+      // Expiring subscriptions - subscriptions that will expire within the next 7 days from today
+      // (not based on date range, but based on current date)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sevenDaysFromNow = new Date(today);
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+      
       const expiringSubscriptions = subscriptions.filter((sub: any) => {
         if (!sub.is_active || !sub.end_date) return false;
-        return isWithinSelectedRange(sub.end_date);
+        const endDate = new Date(sub.end_date);
+        endDate.setHours(0, 0, 0, 0);
+        return endDate >= today && endDate <= sevenDaysFromNow;
       }).length;
 
       // Update KPIs
@@ -360,55 +379,77 @@ const Dashboard: React.FC = () => {
           name: t(`dashboard.months.${monthKey}`),
           key: `${date.getFullYear()}-${monthIndex}`,
           revenue: 0,
-          profit: 0,
         };
       });
 
       filteredPayments.forEach((payment: any) => {
-        if (payment.payment_status === 'successful' || payment.payment_status === 'Success') {
+        // Backend PaymentStatus enum values: 'completed', 'pending', 'failed', 'canceled'
+        const paymentStatus = payment.payment_status?.toLowerCase() || '';
+        if (paymentStatus === 'completed' || paymentStatus === 'successful' || paymentStatus === 'success') {
           const paymentDate = new Date(payment.created_at);
           const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth()}`;
           const monthData = revenueByMonth.find(m => m.key === key);
           if (monthData) {
-            monthData.revenue += parseFloat(payment.amount || 0);
-            monthData.profit += parseFloat(payment.amount || 0) * 0.7; // Assume 70% profit margin
+            const amount = parseFloat(payment.amount || 0);
+            monthData.revenue += amount;
           }
         }
       });
 
       setRevenueData(revenueByMonth.map(({ key, ...rest }) => rest));
 
-      // Plan distribution
+      // Plan distribution - count companies (not subscriptions) by their active plan
+      // Each company should be counted only once, based on their current active subscription
       const planCounts: { [key: string]: number } = {};
+      const companyPlanMap: { [companyId: number]: string } = {};
+      
+      // First, initialize all plans with 0
       plans.forEach((plan: any) => {
         const planName = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
         planCounts[planName] = 0;
       });
-      activeSubscriptionsInRange.forEach((sub: any) => {
-        const plan = plans.find((p: any) => p.id === sub.plan);
-        if (plan) {
-          const planName = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
+      
+      // Map each company to its active plan
+      allActiveSubscriptions.forEach((sub: any) => {
+        if (sub.company && !companyPlanMap[sub.company]) {
+          const plan = plans.find((p: any) => p.id === sub.plan);
+          if (plan) {
+            const planName = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
+            companyPlanMap[sub.company] = planName;
+          }
+        }
+      });
+      
+      // Count companies by plan
+      Object.values(companyPlanMap).forEach((planName) => {
+        if (planCounts.hasOwnProperty(planName)) {
           planCounts[planName] = (planCounts[planName] || 0) + 1;
         }
       });
+      
       setPlanData(Object.entries(planCounts).map(([name, count]) => ({ name, count })));
 
-      // Recent companies (last 5)
-      const recent = filteredCompanies
+      // Recent companies (last 5) - show ALL companies, not filtered by date range
+      const recent = companies
         .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
         .map((company: any) => {
           const sub = subscriptions.find((s: any) => s.company === company.id && s.is_active);
           const plan = sub ? plans.find((p: any) => p.id === sub.plan) : null;
+          const planName = plan ? (language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name) : null;
           return {
             name: company.name,
-            plan: plan ? plan.name : t('dashboard.noPlan')
+            plan: planName || t('dashboard.noPlan')
           };
         });
       setRecentCompanies(recent);
 
-      // Recent payments (last 5)
-      const recentPaymentsList = filteredPayments
+      // Recent payments (last 5) - show ALL completed payments, not filtered by date range
+      const recentPaymentsList = payments
+        .filter((payment: any) => {
+          const paymentStatus = payment.payment_status?.toLowerCase() || '';
+          return paymentStatus === 'completed' || paymentStatus === 'successful' || paymentStatus === 'success';
+        })
         .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
         .map((payment: any) => ({
@@ -513,12 +554,6 @@ const Dashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height={350}>
               <LineChart
                 data={revenueData}
-                margin={{
-                  top: 20,
-                  right: language === 'ar' ? 20 : 30,
-                  left: language === 'ar' ? 50 : 20,
-                  bottom: language === 'ar' ? 60 : 40
-                }}
               >
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                 <XAxis
@@ -541,7 +576,6 @@ const Dashboard: React.FC = () => {
                   iconSize={12}
                 />
                 <Line type="monotone" dataKey="revenue" name={t('dashboard.revenueGrowth.revenue')} stroke="hsl(var(--color-primary-500))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                <Line type="monotone" dataKey="profit" name={t('dashboard.revenueGrowth.profit')} stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -558,24 +592,23 @@ const Dashboard: React.FC = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={planData}
-                    layout="vertical"
-                    margin={{
-                      top: 0,
-                      right: 0,
-                      left: -70,
-                      bottom: 0,
-                    }}
                     barCategoryGap={16}
                   >
                     <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                    <XAxis type="number" hide />
-                    <YAxis
+                    <XAxis
                       type="category"
                       dataKey="name"
-                      width={language === 'ar' ? 160 : 120}
-                      tick={{ fontSize: 12, dx: language === 'ar' ? -70 : 0 }}
-                      tickLine={false}
-                      axisLine={false}
+                      textAnchor={language === 'ar' ? 'middle' : 'end'}
+                      height={60}
+                      tick={{ fontSize: 12 }}
+                      interval={0}
+                      dy={10}
+                      dx={language === 'ar' ? 0 : 12}
+                    />
+                    <YAxis
+                      type="number"
+                      tick={{ fontSize: 12, dx: language === 'ar' ? -25 : 0 }}
+                      width={language === 'ar' ? 50 : 50}
                     />
                     <Tooltip cursor={{ fill: 'rgba(107, 114, 128, 0.1)' }} contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }} />
                     <Legend

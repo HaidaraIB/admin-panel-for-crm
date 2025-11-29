@@ -4,9 +4,10 @@ import { PaymentGateway, PaymentGatewayStatus } from '../types';
 import { useI18n } from '../context/i18n';
 import Icon from '../components/Icon';
 import GatewaySettingsModal from '../components/GatewaySettingsModal';
+import AddGatewayModal from '../components/AddGatewayModal';
 import { useAuditLog } from '../context/AuditLogContext';
 import GatewayCardSkeleton from '../components/GatewayCardSkeleton';
-import { getPaymentGatewaysAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI } from '../services/api';
+import { getPaymentGatewaysAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI, createPaymentGatewayAPI } from '../services/api';
 
 const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onToggle: (enabled: boolean) => void }> = ({ gateway, onManage, onToggle }) => {
     const { t } = useI18n();
@@ -19,20 +20,29 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
     
     const currentStatus = statusMap[gateway.status];
     const isToggleDisabled = gateway.status === PaymentGatewayStatus.SetupRequired;
+    const isPaytabs = gateway.name.toLowerCase().includes('paytabs') || gateway.id.toLowerCase().includes('paytabs');
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border dark:border-gray-700 flex flex-col justify-between transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <div>
                 <div className="flex justify-between items-start mb-4">
-                    <div className="h-10 flex items-center text-gray-700 dark:text-gray-300">
-                         <i className={`pf pf-${gateway.id.toLowerCase()} pf-3x`}></i>
+                    <div className="h-10 flex items-center gap-3 rtl:gap-3 text-gray-700 dark:text-gray-300">
+                        {isPaytabs ? (
+                            <img 
+                                src="/paytabs_logo.png" 
+                                alt="Paytabs" 
+                                className="h-10 w-auto object-contain"
+                            />
+                        ) : (
+                            <i className={`pf pf-${gateway.id.toLowerCase()} pf-3x`}></i>
+                        )}
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">{gateway.name}</h3>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer" title={isToggleDisabled ? "Setup required to enable" : (gateway.enabled ? "Deactivate" : "Activate")}>
                         <input type="checkbox" checked={gateway.enabled} onChange={(e) => onToggle(e.target.checked)} className="sr-only peer" disabled={isToggleDisabled} />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                     </label>
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{gateway.name}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 min-h-[40px]">{gateway.description}</p>
             </div>
             <div className="mt-6 flex justify-between items-center">
@@ -54,6 +64,7 @@ const PaymentGateways: React.FC = () => {
     const { addLog } = useAuditLog();
     const [gateways, setGateways] = useState<PaymentGateway[]>([]);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -128,13 +139,54 @@ const PaymentGateways: React.FC = () => {
         }
     };
 
+    const handleAddGateway = async (gatewayData: { name: string; description: string }) => {
+        try {
+            const response = await createPaymentGatewayAPI({
+                name: gatewayData.name,
+                description: gatewayData.description,
+                status: 'setup_required',
+                enabled: false,
+                config: {},
+            });
+            
+            // Map API response to frontend format
+            const newGateway: PaymentGateway = {
+                id: response.id.toString(),
+                name: response.name,
+                description: response.description || '',
+                status: PaymentGatewayStatus.SetupRequired,
+                enabled: response.enabled || false,
+                config: response.config || {},
+            };
+            
+            await loadGateways();
+            addLog('audit.log.gatewayAdded', { gatewayName: gatewayData.name });
+            setIsAddModalOpen(false);
+            
+            // Open settings modal for the new gateway
+            setSelectedGateway(newGateway);
+            setIsSettingsModalOpen(true);
+        } catch (error: any) {
+            console.error('Error creating payment gateway:', error);
+            alert(error.message || 'Failed to create payment gateway');
+        }
+    };
+
     return (
         <div>
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('paymentGateways.title')}</h1>
-                <p className="mt-2 text-gray-600 dark:text-gray-400">{t('paymentGateways.subtitle')}</p>
+            <div className="mb-6 flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('paymentGateways.title')}</h1>
+                    <p className="mt-2 text-gray-600 dark:text-gray-400">{t('paymentGateways.subtitle')}</p>
+                </div>
+                <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="flex items-center space-x-2 rtl:space-x-reverse px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium transition-colors"
+                >
+                    <Icon name="plus" className="w-5 h-5" />
+                    <span>{t('paymentGateways.addGateway')}</span>
+                </button>
             </div>
-
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
                 {isLoading ? (
@@ -168,6 +220,12 @@ const PaymentGateways: React.FC = () => {
                 onClose={() => setIsSettingsModalOpen(false)}
                 gateway={selectedGateway}
                 onSave={handleSaveSettings}
+            />
+            
+            <AddGatewayModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                onSave={handleAddGateway}
             />
         </div>
     );

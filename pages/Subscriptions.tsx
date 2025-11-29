@@ -343,16 +343,40 @@ const PaymentsTab: React.FC = () => {
         try {
             const response = await getPaymentsAPI();
             // Map API payment fields to frontend format
-            const apiPayments: Payment[] = (response.results || []).map((payment: any) => ({
-                id: payment.id.toString(), // API field: id
-                companyName: payment.subscription_company_name || 'Unknown', // From subscription relation
-                amount: parseFloat(payment.amount || 0), // API field: amount
-                plan: payment.subscription_plan_name || 'Unknown', // From subscription relation
-                status: payment.payment_status === 'successful' || payment.payment_status === 'Success' 
-                    ? PaymentStatus.Successful 
-                    : PaymentStatus.Failed, // API field: payment_status
-                date: payment.created_at ? new Date(payment.created_at).toISOString().split('T')[0] : '', // API field: created_at
-            }));
+            const apiPayments: Payment[] = (response.results || []).map((payment: any) => {
+                // Backend PaymentStatus enum values: 'completed', 'pending', 'failed', 'canceled'
+                // Map to frontend PaymentStatus enum
+                const paymentStatus = payment.payment_status?.toLowerCase() || '';
+                let status: PaymentStatus;
+                
+                switch (paymentStatus) {
+                    case 'completed':
+                    case 'successful':
+                    case 'success':
+                        status = PaymentStatus.Successful;
+                        break;
+                    case 'pending':
+                        status = PaymentStatus.Pending;
+                        break;
+                    case 'canceled':
+                    case 'cancelled':
+                        status = PaymentStatus.Canceled;
+                        break;
+                    case 'failed':
+                    default:
+                        status = PaymentStatus.Failed;
+                        break;
+                }
+                
+                return {
+                    id: payment.id.toString(), // API field: id
+                    companyName: payment.subscription_company_name || 'Unknown', // From subscription relation
+                    amount: parseFloat(payment.amount || 0), // API field: amount
+                    plan: payment.subscription_plan_name || 'Unknown', // From subscription relation
+                    status: status,
+                    date: payment.created_at ? new Date(payment.created_at).toISOString().split('T')[0] : '', // API field: created_at
+                };
+            });
             setPayments(apiPayments);
         } catch (error) {
             console.error('Error loading payments:', error);
@@ -364,6 +388,8 @@ const PaymentsTab: React.FC = () => {
     const statusColors: { [key in PaymentStatus]: string } = {
         [PaymentStatus.Successful]: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
         [PaymentStatus.Failed]: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+        [PaymentStatus.Pending]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+        [PaymentStatus.Canceled]: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
     };
 
     return (

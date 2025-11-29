@@ -16,11 +16,13 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
   const { t } = useI18n();
   const [formData, setFormData] = useState<PaymentGateway['config'] | null>(null);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [showKeys, setShowKeys] = useState(false);
 
   useEffect(() => {
     if (gateway) {
       setFormData({ ...gateway.config });
       setTestStatus('idle'); // Reset test status when modal opens or gateway changes
+      setShowKeys(false); // Reset visibility state
     }
   }, [gateway, isOpen]);
   
@@ -36,17 +38,36 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     setTestStatus('testing');
     // Simulate API call
     setTimeout(() => {
-      if (formData.publishableKey && formData.secretKey) {
-        setTestStatus('success');
+      const isPaytabs = gateway.name.toLowerCase().includes('paytabs') || gateway.id.toLowerCase().includes('paytabs');
+      if (isPaytabs) {
+        // Paytabs requires Profile ID, Server Key, and Client Key
+        if (formData.profileId && formData.serverKey && formData.clientKey) {
+          setTestStatus('success');
+        } else {
+          setTestStatus('error');
+        }
       } else {
-        setTestStatus('error');
+        // Generic gateways (Stripe, etc.)
+        if (formData.publishableKey && formData.secretKey) {
+          setTestStatus('success');
+        } else {
+          setTestStatus('error');
+        }
       }
     }, 1500);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const hasKeys = formData.publishableKey && formData.secretKey;
+    const isPaytabs = gateway.name.toLowerCase().includes('paytabs') || gateway.id.toLowerCase().includes('paytabs');
+    let hasKeys = false;
+    
+    if (isPaytabs) {
+      hasKeys = !!(formData.profileId && formData.serverKey && formData.clientKey);
+    } else {
+      hasKeys = !!(formData.publishableKey && formData.secretKey);
+    }
+    
     const newStatus = hasKeys ? (gateway.enabled ? PaymentGatewayStatus.Active : PaymentGatewayStatus.Disabled) : PaymentGatewayStatus.SetupRequired;
     const newEnabled = hasKeys ? gateway.enabled : false;
 
@@ -60,6 +81,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
 
   const inputClasses = "w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500";
   const labelClasses = "block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300";
+
+  const isPaytabs = gateway.name.toLowerCase().includes('paytabs') || gateway.id.toLowerCase().includes('paytabs');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={onClose}>
@@ -76,14 +99,75 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
             </div>
             
             <div className="p-8 space-y-6">
-                <div>
-                    <label htmlFor="publishableKey" className={labelClasses}>{t('paymentGateways.modal.publishableKey')}</label>
-                    <input id="publishableKey" name="publishableKey" type="text" value={formData.publishableKey || ''} onChange={handleChange} className={inputClasses}/>
-                </div>
-                <div>
-                    <label htmlFor="secretKey" className={labelClasses}>{t('paymentGateways.modal.secretKey')}</label>
-                    <input id="secretKey" name="secretKey" type="password" value={formData.secretKey || ''} onChange={handleChange} className={inputClasses}/>
-                </div>
+                {isPaytabs ? (
+                    <>
+                        <div>
+                            <label htmlFor="profileId" className={labelClasses}>{t('paymentGateways.modal.profileId')}</label>
+                            <input 
+                                id="profileId" 
+                                name="profileId" 
+                                type="text" 
+                                value={formData.profileId || ''} 
+                                onChange={handleChange} 
+                                className={inputClasses} 
+                                placeholder={t('paymentGateways.modal.profileIdPlaceholder')}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="serverKey" className={labelClasses}>{t('paymentGateways.modal.serverKey')}</label>
+                            <div className="relative">
+                                <input 
+                                    id="serverKey" 
+                                    name="serverKey" 
+                                    type={showKeys ? 'text' : 'password'} 
+                                    value={formData.serverKey || ''} 
+                                    onChange={handleChange} 
+                                    className={inputClasses + ' pr-10 rtl:pl-10 rtl:pr-3'} 
+                                    placeholder={t('paymentGateways.modal.serverKeyPlaceholder')}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowKeys(!showKeys)}
+                                    className="absolute inset-y-0 right-0 rtl:left-0 rtl:right-auto flex items-center pr-3 rtl:pl-3 rtl:pr-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                >
+                                    <Icon name={showKeys ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label htmlFor="clientKey" className={labelClasses}>{t('paymentGateways.modal.clientKey')}</label>
+                            <div className="relative">
+                                <input 
+                                    id="clientKey" 
+                                    name="clientKey" 
+                                    type={showKeys ? 'text' : 'password'} 
+                                    value={formData.clientKey || ''} 
+                                    onChange={handleChange} 
+                                    className={inputClasses + ' pr-10 rtl:pl-10 rtl:pr-3'} 
+                                    placeholder={t('paymentGateways.modal.clientKeyPlaceholder')}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowKeys(!showKeys)}
+                                    className="absolute inset-y-0 right-0 rtl:left-0 rtl:right-auto flex items-center pr-3 rtl:pl-3 rtl:pr-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                >
+                                    <Icon name={showKeys ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div>
+                            <label htmlFor="publishableKey" className={labelClasses}>{t('paymentGateways.modal.publishableKey')}</label>
+                            <input id="publishableKey" name="publishableKey" type="text" value={formData.publishableKey || ''} onChange={handleChange} className={inputClasses}/>
+                        </div>
+                        <div>
+                            <label htmlFor="secretKey" className={labelClasses}>{t('paymentGateways.modal.secretKey')}</label>
+                            <input id="secretKey" name="secretKey" type="password" value={formData.secretKey || ''} onChange={handleChange} className={inputClasses}/>
+                        </div>
+                    </>
+                )}
                  <div>
                     <label className={labelClasses}>{t('paymentGateways.modal.environment')}</label>
                     <div className="flex space-x-4 rtl:space-x-reverse">

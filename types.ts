@@ -43,7 +43,9 @@ export interface Plan {
 
 export enum PaymentStatus {
     Successful = 'Successful',
-    Failed = 'Failed'
+    Failed = 'Failed',
+    Pending = 'Pending',
+    Canceled = 'Canceled'
 }
 
 export interface Payment {
@@ -129,8 +131,13 @@ export interface PaymentGateway {
   status: PaymentGatewayStatus;
   enabled: boolean;
   config: {
+    // Generic fields (for Stripe, etc.)
     publishableKey?: string;
     secretKey?: string;
     environment?: 'test' | 'live';
+    // Paytabs specific fields
+    profileId?: string;
+    serverKey?: string;
+    clientKey?: string;
   };
 }
