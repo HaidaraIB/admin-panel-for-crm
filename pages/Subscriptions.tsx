@@ -732,7 +732,14 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
 
 const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState('plans');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('subscriptions_activeTab') || 'plans';
+  });
+  
+  // Save active tab to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('subscriptions_activeTab', activeTab);
+  }, [activeTab]);
 
   const tabs = [
     { id: 'plans', label: t('subscriptions.tabs.plans') },

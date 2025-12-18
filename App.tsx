@@ -204,21 +204,21 @@ const App: React.FC = () => {
   const renderPage = () => {
     switch (activePage) {
       case 'Dashboard':
-        return <Dashboard key={language} />;
+        return <Dashboard key={`${activePage}-${language}`} />;
       case 'Tenants':
-        return <Tenants key={language} tenants={tenants} setActivePage={setActivePage} onUpdateTenant={handleUpdateTenant} isLoading={isLoadingTenants} onRefresh={loadTenants} />;
+        return <Tenants key={`${activePage}-${language}`} tenants={tenants} setActivePage={setActivePage} onUpdateTenant={handleUpdateTenant} isLoading={isLoadingTenants} onRefresh={loadTenants} />;
       case 'Subscriptions':
-        return <Subscriptions key={language} tenants={tenants} />;
+        return <Subscriptions key={`${activePage}-${language}`} tenants={tenants} />;
       case 'PaymentGateways':
-        return <PaymentGateways key={language} />;
+        return <PaymentGateways key={`${activePage}-${language}`} />;
       case 'Reports':
-        return <Reports key={language} />;
+        return <Reports key={`${activePage}-${language}`} />;
       case 'Communication':
-        return <Communication key={language} />;
+        return <Communication key={`${activePage}-${language}`} />;
       case 'Settings':
-        return <SystemSettings key={language} />;
+        return <SystemSettings key={`${activePage}-${language}`} />;
       default:
-        return <Dashboard key={language} />;
+        return <Dashboard key={`${activePage}-${language}`} />;
     }
   };
 

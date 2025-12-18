@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Icon from './Icon';
 import { Page } from '../types';
 import { useI18n } from '../context/i18n';
+import { useDarkMode } from '../hooks/useDarkMode';
 
 interface SidebarProps {
   activePage: Page;
@@ -15,6 +16,32 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarOpen, setIsSidebarOpen, onLogout, onLogoutClick }) => {
   const { t, language } = useI18n();
+  const [colorTheme] = useDarkMode();
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return document.documentElement.classList.contains('dark');
+  });
+  
+  // Monitor dark mode changes
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+    
+    // Check immediately
+    checkDarkMode();
+    
+    // Watch for class changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, [colorTheme]);
+  
+  // Get logo path based on theme
+  const logoPath = isDarkMode ? '/logo_dark.png' : '/logo.png';
 
   const menuItems: { name: Page; labelKey: string; icon: string }[] = [
     { name: 'Dashboard', labelKey: 'sidebar.dashboard', icon: 'dashboard' },
@@ -46,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <img 
-              src="/logo.png" 
+              src={logoPath} 
               alt="Admin Panel Logo" 
               className="h-10 w-auto object-contain" 
             />

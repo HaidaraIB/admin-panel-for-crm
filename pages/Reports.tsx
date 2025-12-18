@@ -431,7 +431,14 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
 
 const Reports: React.FC = () => {
   const { t, language } = useI18n();
-  const [activeTab, setActiveTab] = useState('revenue');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('reports_activeTab') || 'revenue';
+  });
+  
+  // Save active tab to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('reports_activeTab', activeTab);
+  }, [activeTab]);
   const [filters, setFilters] = useState<ReportsFilters>(reportsFilterDefaults);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 

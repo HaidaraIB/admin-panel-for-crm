@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -18,6 +18,28 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }: LoginPageProps)
   const [isLoading, setIsLoading] = useState(false);
   const { t, language, setLanguage } = useI18n();
   const [colorTheme, toggleTheme] = useDarkMode();
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return document.documentElement.classList.contains('dark');
+  });
+  
+  // Monitor dark mode changes
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+    
+    // Check immediately
+    checkDarkMode();
+    
+    // Watch for class changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, [colorTheme]);
 
   const translateLoginError = (errorMessage: string): string => {
     const lowerMessage = errorMessage.toLowerCase();
@@ -90,7 +112,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }: LoginPageProps)
            <div className="absolute top-0 left-0 w-full h-full bg-primary-700 opacity-20 transform -skew-y-12"></div>
            <div className="relative z-10">
               <img 
-                src="/logo.png" 
+                src="/logo_white.png" 
                 alt="Admin Panel Logo" 
                 className="h-20 w-auto object-contain mb-6" 
               />
@@ -102,7 +124,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }: LoginPageProps)
         <div className="w-full p-8 md:w-1/2">
             <div className="flex flex-col items-center mb-6">
               <img 
-                src="/logo.png" 
+                src="/logo_purple.png" 
                 alt="Admin Panel Logo" 
                 className="h-12 w-auto object-contain mb-4 md:hidden" 
               />

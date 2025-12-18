@@ -371,7 +371,14 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
 
 const Communication: React.FC = () => {
     const { t } = useI18n();
-    const [activeTab, setActiveTab] = useState('new');
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem('communication_activeTab') || 'new';
+    });
+    
+    // Save active tab to localStorage when it changes
+    useEffect(() => {
+        localStorage.setItem('communication_activeTab', activeTab);
+    }, [activeTab]);
     const [history, setHistory] = useState<Broadcast[]>([]);
     const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
