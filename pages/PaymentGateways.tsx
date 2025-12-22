@@ -7,7 +7,7 @@ import GatewaySettingsModal from '../components/GatewaySettingsModal';
 import AddGatewayModal from '../components/AddGatewayModal';
 import { useAuditLog } from '../context/AuditLogContext';
 import GatewayCardSkeleton from '../components/GatewayCardSkeleton';
-import { getPaymentGatewaysAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI, createPaymentGatewayAPI } from '../services/api';
+import { getPaymentGatewaysAPI, getPaymentGatewayAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI, createPaymentGatewayAPI } from '../services/api';
 
 const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onToggle: (enabled: boolean) => void }> = ({ gateway, onManage, onToggle }) => {
     const { t } = useI18n();
@@ -20,22 +20,29 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
     
     const currentStatus = statusMap[gateway.status];
     const isToggleDisabled = gateway.status === PaymentGatewayStatus.SetupRequired;
-    const isPaytabs = gateway.name.toLowerCase().includes('paytabs') || gateway.id.toLowerCase().includes('paytabs');
+    const gatewayNameLower = gateway.name.toLowerCase();
+    const isPaytabs = gatewayNameLower.includes('paytabs');
+    const isStripe = gatewayNameLower.includes('stripe');
+    const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
+
+    const getGatewayLogo = () => {
+        if (isPaytabs) {
+            return <img src="/paytabs_logo.png" alt="PayTabs" className="h-10 w-auto object-contain" />;
+        } else if (isStripe) {
+            return <img src="/stripe_logo.png" alt="Stripe" className="h-10 w-auto object-contain" />;
+        } else if (isZaincash) {
+            return <img src="/zain_cash_logo.png" alt="Zain Cash" className="h-10 w-auto object-contain" />;
+        } else {
+            return <i className={`pf pf-${gateway.id.toLowerCase()} pf-3x`}></i>;
+        }
+    };
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border dark:border-gray-700 flex flex-col justify-between transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <div>
                 <div className="flex justify-between items-start mb-4">
                     <div className="h-10 flex items-center gap-3 rtl:gap-3 text-gray-700 dark:text-gray-300">
-                        {isPaytabs ? (
-                            <img 
-                                src="/paytabs_logo.png" 
-                                alt="Paytabs" 
-                                className="h-10 w-auto object-contain"
-                            />
-                        ) : (
-                            <i className={`pf pf-${gateway.id.toLowerCase()} pf-3x`}></i>
-                        )}
+                        {getGatewayLogo()}
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white">{gateway.name}</h3>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer" title={isToggleDisabled ? "Setup required to enable" : (gateway.enabled ? "Deactivate" : "Activate")}>
@@ -95,9 +102,29 @@ const PaymentGateways: React.FC = () => {
         }
     };
 
-    const handleManage = (gateway: PaymentGateway) => {
-        setSelectedGateway(gateway);
-        setIsSettingsModalOpen(true);
+    const handleManage = async (gateway: PaymentGateway) => {
+        try {
+            // Reload the gateway from API to get latest data including config
+            const freshGateway = await getPaymentGatewayAPI(parseInt(gateway.id));
+            // Map API response to frontend format
+            const mappedGateway: PaymentGateway = {
+                id: freshGateway.id.toString(),
+                name: freshGateway.name,
+                description: freshGateway.description || '',
+                status: freshGateway.status === 'active' ? PaymentGatewayStatus.Active
+                    : freshGateway.status === 'disabled' ? PaymentGatewayStatus.Disabled
+                    : PaymentGatewayStatus.SetupRequired,
+                enabled: freshGateway.enabled || false,
+                config: freshGateway.config || {},
+            };
+            setSelectedGateway(mappedGateway);
+            setIsSettingsModalOpen(true);
+        } catch (error) {
+            console.error('Error loading gateway details:', error);
+            // Fallback to using the gateway from list if API call fails
+            setSelectedGateway(gateway);
+            setIsSettingsModalOpen(true);
+        }
     };
 
     const handleToggle = async (gatewayId: string, enabled: boolean) => {

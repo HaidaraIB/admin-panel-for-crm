@@ -139,5 +139,9 @@ export interface PaymentGateway {
     profileId?: string;
     serverKey?: string;
     clientKey?: string;
+    // Zain Cash specific fields
+    merchantId?: string;
+    merchantSecret?: string;
+    msisdn?: string;
   };
 }

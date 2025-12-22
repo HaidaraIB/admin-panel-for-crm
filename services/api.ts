@@ -599,6 +599,17 @@ export const togglePaymentGatewayAPI = async (id: number) => {
   });
 };
 
+/**
+ * Test payment gateway connection
+ * POST /api/payment-gateways/{id}/test_connection/
+ */
+export const testPaymentGatewayConnectionAPI = async (id: number, config: any) => {
+  return apiRequest<{ success: boolean; message: string }>(`/payment-gateways/${id}/test_connection/`, {
+    method: 'POST',
+    body: JSON.stringify({ config }),
+  });
+};
+
 // ==================== System Settings APIs ====================
 
 /**

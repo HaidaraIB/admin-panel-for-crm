@@ -41,17 +41,38 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
 
           <div className="p-8 space-y-6">
             <div>
-              <label htmlFor="gatewayName" className={labelClasses}>{t('paymentGateways.addModal.name')}</label>
-              <input 
-                id="gatewayName" 
-                type="text" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                className={inputClasses} 
-                placeholder={t('paymentGateways.addModal.namePlaceholder')}
-                required 
-              />
-              <p className="text-xs text-gray-500 mt-1">{t('paymentGateways.addModal.nameHint')}</p>
+              <label className={labelClasses}>{t('paymentGateways.addModal.name')}</label>
+              <div className="grid grid-cols-1 gap-3 mt-2">
+                {[
+                  { value: 'PayTabs', logo: '/paytabs_logo.png', label: 'PayTabs' },
+                  { value: 'Stripe', logo: '/stripe_logo.png', label: 'Stripe' },
+                  { value: 'Zain Cash', logo: '/zain_cash_logo.png', label: 'Zain Cash' }
+                ].map((gateway) => (
+                  <button
+                    key={gateway.value}
+                    type="button"
+                    onClick={() => setName(gateway.value)}
+                    className={`flex items-center gap-3 rtl:gap-3 p-4 border-2 rounded-lg transition-all ${
+                      name === gateway.value
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-700 bg-white dark:bg-gray-700'
+                    }`}
+                  >
+                    <img 
+                      src={gateway.logo} 
+                      alt={gateway.label}
+                      className="h-8 w-auto object-contain"
+                    />
+                    <span className="text-lg font-medium text-gray-900 dark:text-white">{gateway.label}</span>
+                    {name === gateway.value && (
+                      <Icon name="check" className="w-5 h-5 text-primary-600 ml-auto rtl:ml-0 rtl:mr-auto" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              {!name && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('paymentGateways.addModal.selectGateway')}</p>
+              )}
             </div>
             <div>
               <label htmlFor="gatewayDescription" className={labelClasses}>{t('paymentGateways.addModal.description')}</label>
