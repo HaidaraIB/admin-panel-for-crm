@@ -5,7 +5,7 @@ import { SystemBackup } from '../types';
 import { useI18n } from '../context/i18n';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuditLog } from '../context/AuditLogContext';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemSettingsAPI, updateSystemSettingsAPI } from '../services/api';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -28,20 +28,118 @@ const persistSchedule = (schedule: BackupSchedule) => {
 const GeneralSettings: React.FC = () => {
     const { t } = useI18n();
     const { addLog } = useAuditLog();
-    
-    const handleSaveChanges = () => {
-        // In a real app, this would save all settings.
-        // For now, it just logs the action.
-        addLog('audit.log.generalSettingsSaved');
-        alert('Changes saved (simulation)!');
-    }
+    const [usdToIqdRate, setUsdToIqdRate] = useState<number>(1300);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    useEffect(() => {
+        loadSettings();
+    }, []);
+
+    useEffect(() => {
+        if (!feedback) return;
+        const timer = setTimeout(() => setFeedback(null), 6000);
+        return () => clearTimeout(timer);
+    }, [feedback]);
+
+    const loadSettings = async () => {
+        setIsLoading(true);
+        try {
+            const settings = await getSystemSettingsAPI();
+            if (settings && settings.usd_to_iqd_rate) {
+                setUsdToIqdRate(parseFloat(settings.usd_to_iqd_rate));
+            }
+        } catch (error) {
+            console.error('Failed to load settings', error);
+            setFeedback({ type: 'error', message: t('settings.general.loadError') || 'Failed to load settings' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            await updateSystemSettingsAPI({ usd_to_iqd_rate: usdToIqdRate });
+            addLog('audit.log.generalSettingsSaved');
+            setFeedback({ type: 'success', message: t('settings.general.saveSuccess') || 'Settings saved successfully!' });
+        } catch (error: any) {
+            console.error('Failed to save settings', error);
+            setFeedback({ type: 'error', message: error.message || t('settings.general.saveError') || 'Failed to save settings' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const renderFeedback = () => {
+        if (!feedback) return null;
+        const isSuccess = feedback.type === 'success';
+        return (
+            <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
+                isSuccess
+                    ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
+                    : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
+            }`}>
+                <Icon name={isSuccess ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span>{feedback.message}</span>
+            </div>
+        );
+    };
 
     return(
     <div className="space-y-6">
         <h3 className="text-xl font-semibold">{t('settings.general.title')}</h3>
-        <div className="space-y-4">
-            <button onClick={handleSaveChanges} className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm font-medium">{t('settings.general.save')}</button>
-        </div>
+        
+        {renderFeedback()}
+
+        {isLoading ? (
+            <div className="flex justify-center py-8">
+                <LoadingSpinner />
+            </div>
+        ) : (
+            <div className="space-y-6">
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.general.currency.title') || 'Currency Settings'}</h4>
+                    
+                    <div>
+                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                            {t('settings.general.currency.usdToIqdRate') || 'USD to IQD Rate'}
+                        </label>
+                        <input
+                            type="number"
+                            step="100"
+                            min="0"
+                            value={usdToIqdRate}
+                            onChange={(e) => setUsdToIqdRate(parseFloat(e.target.value) || 0)}
+                            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="1300.00"
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {t('settings.general.currency.usdToIqdRateHelp') || 'The conversion rate from USD to Iraqi Dinar (IQD)'}
+                        </p>
+                    </div>
+                </div>
+
+                <div>
+                    <button 
+                        onClick={handleSaveChanges} 
+                        disabled={isSaving}
+                        className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                    >
+                        {isSaving ? (
+                            <>
+                                <LoadingSpinner />
+                                <span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span>
+                            </>
+                        ) : (
+                            t('settings.general.save') || 'Save Changes'
+                        )}
+                    </button>
+                </div>
+            </div>
+        )}
     </div>
 )};
 
@@ -441,9 +539,10 @@ const AuditLog: React.FC = () => {
 const SystemSettings: React.FC = () => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
-    const [activeSetting, setActiveSetting] = useState('security');
+    const [activeSetting, setActiveSetting] = useState('general');
 
     const settingsMenu = [
+        { id: 'general', label: t('settings.menu.general') || 'General' },
         { id: 'security', label: t('settings.menu.security') },
         { id: 'audit', label: t('settings.menu.audit') },
     ];

@@ -666,3 +666,34 @@ export const getSystemAuditLogsAPI = async (params?: { page?: number }) => {
   return apiRequest<{ results: any[]; count: number }>(`/settings/audit-logs/${query ? `?${query}` : ''}`);
 };
 
+// ==================== System Settings APIs ====================
+
+/**
+ * Get system settings
+ * GET /api/settings/system/
+ */
+export const getSystemSettingsAPI = async () => {
+  try {
+    // Try to get the singleton instance (ID 1)
+    const response = await apiRequest<any>('/settings/system/1/');
+    return response;
+  } catch (error: any) {
+    // If 404, settings don't exist yet, return default
+    if (error.message && error.message.includes('404')) {
+      return { id: 1, usd_to_iqd_rate: 1300.00 };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Update system settings
+ * PUT /api/settings/system/1/
+ */
+export const updateSystemSettingsAPI = async (settingsData: { usd_to_iqd_rate: number }) => {
+  return apiRequest<any>('/settings/system/1/', {
+    method: 'PUT',
+    body: JSON.stringify(settingsData),
+  });
+};
+
