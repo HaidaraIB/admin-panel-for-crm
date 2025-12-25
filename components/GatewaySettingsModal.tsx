@@ -75,6 +75,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       const gatewayNameLower = gateway.name.toLowerCase();
       const isPaytabs = gatewayNameLower.includes('paytabs');
       const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
+      const isStripe = gatewayNameLower.includes('stripe');
       
       if (isPaytabs) {
         if (!formData.profileId || !formData.serverKey || !formData.clientKey) {
@@ -86,16 +87,21 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
           setTestStatus('error');
           return;
         }
+      } else if (isStripe) {
+        if (!formData.secretKey) {
+          setTestStatus('error');
+          return;
+        }
       } else {
-        // Generic gateways (Stripe, etc.)
+        // Generic gateways
         if (!formData.publishableKey || !formData.secretKey) {
           setTestStatus('error');
           return;
         }
       }
       
-      // For Zain Cash, make actual API test call
-      if (isZaincash) {
+      // For Zain Cash and Stripe, make actual API test call
+      if (isZaincash || isStripe) {
         try {
           const result = await testPaymentGatewayConnectionAPI(parseInt(gateway.id), formData);
           setTestMessage(result.message || '');
@@ -113,9 +119,9 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
           setTestPassed(false);
         }
       } else {
-        // For other gateways, just validate fields are present
-        // (Could add actual API tests for PayTabs and Stripe later)
-        setTestMessage('Credentials validated');
+        // For other gateways (PayTabs, etc.), just validate fields are present
+        // (Could add actual API tests for PayTabs later)
+        setTestMessage('Credentials validated (no API test available for this gateway)');
         setTestStatus('success');
         setTestPassed(true);
       }
@@ -388,14 +394,24 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                         {testStatus === 'testing' ? <LoadingSpinner /> : t('paymentGateways.modal.testConnection')}
                      </button>
                      {testStatus === 'success' && (
-                       <p className="text-sm text-green-600 dark:text-green-400 mt-2 text-center">
-                         ✅ {testMessage || t('paymentGateways.modal.connectionSuccess')}
-                       </p>
+                       <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                         <div className="flex items-start space-x-2 rtl:space-x-reverse">
+                           <span className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5">✅</span>
+                           <p className="text-sm text-green-700 dark:text-green-300 break-words overflow-wrap-anywhere">
+                             {testMessage || t('paymentGateways.modal.connectionSuccess')}
+                           </p>
+                         </div>
+                       </div>
                      )}
                      {testStatus === 'error' && (
-                       <p className="text-sm text-red-600 dark:text-red-400 mt-2 text-center">
-                         ❌ {testMessage || t('paymentGateways.modal.connectionError')}
-                       </p>
+                       <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md max-h-32 overflow-y-auto">
+                         <div className="flex items-start space-x-2 rtl:space-x-reverse">
+                           <span className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5">❌</span>
+                           <p className="text-sm text-red-700 dark:text-red-300 break-words overflow-wrap-anywhere leading-relaxed">
+                             {testMessage || t('paymentGateways.modal.connectionError')}
+                           </p>
+                         </div>
+                       </div>
                      )}
                 </div>
             </div>

@@ -46,7 +46,16 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white">{gateway.name}</h3>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer" title={isToggleDisabled ? "Setup required to enable" : (gateway.enabled ? "Deactivate" : "Activate")}>
-                        <input type="checkbox" checked={gateway.enabled} onChange={(e) => onToggle(e.target.checked)} className="sr-only peer" disabled={isToggleDisabled} />
+                        <input 
+                            type="checkbox" 
+                            checked={gateway.enabled} 
+                            onChange={(e) => {
+                                e.preventDefault();
+                                onToggle(!gateway.enabled);
+                            }} 
+                            className="sr-only peer" 
+                            disabled={isToggleDisabled} 
+                        />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                     </label>
                 </div>
@@ -74,6 +83,7 @@ const PaymentGateways: React.FC = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [confirmToggle, setConfirmToggle] = useState<{ gatewayId: string; enabled: boolean; gatewayName: string } | null>(null);
 
     useEffect(() => {
         loadGateways();
@@ -127,10 +137,44 @@ const PaymentGateways: React.FC = () => {
         }
     };
 
-    const handleToggle = async (gatewayId: string, enabled: boolean) => {
+    const handleToggle = (gatewayId: string, enabled: boolean) => {
+        const gateway = gateways.find(gw => gw.id === gatewayId);
+        if (!gateway) return;
+
+        // Show confirmation for both activation and deactivation
+        setConfirmToggle({ gatewayId, enabled, gatewayName: gateway.name });
+    };
+
+    const performToggle = async (gatewayId: string, enabled: boolean) => {
         try {
             const gateway = gateways.find(gw => gw.id === gatewayId);
             if (!gateway) return;
+
+            const gatewayNameLower = gateway.name.toLowerCase();
+            const isPaytabs = gatewayNameLower.includes('paytabs');
+            const isStripe = gatewayNameLower.includes('stripe');
+
+            // If enabling PayTabs or Stripe, disable the other one
+            if (enabled && (isPaytabs || isStripe)) {
+                const otherGatewayType = isPaytabs ? 'stripe' : 'paytabs';
+                const otherGateway = gateways.find(gw => {
+                    const nameLower = gw.name.toLowerCase();
+                    return nameLower.includes(otherGatewayType) && gw.enabled;
+                });
+
+                if (otherGateway) {
+                    // Disable the other gateway first
+                    await updatePaymentGatewayAPI(parseInt(otherGateway.id), {
+                        name: otherGateway.name,
+                        description: otherGateway.description,
+                        status: otherGateway.status === PaymentGatewayStatus.Active ? 'active'
+                            : otherGateway.status === PaymentGatewayStatus.Disabled ? 'disabled'
+                            : 'setup_required',
+                        enabled: false,
+                        config: otherGateway.config,
+                    });
+                }
+            }
 
             // Use API endpoint to toggle
             await togglePaymentGatewayAPI(parseInt(gatewayId));
@@ -141,11 +185,39 @@ const PaymentGateways: React.FC = () => {
         } catch (error: any) {
             console.error('Error toggling gateway:', error);
             alert(error.message || 'Failed to toggle gateway');
+        } finally {
+            setConfirmToggle(null);
         }
     };
     
     const handleSaveSettings = async (updatedGateway: PaymentGateway) => {
         try {
+            const gatewayNameLower = updatedGateway.name.toLowerCase();
+            const isPaytabs = gatewayNameLower.includes('paytabs');
+            const isStripe = gatewayNameLower.includes('stripe');
+
+            // If enabling PayTabs or Stripe, disable the other one
+            if (updatedGateway.enabled && (isPaytabs || isStripe)) {
+                const otherGatewayType = isPaytabs ? 'stripe' : 'paytabs';
+                const otherGateway = gateways.find(gw => {
+                    const nameLower = gw.name.toLowerCase();
+                    return nameLower.includes(otherGatewayType) && gw.id !== updatedGateway.id && gw.enabled;
+                });
+
+                if (otherGateway) {
+                    // Disable the other gateway first
+                    await updatePaymentGatewayAPI(parseInt(otherGateway.id), {
+                        name: otherGateway.name,
+                        description: otherGateway.description,
+                        status: otherGateway.status === PaymentGatewayStatus.Active ? 'active'
+                            : otherGateway.status === PaymentGatewayStatus.Disabled ? 'disabled'
+                            : 'setup_required',
+                        enabled: false,
+                        config: otherGateway.config,
+                    });
+                }
+            }
+
             // Use API field names: name, description, status, enabled, config
             await updatePaymentGatewayAPI(parseInt(updatedGateway.id), {
                 name: updatedGateway.name, // API field: name
@@ -254,6 +326,70 @@ const PaymentGateways: React.FC = () => {
                 onClose={() => setIsAddModalOpen(false)}
                 onSave={handleAddGateway}
             />
+
+            {/* Confirmation Modal for Gateway Activation */}
+            {confirmToggle && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={() => setConfirmToggle(null)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md transform transition-all" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                                {confirmToggle.enabled 
+                                    ? t('paymentGateways.confirmActivation') 
+                                    : t('paymentGateways.confirmDeactivation')}
+                            </h3>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-gray-700 dark:text-gray-300 mb-4">
+                                {confirmToggle.enabled
+                                    ? t('paymentGateways.confirmActivationMessage').replace('{gatewayName}', confirmToggle.gatewayName)
+                                    : t('paymentGateways.confirmDeactivationMessage').replace('{gatewayName}', confirmToggle.gatewayName)}
+                            </p>
+                            {confirmToggle.enabled && (() => {
+                                const gatewayNameLower = confirmToggle.gatewayName.toLowerCase();
+                                const isPaytabs = gatewayNameLower.includes('paytabs');
+                                const isStripe = gatewayNameLower.includes('stripe');
+                                if (isPaytabs || isStripe) {
+                                    const otherGatewayType = isPaytabs ? 'stripe' : 'paytabs';
+                                    const otherGateway = gateways.find(gw => {
+                                        const nameLower = gw.name.toLowerCase();
+                                        return nameLower.includes(otherGatewayType) && gw.enabled;
+                                    });
+                                    if (otherGateway) {
+                                        return (
+                                            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                                                <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                                                    {t('paymentGateways.willDisableOther').replace('{otherGatewayName}', otherGateway.name)}
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+                                }
+                                return null;
+                            })()}
+                        </div>
+                        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
+                            <button
+                                type="button"
+                                onClick={() => setConfirmToggle(null)}
+                                className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (confirmToggle) {
+                                        performToggle(confirmToggle.gatewayId, confirmToggle.enabled);
+                                    }
+                                }}
+                                className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium"
+                            >
+                                {t('common.confirm') || 'تأكيد'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
