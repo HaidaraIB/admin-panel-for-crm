@@ -45,7 +45,25 @@ async function apiRequest<T>(
     const errorMessage = errorData.detail || errorData.message || errorData.error || 
                         JSON.stringify(errorData) || `API Error: ${response.status} ${response.statusText}`;
     console.error('API Error:', response.status, errorData);
-    throw new Error(errorMessage);
+    
+    // Create error object with fields for field-specific errors
+    const error: any = new Error(errorMessage);
+    
+    // Check for field-specific errors (Django REST Framework format)
+    if (errorData && typeof errorData === 'object') {
+      const fieldErrors: Record<string, any> = {};
+      Object.keys(errorData).forEach(key => {
+        if (key !== 'detail' && key !== 'message' && key !== 'error') {
+          fieldErrors[key] = errorData[key];
+        }
+      });
+      
+      if (Object.keys(fieldErrors).length > 0) {
+        error.fields = fieldErrors;
+      }
+    }
+    
+    throw error;
   }
 
   // Handle empty responses

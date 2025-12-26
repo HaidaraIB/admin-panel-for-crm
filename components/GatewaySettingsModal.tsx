@@ -23,6 +23,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
   const [showClientKey, setShowClientKey] = useState(false);
   const [showMerchantSecret, setShowMerchantSecret] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (gateway && isOpen) {
@@ -37,6 +38,9 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         clientKey: config.clientKey || '',
         publishableKey: config.publishableKey || '',
         secretKey: config.secretKey || '',
+        terminalId: config.terminalId || config.terminalId || '',
+        username: config.username || '',
+        password: config.password || '',
         environment: config.environment || 'test',
       });
       setTestStatus('idle'); // Reset test status when modal opens or gateway changes
@@ -47,6 +51,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       setShowClientKey(false);
       setShowMerchantSecret(false);
       setShowSecretKey(false);
+      setShowPassword(false);
     }
   }, [gateway, isOpen]);
   
@@ -61,7 +66,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     }
     setTestStatus('idle'); // Reset test status on any input change
     // Only reset testPassed if a credential field changed
-    const credentialFields = ['merchantId', 'merchantSecret', 'profileId', 'serverKey', 'clientKey', 'publishableKey', 'secretKey'];
+    const credentialFields = ['merchantId', 'merchantSecret', 'profileId', 'serverKey', 'clientKey', 'publishableKey', 'secretKey', 'terminalId', 'username', 'password'];
     if (credentialFields.includes(name)) {
       setTestPassed(false); // Reset test passed flag when credentials change
     }
@@ -76,6 +81,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       const isPaytabs = gatewayNameLower.includes('paytabs');
       const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
       const isStripe = gatewayNameLower.includes('stripe');
+      const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
       
       if (isPaytabs) {
         if (!formData.profileId || !formData.serverKey || !formData.clientKey) {
@@ -92,6 +98,11 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
           setTestStatus('error');
           return;
         }
+      } else if (isQicard) {
+        if (!formData.terminalId || !formData.username || !formData.password) {
+          setTestStatus('error');
+          return;
+        }
       } else {
         // Generic gateways
         if (!formData.publishableKey || !formData.secretKey) {
@@ -100,8 +111,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         }
       }
       
-      // For Zain Cash and Stripe, make actual API test call
-      if (isZaincash || isStripe) {
+      // For Zain Cash, Stripe, and QiCard, make actual API test call
+      if (isZaincash || isStripe || isQicard) {
         try {
           const result = await testPaymentGatewayConnectionAPI(parseInt(gateway.id), formData);
           setTestMessage(result.message || '');
@@ -146,6 +157,12 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       const merchantId = formData?.merchantId ? String(formData.merchantId).trim() : '';
       const merchantSecret = formData?.merchantSecret ? String(formData.merchantSecret).trim() : '';
       hasKeys = !!(merchantId && merchantSecret);
+    } else if (isQicard) {
+      // Check if terminalId, username, and password exist and are not empty strings
+      const terminalId = formData?.terminalId ? String(formData.terminalId).trim() : '';
+      const username = formData?.username ? String(formData.username).trim() : '';
+      const password = formData?.password ? String(formData.password).trim() : '';
+      hasKeys = !!(terminalId && username && password);
     } else {
       hasKeys = !!(formData?.publishableKey && formData?.secretKey);
     }
@@ -169,9 +186,30 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       newEnabled = gateway.enabled || false;
     }
 
+    // Merge formData with existing config to preserve any fields not in the form
+    // This ensures we don't lose any existing configuration
+    const existingConfig = gateway.config || {};
+    const mergedConfig = {
+      ...existingConfig,  // Start with existing config
+      ...formData,        // Override with form data (only non-empty values)
+    };
+    
+    // Remove empty string values to keep config clean
+    const cleanedConfig: any = {};
+    Object.keys(mergedConfig).forEach(key => {
+      const value = mergedConfig[key];
+      // Keep the value if it's not an empty string
+      if (value !== '' && value !== null && value !== undefined) {
+        cleanedConfig[key] = value;
+      } else if (existingConfig[key] !== undefined && existingConfig[key] !== '') {
+        // Keep existing value if form value is empty but existing value exists
+        cleanedConfig[key] = existingConfig[key];
+      }
+    });
+
     onSave({
       ...gateway,
-      config: formData,
+      config: cleanedConfig,
       status: newStatus,
       enabled: newEnabled,
     });
@@ -184,6 +222,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
   const isPaytabs = gatewayNameLower.includes('paytabs');
   const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
   const isStripe = gatewayNameLower.includes('stripe');
+  const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
 
   const getGatewayLogo = () => {
     if (isPaytabs) {
@@ -192,6 +231,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       return <img src="/stripe_logo.png" alt="Stripe" className="h-8 w-auto object-contain" />;
     } else if (isZaincash) {
       return <img src="/zain_cash_logo.png" alt="Zain Cash" className="h-8 w-auto object-contain" />;
+    } else if (isQicard) {
+      return <img src="/q_card_logo.svg" alt="QiCard" className="h-8 w-auto object-contain" />;
     } else {
       return <i className={`pf pf-${gateway.id.toLowerCase()} pf-lg`}></i>;
     }
@@ -322,6 +363,57 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                 autoComplete="off"
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('paymentGateways.modal.msisdnHint')}</p>
+                        </div>
+                    </>
+                ) : isQicard ? (
+                    <>
+                        <div>
+                            <label htmlFor="terminalId" className={labelClasses}>{t('paymentGateways.modal.terminalId')}</label>
+                            <input 
+                                id="terminalId" 
+                                name="terminalId" 
+                                type="text" 
+                                value={formData.terminalId || ''} 
+                                onChange={handleChange} 
+                                className={inputClasses} 
+                                placeholder={t('paymentGateways.modal.terminalIdPlaceholder')}
+                                autoComplete="off"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="username" className={labelClasses}>{t('paymentGateways.modal.username')}</label>
+                            <input 
+                                id="username" 
+                                name="username" 
+                                type="text" 
+                                value={formData.username || ''} 
+                                onChange={handleChange} 
+                                className={inputClasses} 
+                                placeholder={t('paymentGateways.modal.usernamePlaceholder')}
+                                autoComplete="off"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="password" className={labelClasses}>{t('paymentGateways.modal.password')}</label>
+                            <div className="relative">
+                                <input 
+                                    id="password" 
+                                    name="password" 
+                                    type={showPassword ? 'text' : 'password'} 
+                                    value={formData.password || ''} 
+                                    onChange={handleChange} 
+                                    className={inputClasses + ' pr-10 rtl:pl-10 rtl:pr-3'} 
+                                    placeholder={t('paymentGateways.modal.passwordPlaceholder')}
+                                    autoComplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 rtl:left-0 rtl:right-auto flex items-center pr-3 rtl:pl-3 rtl:pr-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                >
+                                    <Icon name={showPassword ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
                     </>
                 ) : (
