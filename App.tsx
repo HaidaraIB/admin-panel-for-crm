@@ -233,11 +233,9 @@ const App: React.FC = () => {
         setActivePage={setActivePage} 
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
-        onLogout={handleLogout}
-        onLogoutClick={() => setIsLogoutConfirmOpen(true)}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header setIsSidebarOpen={setIsSidebarOpen} />
+        <Header setIsSidebarOpen={setIsSidebarOpen} onLogoutClick={() => setIsLogoutConfirmOpen(true)} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6 relative">
           {isPageLoading && <FullPageLoader />}
           <div className={isPageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}>

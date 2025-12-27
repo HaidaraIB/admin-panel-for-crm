@@ -7,9 +7,10 @@ import ResetPasswordModal from './ResetPasswordModal';
 
 interface HeaderProps {
   setIsSidebarOpen: (isOpen: boolean | ((isOpen: boolean) => boolean)) => void;
+  onLogoutClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ setIsSidebarOpen }) => {
+const Header: React.FC<HeaderProps> = ({ setIsSidebarOpen, onLogoutClick }) => {
   const [colorTheme, toggleTheme] = useDarkMode();
   const { language, setLanguage, t } = useI18n();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -84,6 +85,19 @@ const Header: React.FC<HeaderProps> = ({ setIsSidebarOpen }) => {
                       >
                           {t('header.changePassword')}
                       </a>
+                      {onLogoutClick && (
+                          <a
+                              href="#"
+                              onClick={(e) => {
+                                  e.preventDefault();
+                                  onLogoutClick();
+                                  setIsDropdownOpen(false);
+                              }}
+                              className="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                              {t('sidebar.logout')}
+                          </a>
+                      )}
                   </div>
               )}
             </div>

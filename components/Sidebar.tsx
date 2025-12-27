@@ -10,11 +10,9 @@ interface SidebarProps {
   setActivePage: (page: Page) => void;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
-  onLogout: () => void;
-  onLogoutClick: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarOpen, setIsSidebarOpen, onLogout, onLogoutClick }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarOpen, setIsSidebarOpen }) => {
   const { t, language } = useI18n();
   const [colorTheme] = useDarkMode();
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -127,17 +125,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
           >
             <Icon name="settings" className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
             {t('sidebar.settings')}
-          </a>
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onLogoutClick();
-            }}
-            className="flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            <Icon name="logout" className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
-            {t('sidebar.logout')}
           </a>
         </div>
       </div>
