@@ -3,7 +3,21 @@
  * Connects to Django REST Framework backend
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://haidaraib.pythonanywhere.com/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_KEY = import.meta.env.VITE_API_KEY || '';
+
+/**
+ * Helper function to add API Key to headers
+ */
+function getHeadersWithApiKey(customHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...customHeaders,
+  };
+  if (API_KEY) {
+    headers['X-API-Key'] = API_KEY;
+  }
+  return headers;
+}
 
 /**
  * Helper function to make API requests with JWT authentication
@@ -15,13 +29,19 @@ async function apiRequest<T>(
 ): Promise<T> {
   const token = localStorage.getItem('accessToken');
   
+  // Build headers with API Key and authentication
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...(API_KEY && { 'X-API-Key': API_KEY }),
+    ...Object.fromEntries(
+      Object.entries(options.headers || {}).map(([k, v]) => [k, String(v)])
+    ),
+  };
+  
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
+    headers,
   });
 
   // Handle 401 Unauthorized - try to refresh token
@@ -88,9 +108,9 @@ async function apiRequest<T>(
 export const loginAPI = async (username: string, password: string) => {
   const response = await fetch(`${BASE_URL}/auth/login/`, {
     method: 'POST',
-    headers: {
+    headers: getHeadersWithApiKey({
       'Content-Type': 'application/json',
-    },
+    }),
     body: JSON.stringify({ username, password }),
   });
 
@@ -125,9 +145,9 @@ export const refreshTokenAPI = async () => {
 
   const response = await fetch(`${BASE_URL}/auth/refresh/`, {
     method: 'POST',
-    headers: {
+    headers: getHeadersWithApiKey({
       'Content-Type': 'application/json',
-    },
+    }),
     body: JSON.stringify({ refresh: refreshToken }),
   });
 

@@ -7,6 +7,18 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuditLog } from '../context/AuditLogContext';
 import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemSettingsAPI, updateSystemSettingsAPI } from '../services/api';
 
+// Helper to get headers with API Key (same as in api.ts)
+const getHeadersWithApiKey = (customHeaders: Record<string, string> = {}): Record<string, string> => {
+  const API_KEY = import.meta.env.VITE_API_KEY || '';
+  const headers: Record<string, string> = {
+    ...customHeaders,
+  };
+  if (API_KEY) {
+    headers['X-API-Key'] = API_KEY;
+  }
+  return headers;
+};
+
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
 const BACKUP_SCHEDULE_STORAGE_KEY = 'systemSettings.backupSchedule';
@@ -260,7 +272,9 @@ const SecurityBackups: React.FC = () => {
         try {
             const token = localStorage.getItem('accessToken');
             const response = await fetch(backup.download_url, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                headers: getHeadersWithApiKey(
+                    token ? { Authorization: `Bearer ${token}` } : {}
+                ),
             });
             if (!response.ok) {
                 throw new Error('Download failed');
