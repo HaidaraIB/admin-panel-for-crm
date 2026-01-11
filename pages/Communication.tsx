@@ -71,17 +71,35 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
             });
             return;
         }
+        
+        // Validate that scheduled time is in the future
+        const scheduledAt = `${scheduledDate}T${scheduledTime}:00`;
+        const scheduledDateTime = new Date(scheduledAt);
+        const now = new Date();
+        
+        if (scheduledDateTime <= now) {
+            setAlertDialog({
+                isOpen: true,
+                title: t('communication.alerts.validation.title'),
+                message: t('communication.alerts.schedulePastError') || 'يجب أن يكون وقت الجدولة في المستقبل',
+                type: 'warning',
+            });
+            return;
+        }
+        
         setIsSubmitting(true);
         try {
-            const scheduledAt = `${scheduledDate}T${scheduledTime}:00`;
+            // Create broadcast with pending status (will be set to pending by schedule endpoint)
             const broadcast = await createBroadcastAPI({
                 subject,
                 content,
                 target,
-                status: 'scheduled',
-                scheduled_at: scheduledAt,
+                status: 'pending',
             });
+            
+            // Schedule the broadcast
             await scheduleBroadcastAPI(broadcast.id, scheduledAt);
+            
             setAlertDialog({
                 isOpen: true,
                 title: t('communication.alerts.scheduleSuccess.title'),
@@ -243,12 +261,16 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
     const statusLabels: Record<Broadcast['status'], string> = {
         sent: t('communication.history.status.sent'),
         scheduled: t('communication.history.status.scheduled'),
+        pending: t('communication.history.status.pending'),
+        failed: t('communication.history.status.failed'),
         draft: t('communication.history.status.draft'),
     };
 
     const statusColors: Record<Broadcast['status'], string> = {
         sent: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
         scheduled: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+        pending: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
         draft: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
     };
 
