@@ -13,6 +13,7 @@ const mapBroadcastFromApi = (broadcast: any): Broadcast => ({
     subject: broadcast.subject,
     content: broadcast.content || '',
     target: (broadcast.target || 'all') as Broadcast['target'],
+    broadcast_type: (broadcast.broadcast_type || 'email') as Broadcast['broadcast_type'],
     status: (broadcast.status || 'draft') as Broadcast['status'],
     createdAt: broadcast.created_at,
     scheduledAt: broadcast.scheduled_at,
@@ -28,6 +29,7 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
     const [subject, setSubject] = useState('');
     const [content, setContent] = useState('');
     const [target, setTarget] = useState('all');
+    const [broadcastType, setBroadcastType] = useState<'email' | 'push'>('email');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
@@ -94,6 +96,7 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
                 subject,
                 content,
                 target,
+                broadcast_type: broadcastType,
                 status: 'pending',
             });
             
@@ -140,6 +143,7 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
                 subject,
                 content,
                 target,
+                broadcast_type: broadcastType,
             });
             await sendBroadcastAPI(broadcast.id);
             setAlertDialog({
@@ -168,6 +172,17 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-semibold mb-4">{t('communication.new.title')}</h2>
         <div className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium mb-1">{t('communication.new.broadcastType') || 'نوع البث'}</label>
+                <select 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    value={broadcastType}
+                    onChange={(e) => setBroadcastType(e.target.value as 'email' | 'push')}
+                >
+                    <option value="email">{t('communication.new.broadcastType.email') || 'بريد إلكتروني'}</option>
+                    <option value="push">{t('communication.new.broadcastType.push') || 'إشعار Push'}</option>
+                </select>
+            </div>
             <div>
                 <label className="block text-sm font-medium mb-1">{t('communication.new.to')}</label>
                 <select 
@@ -339,6 +354,7 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
                             <th className="px-6 py-3">{t('communication.history.table.subject')}</th>
+                            <th className="px-6 py-3">{t('communication.history.table.type') || 'النوع'}</th>
                             <th className="px-6 py-3">{t('communication.history.table.target')}</th>
                             <th className="px-6 py-3">{t('communication.history.table.date')}</th>
                             <th className="px-6 py-3">{t('communication.history.table.status')}</th>
@@ -348,13 +364,13 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                     <tbody>
                         {isLoading ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                     {t('communication.history.loading')}
                                 </td>
                             </tr>
                         ) : history.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                     {t('communication.history.empty')}
                                 </td>
                             </tr>
@@ -362,6 +378,18 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                             history.map(item => (
                                 <tr key={item.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                                     <td className="px-6 py-4">{item.subject}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                            item.broadcast_type === 'push' 
+                                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                        }`}>
+                                            {item.broadcast_type === 'push' 
+                                                ? (t('communication.new.broadcastType.push') || 'إشعار Push')
+                                                : (t('communication.new.broadcastType.email') || 'بريد إلكتروني')
+                                            }
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4">{targetLabels[item.target] || item.target}</td>
                                     <td className="px-6 py-4">{getDisplayDate(item)}</td>
                                     <td className="px-6 py-4">

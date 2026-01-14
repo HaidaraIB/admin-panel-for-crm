@@ -73,12 +73,14 @@ export interface Invoice {
 
 export type BroadcastTarget = 'all' | `plan_${number}`;
 export type BroadcastStatus = 'sent' | 'scheduled' | 'pending' | 'failed' | 'draft';
+export type BroadcastType = 'email' | 'push';
 
 export interface Broadcast {
     id: number;
     subject: string;
     content: string;
     target: BroadcastTarget;
+    broadcast_type: BroadcastType;
     status: BroadcastStatus;
     createdAt: string;
     scheduledAt?: string | null;
