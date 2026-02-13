@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import Icon from '../components/Icon';
 import Skeleton from '../components/Skeleton';
 import { useI18n } from '../context/i18n';
+import { useUser } from '../context/UserContext';
 import { getCompaniesAPI, getSubscriptionsAPI, getPaymentsAPI, getPlansAPI } from '../services/api';
 
 type DateRange = {
@@ -110,6 +111,14 @@ const KpiCard: React.FC<KpiCardProps> = ({ title, value, change, changeType, ico
 
 const Dashboard: React.FC = () => {
   const { t, language } = useI18n();
+  const { hasPermission, isSuperAdmin } = useUser();
+
+  // Check permissions for different sections
+  const canViewDashboard = isSuperAdmin() || hasPermission('can_view_dashboard');
+  const canViewTenants = isSuperAdmin() || hasPermission('can_manage_tenants') || hasPermission('can_view_dashboard');
+  const canViewSubscriptions = isSuperAdmin() || hasPermission('can_manage_subscriptions') || hasPermission('can_view_dashboard');
+  const canViewPayments = isSuperAdmin() || hasPermission('can_manage_payment_gateways') || hasPermission('can_view_reports') || hasPermission('can_view_dashboard');
+  const canViewPlans = isSuperAdmin() || hasPermission('can_manage_subscriptions') || hasPermission('can_view_dashboard');
 
   const [dateRange, setDateRange] = useState<DateRange>(() => getDefaultDateRange());
   const [tempRange, setTempRange] = useState<DateRange>(() => getDefaultDateRange());
@@ -251,12 +260,21 @@ const Dashboard: React.FC = () => {
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const [companiesRes, subscriptionsRes, paymentsRes, plansRes] = await Promise.all([
-        getCompaniesAPI(),
-        getSubscriptionsAPI(),
-        getPaymentsAPI(),
-        getPlansAPI()
-      ]);
+      // Only fetch data if user has permission
+      const promises: Promise<any>[] = [];
+      if (canViewTenants) promises.push(getCompaniesAPI());
+      else promises.push(Promise.resolve({ results: [] }));
+      
+      if (canViewSubscriptions) promises.push(getSubscriptionsAPI());
+      else promises.push(Promise.resolve({ results: [] }));
+      
+      if (canViewPayments) promises.push(getPaymentsAPI());
+      else promises.push(Promise.resolve({ results: [] }));
+      
+      if (canViewPlans) promises.push(getPlansAPI());
+      else promises.push(Promise.resolve({ results: [] }));
+
+      const [companiesRes, subscriptionsRes, paymentsRes, plansRes] = await Promise.all(promises);
 
       const companies = companiesRes.results || [];
       const subscriptions = subscriptionsRes.results || [];
@@ -462,7 +480,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, t, language]);
+  }, [dateRange, t, language, hasPermission, isSuperAdmin]);
 
   useEffect(() => {
     loadDashboardData();
@@ -543,13 +561,16 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {kpiData.map((item, index) => <KpiCard key={index} {...item} loading={loading} />)}
-      </div>
+      {canViewDashboard && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {kpiData.map((item, index) => <KpiCard key={index} {...item} loading={loading} />)}
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
-        <div className="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-4">{t('dashboard.revenueGrowth.title')}</h3>
+      {(canViewPayments || canViewSubscriptions) && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
+          <div className="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-4">{t('dashboard.revenueGrowth.title')}</h3>
           {loading ? <Skeleton className="w-full h-[350px]" /> : (
             <ResponsiveContainer width="100%" height={350}>
               <LineChart
@@ -579,17 +600,18 @@ const Dashboard: React.FC = () => {
               </LineChart>
             </ResponsiveContainer>
           )}
-        </div>
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-          <div className="p-6 pb-4">
-            <h3 className="text-lg font-semibold">{t('dashboard.planDistribution.title')}</h3>
           </div>
+          {canViewPlans && (
+            <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+              <div className="p-6 pb-4">
+                <h3 className="text-lg font-semibold">{t('dashboard.planDistribution.title')}</h3>
+              </div>
           <div className="px-6 pb-6">
             {loading ? (
               <Skeleton className="w-full h-[350px]" />
             ) : (
-              <div className="w-full h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full min-h-[350px]">
+                <ResponsiveContainer width="100%" height={350}>
                   <BarChart
                     data={planData}
                     barCategoryGap={16}
@@ -622,12 +644,15 @@ const Dashboard: React.FC = () => {
               </div>
             )}
           </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentCompanies.title')}</h3>
+        {canViewTenants && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentCompanies.title')}</h3>
           {loading ? <ListSkeleton /> : (
             <ul className="divide-y divide-gray-200 dark:divide-gray-700">
               {recentCompanies.map((company, index) => (
@@ -638,9 +663,11 @@ const Dashboard: React.FC = () => {
               ))}
             </ul>
           )}
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentPayments.title')}</h3>
+          </div>
+        )}
+        {canViewPayments && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentPayments.title')}</h3>
           {loading ? <ListSkeleton /> : (
             <ul className="divide-y divide-gray-200 dark:divide-gray-700">
               {recentPayments.map((payment, index) => (
@@ -651,7 +678,8 @@ const Dashboard: React.FC = () => {
               ))}
             </ul>
           )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

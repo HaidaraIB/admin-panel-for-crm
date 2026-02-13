@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -7,10 +8,11 @@ import Icon from '../components/Icon';
 import { loginAPI, getCurrentUserAPI } from '../services/api';
 
 interface LoginPageProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess?: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }: LoginPageProps) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -79,8 +81,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }: LoginPageProps)
       localStorage.setItem('isAuthenticated', 'true');
       sessionStorage.setItem('isAuthenticated', 'true');
       
-      // Call success callback
-      onLoginSuccess();
+      // Call success callback if provided
+      if (onLoginSuccess) {
+        onLoginSuccess();
+      }
+      
+      // Navigate to dashboard
+      navigate('/dashboard');
     } catch (error: any) {
       const errorMessage = error.message || '';
       setError(translateLoginError(errorMessage));

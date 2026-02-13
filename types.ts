@@ -94,6 +94,30 @@ export interface AdminUser {
     role: string;
 }
 
+export interface LimitedAdmin {
+    id: number;
+    user: {
+        id: number;
+        username: string;
+        email: string;
+        first_name: string;
+        last_name: string;
+    };
+    is_active: boolean;
+    created_by?: number;
+    created_by_username?: string;
+    created_at: string;
+    updated_at: string;
+    can_view_dashboard: boolean;
+    can_manage_tenants: boolean;
+    can_manage_subscriptions: boolean;
+    can_manage_payment_gateways: boolean;
+    can_view_reports: boolean;
+    can_manage_communication: boolean;
+    can_manage_settings: boolean;
+    can_manage_limited_admins: boolean;
+}
+
 export interface AuditLog {
     id: number;
     user: string;

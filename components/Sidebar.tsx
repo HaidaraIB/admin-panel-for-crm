@@ -1,23 +1,40 @@
-
 import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import Icon from './Icon';
-import { Page } from '../types';
 import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { useUser } from '../context/UserContext';
+
+type PermissionKey = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_settings';
 
 interface SidebarProps {
-  activePage: Page;
-  setActivePage: (page: Page) => void;
+  activePage: string;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarOpen, setIsSidebarOpen }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSidebarOpen }) => {
   const { t, language } = useI18n();
+  const { hasPermission, isSuperAdmin } = useUser();
   const [colorTheme] = useDarkMode();
+  const location = useLocation();
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark');
   });
+
+  const canAccess = (permission: PermissionKey) => isSuperAdmin() || hasPermission(permission);
+
+  const allMenuItems: { path: string; labelKey: string; icon: string; permission: PermissionKey }[] = [
+    { path: '/dashboard', labelKey: 'sidebar.dashboard', icon: 'dashboard', permission: 'can_view_dashboard' },
+    { path: '/tenants', labelKey: 'sidebar.tenants', icon: 'tenants', permission: 'can_manage_tenants' },
+    { path: '/subscriptions', labelKey: 'sidebar.subscriptions', icon: 'subscriptions', permission: 'can_manage_subscriptions' },
+    { path: '/payment-gateways', labelKey: 'sidebar.paymentGateways', icon: 'cash', permission: 'can_manage_payment_gateways' },
+    { path: '/reports', labelKey: 'sidebar.reports', icon: 'reports', permission: 'can_view_reports' },
+    { path: '/communication', labelKey: 'sidebar.communication', icon: 'communication', permission: 'can_manage_communication' },
+  ];
+
+  const menuItems = allMenuItems.filter((item) => canAccess(item.permission));
+  const canAccessSettings = canAccess('can_manage_settings');
   
   // Monitor dark mode changes
   useEffect(() => {
@@ -40,15 +57,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
   
   // Get logo path based on theme
   const logoPath = isDarkMode ? '/logo_dark.png' : '/logo.png';
-
-  const menuItems: { name: Page; labelKey: string; icon: string }[] = [
-    { name: 'Dashboard', labelKey: 'sidebar.dashboard', icon: 'dashboard' },
-    { name: 'Tenants', labelKey: 'sidebar.tenants', icon: 'tenants' },
-    { name: 'Subscriptions', labelKey: 'sidebar.subscriptions', icon: 'subscriptions' },
-    { name: 'PaymentGateways', labelKey: 'sidebar.paymentGateways', icon: 'cash' },
-    { name: 'Reports', labelKey: 'sidebar.reports', icon: 'reports' },
-    { name: 'Communication', labelKey: 'sidebar.communication', icon: 'communication' },
-  ];
 
   const sidebarBaseClasses = "flex-shrink-0 w-64 bg-white dark:bg-gray-900 flex flex-col fixed md:relative inset-y-0 z-40 transform transition-transform duration-300 ease-in-out";
   const languageSpecificClasses = language === 'ar' 
@@ -86,47 +94,43 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
           {menuItems.map((item) => {
-            const isActive = activePage === item.name;
-
             return (
-              <a
-                key={item.name}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActivePage(item.name);
-                  setIsSidebarOpen(false);
-                }}
-                className={`flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 ${
-                  isActive
-                    ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 ${
+                    isActive
+                      ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`
+                }
               >
                 <Icon name={item.icon} className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
                 {t(item.labelKey)}
-              </a>
+              </NavLink>
             );
           })}
         </nav>
-        <div className="px-4 py-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setActivePage('Settings');
-              setIsSidebarOpen(false);
-            }}
-            className={`flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 ${
-              activePage === 'Settings'
-                ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-          >
-            <Icon name="settings" className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
-            {t('sidebar.settings')}
-          </a>
-        </div>
+        {canAccessSettings && (
+          <div className="px-4 py-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            <NavLink
+              to="/settings"
+              onClick={() => setIsSidebarOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 ${
+                  isActive
+                    ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`
+              }
+            >
+              <Icon name="settings" className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
+              {t('sidebar.settings')}
+            </NavLink>
+          </div>
+        )}
       </div>
     </>
   );

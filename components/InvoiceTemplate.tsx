@@ -50,14 +50,14 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({ invoice, logoUrl, t }
             <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0 uppercase tracking-wide">{t('invoice.item')}</th>
-                  <th scope="col" className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 uppercase tracking-wide">{t('invoice.price')}</th>
+                  <th scope="col" className="py-3.5 pl-4 pr-3 text-center text-sm font-semibold text-gray-900 sm:pl-0 uppercase tracking-wide">{t('invoice.item')}</th>
+                  <th scope="col" className="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 uppercase tracking-wide">{t('invoice.price')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 <tr>
-                  <td className="py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">Subscription Plan - Monthly</td>
-                  <td className="px-3 py-4 text-sm text-gray-500 text-right">${invoice.amount.toFixed(2)}</td>
+                  <td className="py-4 pl-4 pr-3 text-sm font-medium text-center text-gray-900 sm:pl-0">Subscription Plan - Monthly</td>
+                  <td className="px-3 py-4 text-sm text-center text-gray-500">${invoice.amount.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>

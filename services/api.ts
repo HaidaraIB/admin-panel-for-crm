@@ -725,13 +725,96 @@ export const getSystemSettingsAPI = async () => {
 };
 
 /**
- * Update system settings
- * PUT /api/settings/system/1/
+ * Update system settings (partial update supported)
+ * PATCH /api/settings/system/1/ for partial, PUT for full
  */
-export const updateSystemSettingsAPI = async (settingsData: { usd_to_iqd_rate: number }) => {
+export const updateSystemSettingsAPI = async (settingsData: {
+  usd_to_iqd_rate?: number;
+  backup_schedule?: 'daily' | 'weekly' | 'monthly';
+}) => {
   return apiRequest<any>('/settings/system/1/', {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(settingsData),
+  });
+};
+
+// ==================== Limited Admins APIs ====================
+
+/**
+ * Get all limited admins
+ * GET /api/limited-admins/
+ */
+export const getLimitedAdminsAPI = async (params?: { search?: string; ordering?: string }) => {
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.ordering) queryParams.append('ordering', params.ordering);
+  
+  const query = queryParams.toString();
+  return apiRequest<{ results: any[]; count: number }>(`/limited-admins/${query ? `?${query}` : ''}`);
+};
+
+/**
+ * Get limited admin by ID
+ * GET /api/limited-admins/{id}/
+ */
+export const getLimitedAdminAPI = async (id: number) => {
+  return apiRequest<any>(`/limited-admins/${id}/`);
+};
+
+/**
+ * Create limited admin
+ * POST /api/limited-admins/
+ */
+export const createLimitedAdminAPI = async (adminData: {
+  username: string;
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  is_active?: boolean;
+  can_view_dashboard?: boolean;
+  can_manage_tenants?: boolean;
+  can_manage_subscriptions?: boolean;
+  can_manage_payment_gateways?: boolean;
+  can_view_reports?: boolean;
+  can_manage_communication?: boolean;
+  can_manage_settings?: boolean;
+  can_manage_limited_admins?: boolean;
+}) => {
+  return apiRequest<any>('/limited-admins/', {
+    method: 'POST',
+    body: JSON.stringify(adminData),
+  });
+};
+
+/**
+ * Update limited admin
+ * PUT /api/limited-admins/{id}/
+ */
+export const updateLimitedAdminAPI = async (id: number, adminData: any) => {
+  return apiRequest<any>(`/limited-admins/${id}/`, {
+    method: 'PUT',
+    body: JSON.stringify(adminData),
+  });
+};
+
+/**
+ * Delete limited admin
+ * DELETE /api/limited-admins/{id}/
+ */
+export const deleteLimitedAdminAPI = async (id: number) => {
+  return apiRequest<void>(`/limited-admins/${id}/`, {
+    method: 'DELETE',
+  });
+};
+
+/**
+ * Toggle limited admin active status
+ * POST /api/limited-admins/{id}/toggle_active/
+ */
+export const toggleLimitedAdminActiveAPI = async (id: number) => {
+  return apiRequest<any>(`/limited-admins/${id}/toggle_active/`, {
+    method: 'POST',
   });
 };
 

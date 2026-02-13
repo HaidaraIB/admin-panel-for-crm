@@ -1,20 +1,24 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../context/i18n';
+import { useAlert } from '../context/AlertContext';
+import { translateApiMessage } from '../utils/translateApiError';
 import Icon from '../components/Icon';
-import { Tenant, TenantStatus, Page } from '../types';
+import { Tenant, TenantStatus } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { registerCompanyAPI, getCompaniesAPI } from '../services/api';
 
 interface AddTenantProps {
   onSave: (tenant: Omit<Tenant, 'id'>) => void;
-  setActivePage: (page: Page) => void;
 }
 
 const takenSubdomains = ['techsolutions', 'innovate', 'datasys', 'creative', 'future'];
 
-const AddTenant: React.FC<AddTenantProps> = ({ onSave, setActivePage }) => {
+const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
+  const navigate = useNavigate();
   const { t } = useI18n();
+  const { showAlert } = useAlert();
   
   const [companyName, setCompanyName] = useState('');
   const [adminName, setAdminName] = useState('');
@@ -74,11 +78,11 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave, setActivePage }) => {
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (subdomainStatus !== 'valid') {
-          alert(t('tenants.add.subdomainTaken'));
+          showAlert(t('tenants.add.subdomainTaken'), { variant: 'warning' });
           return;
       }
       if (!companyName || !adminName || !adminEmail || !password) {
-          alert('Please fill in all required fields');
+          showAlert(t('validation.requiredFields'), { variant: 'warning' });
           return;
       }
 
@@ -114,7 +118,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave, setActivePage }) => {
           onSave(newTenant);
       } catch (error: any) {
           console.error('Error creating tenant:', error);
-          alert(error.message || 'Failed to create tenant. Please check if subdomain is available.');
+          showAlert(translateApiMessage(error.message, t) || t('errors.createTenantSubdomain'), { variant: 'error' });
       } finally {
           setIsSubmitting(false);
       }
@@ -177,7 +181,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave, setActivePage }) => {
             </div>
           
             <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
-                <button type="button" onClick={() => setActivePage('Tenants')} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
+                <button type="button" onClick={() => navigate('/tenants')} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
                 {t('common.cancel')}
                 </button>
                 <button type="submit" disabled={subdomainStatus !== 'valid' || isSubmitting} className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium flex items-center disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-not-allowed">

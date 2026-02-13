@@ -353,12 +353,12 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                 <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
-                            <th className="px-6 py-3">{t('communication.history.table.subject')}</th>
-                            <th className="px-6 py-3">{t('communication.history.table.type') || 'النوع'}</th>
-                            <th className="px-6 py-3">{t('communication.history.table.target')}</th>
-                            <th className="px-6 py-3">{t('communication.history.table.date')}</th>
-                            <th className="px-6 py-3">{t('communication.history.table.status')}</th>
-                            <th className="px-6 py-3">{t('communication.history.table.actions')}</th>
+                            <th className="px-6 py-3 text-center">{t('communication.history.table.subject')}</th>
+                            <th className="px-6 py-3 text-center">{t('communication.history.table.type') || 'النوع'}</th>
+                            <th className="px-6 py-3 text-center">{t('communication.history.table.target')}</th>
+                            <th className="px-6 py-3 text-center">{t('communication.history.table.date')}</th>
+                            <th className="px-6 py-3 text-center">{t('communication.history.table.status')}</th>
+                            <th className="px-6 py-3 text-center">{t('communication.history.table.actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -377,8 +377,8 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                         ) : (
                             history.map(item => (
                                 <tr key={item.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                    <td className="px-6 py-4">{item.subject}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 text-center">{item.subject}</td>
+                                    <td className="px-6 py-4 text-center">
                                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                                             item.broadcast_type === 'push' 
                                                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
@@ -390,14 +390,14 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                                             }
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">{targetLabels[item.target] || item.target}</td>
-                                    <td className="px-6 py-4">{getDisplayDate(item)}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 text-center">{targetLabels[item.target] || item.target}</td>
+                                    <td className="px-6 py-4 text-center">{getDisplayDate(item)}</td>
+                                    <td className="px-6 py-4 text-center">
                                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[item.status] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>
                                             {statusLabels[item.status] || item.status}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-2">
                                             <button onClick={() => onView(item)} className="p-1 text-blue-600 hover:text-blue-800" title={t('communication.history.actions.view')}>
                                                 <Icon name="view" className="w-5 h-5" />

@@ -1,11 +1,16 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Icon from '../components/Icon';
-import { SystemBackup } from '../types';
+import { SystemBackup, LimitedAdmin } from '../types';
 import { useI18n } from '../context/i18n';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuditLog } from '../context/AuditLogContext';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemSettingsAPI, updateSystemSettingsAPI } from '../services/api';
+import { useAlert } from '../context/AlertContext';
+import { useUser } from '../context/UserContext';
+import { translateApiMessage } from '../utils/translateApiError';
+import LimitedAdminModal from '../components/LimitedAdminModal';
+import AlertDialog from '../components/AlertDialog';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemSettingsAPI, updateSystemSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI } from '../services/api';
 
 // Helper to get headers with API Key (same as in api.ts)
 const getHeadersWithApiKey = (customHeaders: Record<string, string> = {}): Record<string, string> => {
@@ -166,7 +171,24 @@ const SecurityBackups: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [restoringId, setRestoringId] = useState<string | null>(null);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [scheduleSaving, setScheduleSaving] = useState(false);
     const PAGE_SIZE = 20;
+
+    useEffect(() => {
+        const loadSchedule = async () => {
+            try {
+                const settings = await getSystemSettingsAPI();
+                const schedule = settings?.backup_schedule;
+                if (schedule === 'daily' || schedule === 'weekly' || schedule === 'monthly') {
+                    setBackupSchedule(schedule);
+                    persistSchedule(schedule);
+                }
+            } catch {
+                // Keep localStorage fallback
+            }
+        };
+        loadSchedule();
+    }, []);
 
     const loadBackups = useCallback(async (page = 1) => {
         setIsLoading(true);
@@ -244,11 +266,22 @@ const SecurityBackups: React.FC = () => {
         }
     };
 
-    const handleScheduleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleScheduleChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
         const newSchedule = event.target.value as BackupSchedule;
-        setBackupSchedule(newSchedule);
-        addLog('audit.log.backupScheduleUpdated', { schedule: t(`settings.security.schedule.${newSchedule}`) });
-        setFeedback({ type: 'success', message: t('settings.security.scheduleSaved') });
+        setScheduleSaving(true);
+        setFeedback(null);
+        try {
+            await updateSystemSettingsAPI({ backup_schedule: newSchedule });
+            setBackupSchedule(newSchedule);
+            persistSchedule(newSchedule);
+            addLog('audit.log.backupScheduleUpdated', { schedule: t(`settings.security.schedule.${newSchedule}`) });
+            setFeedback({ type: 'success', message: t('settings.security.scheduleSaved') || 'Backup schedule updated.' });
+        } catch (error: any) {
+            console.error('Failed to update backup schedule', error);
+            setFeedback({ type: 'error', message: translateApiMessage(error?.message, t) || t('settings.security.scheduleSaveError') || 'Failed to save backup schedule.' });
+        } finally {
+            setScheduleSaving(false);
+        }
     };
 
     const handleDeleteBackup = async (backup: SystemBackup) => {
@@ -342,7 +375,8 @@ const SecurityBackups: React.FC = () => {
                 <select
                     value={backupSchedule}
                     onChange={handleScheduleChange}
-                    className="max-w-lg w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    disabled={scheduleSaving}
+                    className="max-w-lg w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                     {scheduleOptions.map(option => (
                         <option key={option.value} value={option.value}>
@@ -385,10 +419,10 @@ const SecurityBackups: React.FC = () => {
                     <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-600 dark:text-gray-300`}>
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800 dark:text-gray-300">
                             <tr>
-                                <th scope="col" className="px-6 py-3">{t('settings.security.table.id')}</th>
-                                <th scope="col" className="px-6 py-3">{t('settings.security.table.date')}</th>
-                                <th scope="col" className="px-6 py-3">{t('settings.security.table.status')}</th>
-                                <th scope="col" className="px-6 py-3">{t('settings.security.table.initiator')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('settings.security.table.id')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('settings.security.table.date')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('settings.security.table.status')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('settings.security.table.initiator')}</th>
                                 <th scope="col" className="px-6 py-3 text-center">{t('settings.security.table.actions')}</th>
                             </tr>
                         </thead>
@@ -410,15 +444,15 @@ const SecurityBackups: React.FC = () => {
                                     const statusKey = backup.status.replace('-', '_');
                                     return (
                                         <tr key={backup.id} className="bg-white border-b dark:bg-gray-900/30 dark:border-gray-800 hover:bg-primary-50/50 dark:hover:bg-primary-900/20 transition-colors">
-                                            <td className="px-6 py-4 font-mono text-xs break-all">{backup.id}</td>
-                                            <td className="px-6 py-4">{new Date(backup.created_at).toLocaleString(language)}</td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 text-center font-mono text-xs break-all">{backup.id}</td>
+                                            <td className="px-6 py-4 text-center">{new Date(backup.created_at).toLocaleString(language)}</td>
+                                            <td className="px-6 py-4 text-center">
                                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[statusKey] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'}`}>
                                                     {t(`settings.security.status.${statusKey}`)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">{t(`settings.security.initiator.${backup.initiator.toLowerCase()}`)}</td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 text-center">{t(`settings.security.initiator.${backup.initiator.toLowerCase()}`)}</td>
+                                            <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center space-x-2 rtl:space-x-reverse">
                                                     <button
                                                         onClick={() => handleDownloadBackup(backup)}
@@ -518,17 +552,17 @@ const AuditLog: React.FC = () => {
             <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                 <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
-                        <th className="px-6 py-3">{t('settings.audit.table.user')}</th>
-                        <th className="px-6 py-3">{t('settings.audit.table.action')}</th>
-                        <th className="px-6 py-3">{t('settings.audit.table.timestamp')}</th>
+                        <th className="px-6 py-3 text-center">{t('settings.audit.table.user')}</th>
+                        <th className="px-6 py-3 text-center">{t('settings.audit.table.action')}</th>
+                        <th className="px-6 py-3 text-center">{t('settings.audit.table.timestamp')}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {paginatedLogs.map(log => (
                         <tr key={log.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                            <td className="px-6 py-4 font-mono">{log.user}</td>
-                            <td className="px-6 py-4">{formatAction(log.action)}</td>
-                            <td className="px-6 py-4">{new Date(log.timestamp).toLocaleString(language)}</td>
+                            <td className="px-6 py-4 text-center font-mono">{log.user}</td>
+                            <td className="px-6 py-4 text-center">{formatAction(log.action)}</td>
+                            <td className="px-6 py-4 text-center">{new Date(log.timestamp).toLocaleString(language)}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -550,21 +584,297 @@ const AuditLog: React.FC = () => {
     </div>
 )};
 
+const LimitedAdmins: React.FC = () => {
+    const { t, language } = useI18n();
+    const { addLog } = useAuditLog();
+    const { showAlert } = useAlert();
+    const [limitedAdmins, setLimitedAdmins] = useState<LimitedAdmin[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingAdmin, setEditingAdmin] = useState<LimitedAdmin | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [adminToDelete, setAdminToDelete] = useState<LimitedAdmin | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    useEffect(() => {
+        loadLimitedAdmins();
+    }, []);
+
+    const loadLimitedAdmins = async () => {
+        setIsLoading(true);
+        try {
+            const response = await getLimitedAdminsAPI();
+            setLimitedAdmins(response.results || []);
+        } catch (error) {
+            console.error('Error loading limited admins:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleOpenModal = (admin?: LimitedAdmin) => {
+        setEditingAdmin(admin || null);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingAdmin(null);
+    };
+
+    const handleSave = async (adminData: any) => {
+        setIsSaving(true);
+        try {
+            if (editingAdmin) {
+                const updatePayload = { ...adminData, user_id: editingAdmin.user.id };
+                await updateLimitedAdminAPI(editingAdmin.id, updatePayload);
+                addLog('audit.log.limitedAdminUpdated', { adminName: `${adminData.first_name} ${adminData.last_name}` });
+            } else {
+                await createLimitedAdminAPI(adminData);
+                addLog('audit.log.limitedAdminCreated', { adminName: `${adminData.first_name} ${adminData.last_name}` });
+            }
+            await loadLimitedAdmins();
+            handleCloseModal();
+        } catch (error: any) {
+            console.error('Error saving limited admin:', error);
+            showAlert(translateApiMessage(error.message, t) || t('errors.saveLimitedAdmin'), { variant: 'error' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleToggleActive = async (admin: LimitedAdmin) => {
+        try {
+            await toggleLimitedAdminActiveAPI(admin.id);
+            addLog('audit.log.limitedAdminToggled', { adminName: `${admin.user.first_name} ${admin.user.last_name}` });
+            await loadLimitedAdmins();
+        } catch (error: any) {
+            console.error('Error toggling limited admin:', error);
+            showAlert(translateApiMessage(error.message, t) || t('errors.toggleLimitedAdmin'), { variant: 'error' });
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!adminToDelete) return;
+        setIsDeleting(true);
+        try {
+            await deleteLimitedAdminAPI(adminToDelete.id);
+            addLog('audit.log.limitedAdminDeleted', { adminName: `${adminToDelete.user.first_name} ${adminToDelete.user.last_name}` });
+            await loadLimitedAdmins();
+            setIsDeleteDialogOpen(false);
+            setAdminToDelete(null);
+        } catch (error: any) {
+            console.error('Error deleting limited admin:', error);
+            showAlert(translateApiMessage(error.message, t) || t('errors.deleteLimitedAdmin'), { variant: 'error' });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    {t('limitedAdmins.title') || 'Limited Admins'}
+                </h3>
+                <button
+                    onClick={() => handleOpenModal()}
+                    className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center gap-2"
+                >
+                    <Icon name="plus" className="w-5 h-5" />
+                    {t('limitedAdmins.add') || 'Add Limited Admin'}
+                </button>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+                <div className="overflow-x-auto">
+                    <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                            <tr>
+                                <th className="px-6 py-3 text-center">{t('limitedAdmins.table.name') || 'Name'}</th>
+                                <th className="px-6 py-3 text-center">{t('limitedAdmins.table.email') || 'Email'}</th>
+                                <th className="px-6 py-3 text-center">{t('limitedAdmins.table.status') || 'Status'}</th>
+                                <th className="px-6 py-3 text-center">{t('limitedAdmins.table.permissions') || 'Permissions'}</th>
+                                <th className="px-6 py-3 text-center">{t('limitedAdmins.table.actions') || 'Actions'}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                        {t('common.loading') || 'Loading...'}
+                                    </td>
+                                </tr>
+                            ) : limitedAdmins.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                        {t('limitedAdmins.noAdmins') || 'No limited admins found'}
+                                    </td>
+                                </tr>
+                            ) : (
+                                limitedAdmins.map((admin) => (
+                                    <tr key={admin.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                        <td className="px-6 py-4 text-center font-medium text-gray-900 dark:text-white">
+                                            {admin.user.first_name} {admin.user.last_name}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">{admin.user.email}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                                                admin.is_active
+                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                            }`}>
+                                                {admin.is_active ? t('status.Active') : t('status.Deactivated')}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex flex-wrap gap-1 justify-center">
+                                                {admin.can_view_dashboard && (
+                                                    <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 rounded">
+                                                        {t('limitedAdmins.permissions.viewDashboard') || 'Dashboard'}
+                                                    </span>
+                                                )}
+                                                {admin.can_manage_tenants && (
+                                                    <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 rounded">
+                                                        {t('limitedAdmins.permissions.manageTenants') || 'Tenants'}
+                                                    </span>
+                                                )}
+                                                {admin.can_manage_subscriptions && (
+                                                    <span className="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 rounded">
+                                                        {t('limitedAdmins.permissions.manageSubscriptions') || 'Subscriptions'}
+                                                    </span>
+                                                )}
+                                                {Object.values({
+                                                    can_view_dashboard: admin.can_view_dashboard,
+                                                    can_manage_tenants: admin.can_manage_tenants,
+                                                    can_manage_subscriptions: admin.can_manage_subscriptions,
+                                                    can_manage_payment_gateways: admin.can_manage_payment_gateways,
+                                                    can_view_reports: admin.can_view_reports,
+                                                    can_manage_communication: admin.can_manage_communication,
+                                                    can_manage_settings: admin.can_manage_settings,
+                                                    can_manage_limited_admins: admin.can_manage_limited_admins,
+                                                }).filter(Boolean).length === 0 && (
+                                                    <span className="text-xs text-gray-400">{t('limitedAdmins.noPermissions') || 'No permissions'}</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => handleOpenModal(admin)}
+                                                    className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                    title={t('limitedAdmins.actions.edit') || 'Edit'}
+                                                >
+                                                    <Icon name="edit" className="w-5 h-5" />
+                                                </button>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={admin.is_active}
+                                                        onChange={() => handleToggleActive(admin)}
+                                                        className="sr-only peer"
+                                                    />
+                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
+                                                </label>
+                                                <button
+                                                    onClick={() => {
+                                                        setAdminToDelete(admin);
+                                                        setIsDeleteDialogOpen(true);
+                                                    }}
+                                                    className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                    title={t('limitedAdmins.actions.delete') || 'Delete'}
+                                                >
+                                                    <Icon name="trash" className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <LimitedAdminModal
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                onSave={handleSave}
+                editingAdmin={editingAdmin}
+                isLoading={isSaving}
+            />
+
+            <AlertDialog
+                isOpen={isDeleteDialogOpen}
+                onClose={() => {
+                    setIsDeleteDialogOpen(false);
+                    setAdminToDelete(null);
+                }}
+                title={t('limitedAdmins.deleteConfirm') || 'Delete Limited Admin'}
+                message={t('limitedAdmins.deleteConfirmMessage') || `Are you sure you want to delete ${adminToDelete?.user.first_name} ${adminToDelete?.user.last_name}?`}
+                type="warning"
+                confirmText={isDeleting ? t('common.deleting') || 'Deleting...' : t('common.delete') || 'Delete'}
+                onConfirm={isDeleting ? undefined : handleDelete}
+                showCancel
+                cancelText={t('common.cancel')}
+            />
+        </div>
+    );
+};
+
 const SystemSettings: React.FC = () => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
-    const [activeSetting, setActiveSetting] = useState('general');
+    const { isSuperAdmin, hasPermission } = useUser();
+
+    // Limited Admins tab only for super admin or users with can_manage_limited_admins (not for edit-settings-only)
+    const canSeeLimitedAdmins = isSuperAdmin() || hasPermission('can_manage_limited_admins');
+
+    const SETTINGS_TAB_STORAGE_KEY = 'systemSettings.activeTab';
+
+    // Load saved tab from localStorage or default to 'general'
+    const loadSavedTab = (): string => {
+        if (typeof window === 'undefined') return 'general';
+        const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
+        const validTabs = ['general', 'security', 'limitedAdmins', 'audit'];
+        if (saved && validTabs.includes(saved)) {
+            return saved;
+        }
+        return 'general';
+    };
+
+    const [activeSetting, setActiveSetting] = useState<string>(loadSavedTab);
+
+    // If user cannot see Limited Admins, switch away from that tab when they don't have permission
+    useEffect(() => {
+        if (!canSeeLimitedAdmins && activeSetting === 'limitedAdmins') {
+            setActiveSetting('general');
+        }
+    }, [canSeeLimitedAdmins, activeSetting]);
+
+    // Save tab to localStorage when it changes
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, activeSetting);
+        }
+    }, [activeSetting]);
 
     const settingsMenu = [
         { id: 'general', label: t('settings.menu.general') || 'General' },
         { id: 'security', label: t('settings.menu.security') },
+        ...(canSeeLimitedAdmins ? [{ id: 'limitedAdmins' as const, label: t('settings.menu.limitedAdmins') || 'Limited Admins' }] : []),
         { id: 'audit', label: t('settings.menu.audit') },
     ];
-    
+
     const renderSetting = () => {
+        if (activeSetting === 'limitedAdmins' && !canSeeLimitedAdmins) {
+            return <GeneralSettings />;
+        }
         switch (activeSetting) {
             case 'general': return <GeneralSettings />;
             case 'security': return <SecurityBackups />;
+            case 'limitedAdmins': return <LimitedAdmins />;
             case 'audit': return <AuditLog />;
             default: return <GeneralSettings />;
         }

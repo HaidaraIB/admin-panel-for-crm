@@ -4,6 +4,7 @@ import Icon from '../components/Icon';
 import { Tenant, TenantStatus, Page } from '../types';
 import { useI18n } from '../context/i18n';
 import TenantModal from '../components/TenantModal';
+import TenantActivationModal from '../components/TenantActivationModal';
 import { useAuditLog } from '../context/AuditLogContext';
 import TenantsFilterDrawer, { TenantFilters, tenantFilterDefaults } from '../components/TenantsFilterDrawer';
 
@@ -16,13 +17,21 @@ const statusColors: { [key in TenantStatus]: string } = {
 
 interface TenantsProps {
     tenants: Tenant[];
-    setActivePage: (page: Page) => void;
     onUpdateTenant: (tenant: Tenant) => void;
+    onActivateTenant: (tenantId: number, planId: number, startDate: string, endDate: string) => Promise<void>;
+    onDeactivateTenant: (tenantId: number) => Promise<void>;
     isLoading?: boolean;
     onRefresh?: () => void;
 }
 
-const Tenants: React.FC<TenantsProps> = ({ tenants, setActivePage, onUpdateTenant, isLoading = false }) => {
+const Tenants: React.FC<TenantsProps> = ({ 
+    tenants, 
+    onUpdateTenant, 
+    onActivateTenant,
+    onDeactivateTenant,
+    isLoading = false,
+    onRefresh
+}) => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,6 +39,8 @@ const Tenants: React.FC<TenantsProps> = ({ tenants, setActivePage, onUpdateTenan
     const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
     const [filters, setFilters] = useState<TenantFilters>(tenantFilterDefaults);
     const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+    const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
+    const [tenantToActivate, setTenantToActivate] = useState<Tenant | null>(null);
 
     const handleViewDetails = (tenant: Tenant) => {
         setSelectedTenant(tenant);
@@ -49,9 +60,8 @@ const Tenants: React.FC<TenantsProps> = ({ tenants, setActivePage, onUpdateTenan
     };
 
     const handleToggleStatus = (tenant: Tenant) => {
-        const newStatus = tenant.status === TenantStatus.Active || tenant.status === TenantStatus.Trial ? TenantStatus.Deactivated : TenantStatus.Active;
-        onUpdateTenant({ ...tenant, status: newStatus });
-        addLog('audit.log.tenantStatusToggled', { companyName: tenant.name });
+        setTenantToActivate(tenant);
+        setIsActivationModalOpen(true);
     };
 
     const uniquePlans = useMemo(() => {
@@ -166,11 +176,11 @@ const Tenants: React.FC<TenantsProps> = ({ tenants, setActivePage, onUpdateTenan
                     <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
-                                <th scope="col" className="px-6 py-3">{t('tenants.table.companyName')}</th>
-                                <th scope="col" className="px-6 py-3">{t('tenants.table.subdomain')}</th>
-                                <th scope="col" className="px-6 py-3">{t('tenants.table.currentPlan')}</th>
-                                <th scope="col" className="px-6 py-3">{t('tenants.table.status')}</th>
-                                <th scope="col" className="px-6 py-3">{t('tenants.table.endDate')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('tenants.table.companyName')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('tenants.table.subdomain')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('tenants.table.currentPlan')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('tenants.table.status')}</th>
+                                <th scope="col" className="px-6 py-3 text-center">{t('tenants.table.endDate')}</th>
                                 <th scope="col" className="px-6 py-3 text-center">{t('tenants.table.actions')}</th>
                             </tr>
                         </thead>
@@ -196,14 +206,14 @@ const Tenants: React.FC<TenantsProps> = ({ tenants, setActivePage, onUpdateTenan
                             ) : (
                                 filteredTenants.map((tenant) => (
                                 <tr key={tenant.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{tenant.name}</td>
-                                    <td className="px-6 py-4">{tenant.domain}</td>
-                                    <td className="px-6 py-4">{tenant.currentPlan || t('dashboard.noPlan')}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 text-center font-medium text-gray-900 whitespace-nowrap dark:text-white">{tenant.name}</td>
+                                    <td className="px-6 py-4 text-center">{tenant.domain}</td>
+                                    <td className="px-6 py-4 text-center">{tenant.currentPlan || t('dashboard.noPlan')}</td>
+                                    <td className="px-6 py-4 text-center">
                                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[tenant.status || TenantStatus.Deactivated]}`}>{t(`status.${tenant.status || TenantStatus.Deactivated}`)}</span>
                                     </td>
-                                    <td className="px-6 py-4">{tenant.endDate || 'N/A'}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 text-center">{tenant.endDate || 'N/A'}</td>
+                                    <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-3">
                                             <button 
                                                 onClick={() => handleViewDetails(tenant)} 
@@ -247,6 +257,26 @@ const Tenants: React.FC<TenantsProps> = ({ tenants, setActivePage, onUpdateTenan
                 onApply={handleApplyFilters}
                 onReset={handleResetFilters}
                 plans={uniquePlans}
+            />
+            <TenantActivationModal
+                tenant={tenantToActivate}
+                isOpen={isActivationModalOpen}
+                onClose={() => {
+                    setIsActivationModalOpen(false);
+                    setTenantToActivate(null);
+                }}
+                onActivate={async (tenantId, planId, startDate, endDate) => {
+                    await onActivateTenant(tenantId, planId, startDate, endDate);
+                    if (onRefresh) {
+                        await onRefresh();
+                    }
+                }}
+                onDeactivate={async (tenantId) => {
+                    await onDeactivateTenant(tenantId);
+                    if (onRefresh) {
+                        await onRefresh();
+                    }
+                }}
             />
         </div>
     );

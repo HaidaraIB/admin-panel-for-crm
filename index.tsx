@@ -1,10 +1,13 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { I18nProvider } from './context/i18n';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuditLogProvider } from './context/AuditLogContext';
+import { UserProvider } from './context/UserContext';
+import { AlertProvider } from './context/AlertContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -14,12 +17,18 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <I18nProvider>
-      <ThemeProvider>
-        <AuditLogProvider>
-          <App />
-        </AuditLogProvider>
-      </ThemeProvider>
-    </I18nProvider>
+    <BrowserRouter>
+      <I18nProvider>
+        <ThemeProvider>
+          <UserProvider>
+            <AlertProvider>
+              <AuditLogProvider>
+                <App />
+              </AuditLogProvider>
+            </AlertProvider>
+          </UserProvider>
+        </ThemeProvider>
+      </I18nProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );

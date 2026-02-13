@@ -13,6 +13,8 @@ import { useAuditLog } from '../context/AuditLogContext';
 import PlanCardSkeleton from '../components/PlanCardSkeleton';
 import { getPlansAPI, createPlanAPI, updatePlanAPI, deletePlanAPI, getSubscriptionsAPI, updateSubscriptionAPI, getCompaniesAPI, getInvoicesAPI } from '../services/api';
 import { getPaymentsAPI } from '../services/api';
+import { useAlert } from '../context/AlertContext';
+import { translateApiMessage } from '../utils/translateApiError';
 import AlertDialog from '../components/AlertDialog';
 
 
@@ -23,6 +25,7 @@ interface SubscriptionsProps {
 const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
+    const { showAlert } = useAlert();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -118,7 +121,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         handleCloseModal();
         } catch (error: any) {
             console.error('Error saving plan:', error);
-            alert(error.message || 'Failed to save plan');
+            showAlert(translateApiMessage(error.message, t) || t('errors.savePlan'), { variant: 'error' });
         } finally {
             setIsSavingPlan(false);
         }
@@ -144,7 +147,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             await loadPlans();
         } catch (error: any) {
             console.error('Error deleting plan:', error);
-            alert(error.message || 'Failed to delete plan');
+            showAlert(translateApiMessage(error.message, t) || t('errors.deletePlan'), { variant: 'error' });
         } finally {
             setIsDeletingPlan(false);
             closeDeleteDialog();
@@ -184,7 +187,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             addLog('audit.log.planVisibilityToggled', { planName: planToToggleVisibility.name });
         } catch (error: any) {
             console.error('Error toggling plan visibility:', error);
-            alert(error.message || 'Failed to toggle plan visibility');
+            showAlert(translateApiMessage(error.message, t) || t('errors.togglePlanVisibility'), { variant: 'error' });
         } finally {
             setIsTogglingVisibility(false);
             closeVisibilityDialog();
@@ -311,9 +314,10 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             message={t('subscriptions.plans.deleteConfirmMessage') || `Are you sure you want to delete the ${(language === 'ar' && planToDelete?.nameAr?.trim()?.length ? planToDelete?.nameAr : planToDelete?.name) || ''} plan? This action cannot be undone.`}
             type="warning"
             confirmText={isDeletingPlan ? t('common.deleting') || 'Deleting...' : t('subscriptions.plans.deletePlan')}
-            onConfirm={isDeletingPlan ? undefined : handleDeletePlan}
+            onConfirm={handleDeletePlan}
             showCancel
             cancelText={t('common.cancel')}
+            disabled={isDeletingPlan}
         />
         <AlertDialog
             isOpen={isVisibilityDialogOpen}
@@ -322,9 +326,10 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             message={t('subscriptions.plans.toggleVisibilityConfirm') || `Are you sure you want to ${planToToggleVisibility?.visible ? 'hide' : 'show'} the "${(language === 'ar' && planToToggleVisibility?.nameAr?.trim()?.length ? planToToggleVisibility?.nameAr : planToToggleVisibility?.name) || ''}" plan?`}
             type="info"
             confirmText={isTogglingVisibility ? (t('common.updating') || 'Updating...') : (t('common.confirm') || 'Confirm')}
-            onConfirm={isTogglingVisibility ? undefined : handleToggleVisibility}
+            onConfirm={handleToggleVisibility}
             showCancel
             cancelText={t('common.cancel')}
+            disabled={isTogglingVisibility}
         />
     </div>
 )};
@@ -398,11 +403,11 @@ const PaymentsTab: React.FC = () => {
                 <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
                      <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
-                            <th className="px-6 py-3">{t('subscriptions.payments.table.transactionId')}</th>
-                            <th className="px-6 py-3">{t('subscriptions.payments.table.companyName')}</th>
-                            <th className="px-6 py-3">{t('subscriptions.payments.table.amount')}</th>
-                            <th className="px-6 py-3">{t('subscriptions.payments.table.status')}</th>
-                            <th className="px-6 py-3">{t('subscriptions.payments.table.date')}</th>
+                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.transactionId')}</th>
+                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.companyName')}</th>
+                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.amount')}</th>
+                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.status')}</th>
+                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.date')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -421,11 +426,11 @@ const PaymentsTab: React.FC = () => {
                         ) : (
                             payments.map(p => (
                             <tr key={p.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                <td className="px-6 py-4 font-mono">{p.id}</td>
-                                <td className="px-6 py-4">{p.companyName}</td>
-                                <td className="px-6 py-4">${p.amount}</td>
-                                <td className="px-6 py-4"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
-                                <td className="px-6 py-4">{p.date}</td>
+                                <td className="px-6 py-4 text-center font-mono">{p.id}</td>
+                                <td className="px-6 py-4 text-center">{p.companyName}</td>
+                                <td className="px-6 py-4 text-center">${p.amount}</td>
+                                <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
+                                <td className="px-6 py-4 text-center">{p.date}</td>
                             </tr>
                             ))
                         )}
@@ -540,11 +545,11 @@ const InvoicesTab: React.FC = () => {
                      <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
                          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
-                                <th className="px-6 py-3">{t('subscriptions.invoices.table.invoiceNo')}</th>
-                                <th className="px-6 py-3">{t('subscriptions.invoices.table.companyName')}</th>
-                                <th className="px-6 py-3">{t('subscriptions.invoices.table.amount')}</th>
-                                <th className="px-6 py-3">{t('subscriptions.invoices.table.status')}</th>
-                                <th className="px-6 py-3">{t('subscriptions.invoices.table.dueDate')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.invoiceNo')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.companyName')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.amount')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.status')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.dueDate')}</th>
                                 <th className="px-6 py-3 text-center">{t('tenants.table.actions')}</th>
                             </tr>
                         </thead>
@@ -564,12 +569,12 @@ const InvoicesTab: React.FC = () => {
                             ) : (
                                 invoices.map(i => (
                                 <tr key={i.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                    <td className="px-6 py-4 font-mono">{i.id}</td>
-                                    <td className="px-6 py-4">{i.companyName}</td>
-                                    <td className="px-6 py-4">${i.amount}</td>
-                                    <td className="px-6 py-4"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[i.status]}`}>{t(`status.${i.status}`)}</span></td>
-                                    <td className="px-6 py-4">{i.dueDate}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 text-center font-mono">{i.id}</td>
+                                    <td className="px-6 py-4 text-center">{i.companyName}</td>
+                                    <td className="px-6 py-4 text-center">${i.amount}</td>
+                                    <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[i.status]}`}>{t(`status.${i.status}`)}</span></td>
+                                    <td className="px-6 py-4 text-center">{i.dueDate}</td>
+                                    <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center space-x-2">
                                             <button onClick={() => handleViewInvoice(i)} className="p-1 text-blue-600 hover:text-blue-800" title={t('subscriptions.invoices.viewInvoice')}><Icon name="view" className="w-5 h-5"/></button>
                                             <button onClick={() => handleDownloadImage(i)} disabled={!!downloadingId} className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50 disabled:cursor-wait" title={t('subscriptions.invoices.downloadInvoice')}>
@@ -597,6 +602,7 @@ const InvoicesTab: React.FC = () => {
 
 const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const { t, language } = useI18n();
+  const { showAlert } = useAlert();
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -646,7 +652,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       await loadSubscriptions();
     } catch (error: any) {
       console.error('Error updating subscription:', error);
-      alert(error.message || 'Failed to update subscription');
+      showAlert(translateApiMessage(error.message, t) || t('errors.updateSubscription'), { variant: 'error' });
     }
   };
 
@@ -656,11 +662,11 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
           <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
             <tr>
-              <th className="px-6 py-3">{t('subscriptions.subscriptions.table.companyName')}</th>
-              <th className="px-6 py-3">{t('subscriptions.subscriptions.table.plan')}</th>
-              <th className="px-6 py-3">{t('subscriptions.subscriptions.table.startDate')}</th>
-              <th className="px-6 py-3">{t('subscriptions.subscriptions.table.endDate')}</th>
-              <th className="px-6 py-3">{t('subscriptions.subscriptions.table.status')}</th>
+              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.companyName')}</th>
+              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.plan')}</th>
+              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.startDate')}</th>
+              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.endDate')}</th>
+              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.status')}</th>
               <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.actions')}</th>
             </tr>
           </thead>
@@ -687,17 +693,17 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                   : sub.plan_name;
                 return (
                 <tr key={sub.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                  <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                  <td className="px-6 py-4 text-center font-medium text-gray-900 whitespace-nowrap dark:text-white">
                     {sub.company_name}
                   </td>
-                  <td className="px-6 py-4">{planNameForDisplay}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">{planNameForDisplay}</td>
+                  <td className="px-6 py-4 text-center">
                     {sub.start_date ? new Date(sub.start_date).toISOString().split('T')[0] : 'N/A'}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     {sub.end_date ? new Date(sub.end_date).toISOString().split('T')[0] : 'N/A'}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                       sub.is_active 
                         ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
@@ -706,7 +712,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                       {sub.is_active ? t('status.Active') : t('status.Inactive')}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center">
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input 

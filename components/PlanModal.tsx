@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plan } from '../types';
 import { useI18n } from '../context/i18n';
+import { useAlert } from '../context/AlertContext';
 import Icon from './Icon';
 import LoadingButton from './LoadingButton';
 import { NumberInput } from './NumberInput';
@@ -32,6 +33,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
 
 const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSave, isLoading = false }) => {
   const { t, language } = useI18n();
+  const { showAlert } = useAlert();
   const [formData, setFormData] = useState(planToEdit || emptyPlan);
 
   useEffect(() => {
@@ -74,11 +76,11 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
     const containsArabic = /[\u0600-\u06FF]/;
     const containsLatin = /[A-Za-z]/;
     if (containsArabic.test(formData.name)) {
-      alert(t('subscriptions.plans.invalidEnglishName') || 'English name cannot include Arabic characters.');
+      showAlert(t('subscriptions.plans.invalidEnglishName') || 'English name cannot include Arabic characters.', { variant: 'warning' });
       return;
     }
     if (formData.nameAr && containsLatin.test(formData.nameAr)) {
-      alert(t('subscriptions.plans.invalidArabicName') || 'Arabic name cannot include English characters.');
+      showAlert(t('subscriptions.plans.invalidArabicName') || 'Arabic name cannot include English characters.', { variant: 'warning' });
       return;
     }
     onSave(formData);
