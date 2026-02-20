@@ -65,17 +65,17 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
   const labelClasses = "block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300";
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg transform transition-all" onClick={e => e.stopPropagation()}>
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg transform transition-all flex flex-col max-h-[90vh] my-4" onClick={e => e.stopPropagation()}>
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
             <h2 className="text-xl font-semibold">{t('paymentGateways.addModal.title')}</h2>
             <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
               <Icon name="x" className="w-6 h-6" />
             </button>
           </div>
 
-          <div className="p-8 space-y-6">
+          <div className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
             <div>
               <label className={labelClasses}>{t('paymentGateways.addModal.name')}</label>
               <div className="grid grid-cols-1 gap-3 mt-2">
@@ -83,7 +83,8 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
                   { value: 'PayTabs', logo: '/paytabs_logo.png', label: 'PayTabs' },
                   { value: 'Stripe', logo: '/stripe_logo.png', label: 'Stripe' },
                   { value: 'Zain Cash', logo: '/zain_cash_logo.png', label: 'Zain Cash' },
-                  { value: 'QiCard', logo: '/q_card_logo.svg', label: 'QiCard' }
+                  { value: 'QiCard', logo: '/q_card_logo.svg', label: 'QiCard' },
+                  { value: 'FIB', logo: null, label: 'FIB (First Iraqi Bank)' }
                 ].map((gateway) => (
                   <button
                     key={gateway.value}
@@ -98,13 +99,15 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
                         : 'border-gray-300 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-700 bg-white dark:bg-gray-700'
                     }`}
                   >
-                    {gateway.logo && (
+                    {gateway.logo ? (
                       <img 
                         src={gateway.logo} 
                         alt={gateway.label}
                         className="h-8 w-auto object-contain"
                       />
-                    )}
+                    ) : gateway.value === 'FIB' ? (
+                      <span className="text-lg font-bold text-blue-700 dark:text-blue-400">FIB</span>
+                    ) : null}
                     <span className="text-lg font-medium text-gray-900 dark:text-white">{gateway.label}</span>
                     {name === gateway.value && (
                       <Icon name="check" className="w-5 h-5 text-primary-600 ml-auto rtl:ml-0 rtl:mr-auto" />
@@ -140,7 +143,7 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
             </div>
           </div>
 
-          <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
+          <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg flex-shrink-0">
             <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
               {t('common.cancel')}
             </button>

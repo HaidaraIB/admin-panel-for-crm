@@ -5,7 +5,8 @@ import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Icon from '../components/Icon';
-import { loginAPI, getCurrentUserAPI } from '../services/api';
+import { loginAPI } from '../services/api';
+import { useUser } from '../context/UserContext';
 
 interface LoginPageProps {
   onLoginSuccess?: () => void;
@@ -13,6 +14,7 @@ interface LoginPageProps {
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
+  const { refreshUser } = useUser();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -71,15 +73,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      // Login and get tokens
+      // Login and get tokens (loginAPI stores accessToken/refreshToken in localStorage)
       await loginAPI(username, password);
-      
-      // Get current user data
-      const userData = await getCurrentUserAPI();
       
       // Store authentication state
       localStorage.setItem('isAuthenticated', 'true');
       sessionStorage.setItem('isAuthenticated', 'true');
+      
+      // Load user into UserContext before navigating so dashboard has permission data
+      await refreshUser();
       
       // Call success callback if provided
       if (onLoginSuccess) {

@@ -26,6 +26,7 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
     const isStripe = gatewayNameLower.includes('stripe');
     const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
     const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
+    const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
 
     const getGatewayLogo = () => {
         if (isPaytabs) {
@@ -36,6 +37,8 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
             return <img src="/zain_cash_logo.png" alt="Zain Cash" className="h-10 w-auto object-contain" />;
         } else if (isQicard) {
             return <img src="/q_card_logo.svg" alt="QiCard" className="h-10 w-auto object-contain" />;
+        } else if (isFib) {
+            return <span className="text-xl font-bold text-blue-700 dark:text-blue-400">FIB</span>;
         } else {
             return <i className={`pf pf-${gateway.id.toLowerCase()} pf-3x`}></i>;
         }

@@ -41,6 +41,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         terminalId: config.terminalId || config.terminalId || '',
         username: config.username || '',
         password: config.password || '',
+        clientId: config.clientId || '',
+        clientSecret: config.clientSecret || '',
         environment: config.environment || 'test',
       });
       setTestStatus('idle'); // Reset test status when modal opens or gateway changes
@@ -66,7 +68,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     }
     setTestStatus('idle'); // Reset test status on any input change
     // Only reset testPassed if a credential field changed
-    const credentialFields = ['merchantId', 'merchantSecret', 'profileId', 'serverKey', 'clientKey', 'publishableKey', 'secretKey', 'terminalId', 'username', 'password'];
+    const credentialFields = ['merchantId', 'merchantSecret', 'profileId', 'serverKey', 'clientKey', 'publishableKey', 'secretKey', 'terminalId', 'username', 'password', 'clientId', 'clientSecret'];
     if (credentialFields.includes(name)) {
       setTestPassed(false); // Reset test passed flag when credentials change
     }
@@ -82,6 +84,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
       const isStripe = gatewayNameLower.includes('stripe');
       const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
+      const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
       
       if (isPaytabs) {
         if (!formData.profileId || !formData.serverKey || !formData.clientKey) {
@@ -103,6 +106,11 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
           setTestStatus('error');
           return;
         }
+      } else if (isFib) {
+        if (!formData.clientId || !formData.clientSecret) {
+          setTestStatus('error');
+          return;
+        }
       } else {
         // Generic gateways
         if (!formData.publishableKey || !formData.secretKey) {
@@ -111,8 +119,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         }
       }
       
-      // For Zain Cash, Stripe, and QiCard, make actual API test call
-      if (isZaincash || isStripe || isQicard) {
+      // For Zain Cash, Stripe, QiCard, and FIB, make actual API test call
+      if (isZaincash || isStripe || isQicard || isFib) {
         try {
           const result = await testPaymentGatewayConnectionAPI(parseInt(gateway.id), formData);
           setTestMessage(result.message || '');
@@ -148,6 +156,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     const gatewayNameLower = gateway.name.toLowerCase();
     const isPaytabs = gatewayNameLower.includes('paytabs') || gateway.id.toLowerCase().includes('paytabs');
     const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
+    const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
     let hasKeys = false;
     
     if (isPaytabs) {
@@ -163,6 +172,10 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       const username = formData?.username ? String(formData.username).trim() : '';
       const password = formData?.password ? String(formData.password).trim() : '';
       hasKeys = !!(terminalId && username && password);
+    } else if (isFib) {
+      const clientId = formData?.clientId ? String(formData.clientId).trim() : '';
+      const clientSecret = formData?.clientSecret ? String(formData.clientSecret).trim() : '';
+      hasKeys = !!(clientId && clientSecret);
     } else {
       hasKeys = !!(formData?.publishableKey && formData?.secretKey);
     }
@@ -223,6 +236,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
   const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
   const isStripe = gatewayNameLower.includes('stripe');
   const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
+  const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
 
   const getGatewayLogo = () => {
     if (isPaytabs) {
@@ -233,6 +247,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       return <img src="/zain_cash_logo.png" alt="Zain Cash" className="h-8 w-auto object-contain" />;
     } else if (isQicard) {
       return <img src="/q_card_logo.svg" alt="QiCard" className="h-8 w-auto object-contain" />;
+    } else if (isFib) {
+      return <span className="text-lg font-bold text-blue-700 dark:text-blue-400">FIB</span>;
     } else {
       return <i className={`pf pf-${gateway.id.toLowerCase()} pf-lg`}></i>;
     }
@@ -416,6 +432,57 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                             </div>
                         </div>
                     </>
+                ) : isFib ? (
+                    <>
+                        <div>
+                            <label htmlFor="clientId" className={labelClasses}>Client ID</label>
+                            <input
+                                id="clientId"
+                                name="clientId"
+                                type="text"
+                                value={formData.clientId || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                placeholder="FIB Client ID"
+                                autoComplete="off"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="clientSecret" className={labelClasses}>Client Secret</label>
+                            <div className="relative">
+                                <input
+                                    id="clientSecret"
+                                    name="clientSecret"
+                                    type={showSecretKey ? 'text' : 'password'}
+                                    value={formData.clientSecret || ''}
+                                    onChange={handleChange}
+                                    className={inputClasses + ' pr-10 rtl:pl-10 rtl:pr-3'}
+                                    placeholder="FIB Client Secret"
+                                    autoComplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSecretKey(!showSecretKey)}
+                                    className="absolute inset-y-0 right-0 rtl:left-0 rtl:right-auto flex items-center pr-3 rtl:pl-3 rtl:pr-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                >
+                                    <Icon name={showSecretKey ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>{t('paymentGateways.modal.environment') || 'Environment'}</label>
+                            <div className="flex gap-4 rtl:gap-4 mt-2">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="environment" value="test" checked={(formData.environment || 'test') === 'test'} onChange={handleChange} className="rounded" />
+                                    <span>Test (Sandbox)</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="environment" value="live" checked={formData.environment === 'live'} onChange={handleChange} className="rounded" />
+                                    <span>Live</span>
+                                </label>
+                            </div>
+                        </div>
+                    </>
                 ) : (
                     <>
                         <div>
@@ -453,6 +520,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                         </div>
                     </>
                 )}
+                {!isFib && (
                 <div>
                     <label className={labelClasses}>{t('paymentGateways.modal.environment')}</label>
                     <div className="flex space-x-4 rtl:space-x-reverse">
@@ -480,6 +548,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                        </label>
                     </div>
                 </div>
+                )}
                 
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                      <button type="button" onClick={handleTestConnection} disabled={testStatus === 'testing'} className="w-full flex justify-center items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-70 disabled:cursor-wait">
