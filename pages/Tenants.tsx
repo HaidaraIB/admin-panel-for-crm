@@ -3,10 +3,13 @@ import React, { useMemo, useState } from 'react';
 import Icon from '../components/Icon';
 import { Tenant, TenantStatus, Page } from '../types';
 import { useI18n } from '../context/i18n';
+import { useUser } from '../context/UserContext';
 import TenantModal from '../components/TenantModal';
 import TenantActivationModal from '../components/TenantActivationModal';
 import { useAuditLog } from '../context/AuditLogContext';
+import { useAlert } from '../context/AlertContext';
 import TenantsFilterDrawer, { TenantFilters, tenantFilterDefaults } from '../components/TenantsFilterDrawer';
+import { impersonateAPI } from '../services/api';
 
 const statusColors: { [key in TenantStatus]: string } = {
     [TenantStatus.Active]: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
@@ -24,6 +27,8 @@ interface TenantsProps {
     onRefresh?: () => void;
 }
 
+const CRM_APP_URL = import.meta.env.VITE_CRM_APP_URL || '';
+
 const Tenants: React.FC<TenantsProps> = ({ 
     tenants, 
     onUpdateTenant, 
@@ -34,6 +39,8 @@ const Tenants: React.FC<TenantsProps> = ({
 }) => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
+    const { isSuperAdmin } = useUser();
+    const { showAlert } = useAlert();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
     const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
@@ -41,6 +48,9 @@ const Tenants: React.FC<TenantsProps> = ({
     const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
     const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
     const [tenantToActivate, setTenantToActivate] = useState<Tenant | null>(null);
+    const [isImpersonateConfirmOpen, setIsImpersonateConfirmOpen] = useState(false);
+    const [tenantToImpersonate, setTenantToImpersonate] = useState<Tenant | null>(null);
+    const [isImpersonating, setIsImpersonating] = useState(false);
 
     const handleViewDetails = (tenant: Tenant) => {
         setSelectedTenant(tenant);
@@ -150,6 +160,34 @@ const Tenants: React.FC<TenantsProps> = ({
         setFilters(tenantFilterDefaults);
     };
 
+    const handleImpersonateClick = (tenant: Tenant) => {
+        setTenantToImpersonate(tenant);
+        setIsImpersonateConfirmOpen(true);
+    };
+
+    const handleImpersonateConfirm = async () => {
+        if (!tenantToImpersonate) return;
+        setIsImpersonating(true);
+        try {
+            const data = await impersonateAPI({ company_id: tenantToImpersonate.id });
+            if (data.impersonation_code && CRM_APP_URL) {
+                const url = `${CRM_APP_URL.replace(/\/$/, '')}/impersonate?code=${encodeURIComponent(data.impersonation_code)}`;
+                window.open(url, '_blank', 'noopener,noreferrer');
+                showAlert(t('tenants.impersonate.success'), { variant: 'success' });
+            } else if (!CRM_APP_URL) {
+                showAlert(t('tenants.impersonate.noCrmUrl'), { variant: 'warning' });
+            } else {
+                showAlert(t('tenants.impersonate.success'), { variant: 'success' });
+            }
+            setIsImpersonateConfirmOpen(false);
+            setTenantToImpersonate(null);
+        } catch (err: any) {
+            showAlert(err?.message || t('tenants.impersonate.error'), { variant: 'error' });
+        } finally {
+            setIsImpersonating(false);
+        }
+    };
+
     return (
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -215,6 +253,15 @@ const Tenants: React.FC<TenantsProps> = ({
                                     <td className="px-6 py-4 text-center">{tenant.endDate || 'N/A'}</td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-3">
+                                            {isSuperAdmin() && (
+                                                <button
+                                                    onClick={() => handleImpersonateClick(tenant)}
+                                                    className="p-2 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 transition-colors rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                                    title={t('tenants.actions.impersonate')}
+                                                >
+                                                    <Icon name="impersonate" className="w-5 h-5" />
+                                                </button>
+                                            )}
                                             <button 
                                                 onClick={() => handleViewDetails(tenant)} 
                                                 className="p-2 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-colors rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20" 
@@ -278,6 +325,37 @@ const Tenants: React.FC<TenantsProps> = ({
                     }
                 }}
             />
+            {isImpersonateConfirmOpen && tenantToImpersonate && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4" onClick={() => !isImpersonating && (setIsImpersonateConfirmOpen(false), setTenantToImpersonate(null))}>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            {t('tenants.impersonate.confirmTitle')}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            {t('tenants.impersonate.confirmMessage')}
+                        </p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                            {tenantToImpersonate.name} — {tenantToImpersonate.owner_username || tenantToImpersonate.owner_email || `#${tenantToImpersonate.owner}`}
+                        </p>
+                        <div className={`flex gap-3 ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
+                            <button
+                                onClick={() => { setIsImpersonateConfirmOpen(false); setTenantToImpersonate(null); }}
+                                disabled={isImpersonating}
+                                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                onClick={handleImpersonateConfirm}
+                                disabled={isImpersonating}
+                                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium transition-colors disabled:opacity-50"
+                            >
+                                {isImpersonating ? '...' : t('tenants.actions.impersonate')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

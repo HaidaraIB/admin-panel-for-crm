@@ -407,6 +407,46 @@ export const getUsersAPI = async (params?: { search?: string; ordering?: string 
 };
 
 /**
+ * Impersonate a company owner (Super Admin only).
+ * POST /api/auth/impersonate/
+ * Body: { company_id?: number; user_id?: number }
+ * Returns: { access, refresh, user, impersonated_by, impersonation_code }
+ */
+export const impersonateAPI = async (payload: { company_id?: number; user_id?: number }) => {
+  return apiRequest<{
+    access: string;
+    refresh: string;
+    user: any;
+    impersonated_by: { id: number; username: string; email: string };
+    impersonation_code: string;
+  }>('/auth/impersonate/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
+/**
+ * Exchange one-time impersonation code for tokens (used by CRM app).
+ * GET /api/auth/impersonate-exchange/?code=...
+ */
+export const impersonateExchangeAPI = async (code: string) => {
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL || ''}/auth/impersonate-exchange/?code=${encodeURIComponent(code)}`,
+    {
+      method: 'GET',
+      headers: {
+        ...(import.meta.env.VITE_API_KEY ? { 'X-API-Key': import.meta.env.VITE_API_KEY } : {}),
+      },
+    }
+  );
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Invalid or expired code');
+  }
+  return response.json();
+};
+
+/**
  * Change password
  * POST /api/users/change_password/
  */
