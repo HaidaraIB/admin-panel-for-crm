@@ -16,6 +16,7 @@ export interface Tenant {
   owner: number;
   owner_username?: string;
   owner_email?: string;
+  owner_phone?: string;
   created_at: string;
   updated_at?: string;
   // Legacy fields for compatibility (derived from subscriptions)

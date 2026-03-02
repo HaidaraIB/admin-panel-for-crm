@@ -137,6 +137,7 @@ const App: React.FC = () => {
           owner: company.owner,
           owner_username: company.owner_username,
           owner_email: company.owner_email,
+          owner_phone: company.owner_phone,
           created_at: company.created_at,
           updated_at: company.updated_at,
           // Legacy fields from subscriptions
