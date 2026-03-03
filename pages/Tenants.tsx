@@ -172,7 +172,8 @@ const Tenants: React.FC<TenantsProps> = ({
             const data = await impersonateAPI({ company_id: tenantToImpersonate.id });
             if (data.impersonation_code && CRM_APP_URL) {
                 const url = `${CRM_APP_URL.replace(/\/$/, '')}/impersonate?code=${encodeURIComponent(data.impersonation_code)}`;
-                window.open(url, '_blank', 'noopener,noreferrer');
+                const w = window.open(url, '_blank', 'noopener,noreferrer');
+                if (w) w.focus();
                 showAlert(t('tenants.impersonate.success'), { variant: 'success' });
             } else if (!CRM_APP_URL) {
                 showAlert(t('tenants.impersonate.noCrmUrl'), { variant: 'warning' });
