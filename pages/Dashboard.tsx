@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import Icon from '../components/Icon';
 import Skeleton from '../components/Skeleton';
@@ -110,8 +111,9 @@ const KpiCard: React.FC<KpiCardProps> = ({ title, value, change, changeType, ico
 };
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { t, language } = useI18n();
-  const { hasPermission, isSuperAdmin } = useUser();
+  const { user, hasPermission, isSuperAdmin } = useUser();
 
   // Check permissions for different sections
   const canViewDashboard = isSuperAdmin() || hasPermission('can_view_dashboard');
@@ -249,6 +251,16 @@ const Dashboard: React.FC = () => {
     setTempRange(defaults);
     setDateRange(defaults);
     setDateError('');
+  };
+
+  const setDateRangeToLastMonths = (months: number) => {
+    const end = new Date();
+    const start = new Date(end.getFullYear(), end.getMonth() - months + 1, 1);
+    const range: DateRange = { start: formatDateInput(start), end: formatDateInput(end) };
+    setTempRange(range);
+    setDateRange(range);
+    setDateError('');
+    setIsDatePickerOpen(false);
   };
 
   const toggleDatePicker = () => {
@@ -497,11 +509,49 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    return hour >= 5 && hour < 12 ? t('dashboard.goodMorning') : t('dashboard.goodAfternoon');
+  }, [t]);
+  const userDisplayName = useMemo(() => {
+    if (!user) return '';
+    const name = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+    return name || user.username || '';
+  }, [user]);
+  const todayDateStr = useMemo(() => {
+    return new Date().toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }, [language]);
+
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const chartGridStroke = isDark ? '#4b5563' : '#e5e7eb';
+  const chartAxisStroke = isDark ? '#9ca3af' : '#6b7280';
+  const tooltipContentStyle = isDark
+    ? { backgroundColor: 'rgba(31, 41, 55, 0.95)', border: 'none', borderRadius: '8px', color: '#f3f4f6' as const }
+    : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#111827' as const, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' };
+  const tooltipLabelStyle = isDark ? { color: '#9ca3af' } : { color: '#6b7280' };
+  const tooltipItemStyle = isDark ? { color: '#f3f4f6' } : { color: '#111827' };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 bg-gray-100 dark:bg-gray-800">
+            <button
+              type="button"
+              onClick={() => setDateRangeToLastMonths(6)}
+              className="px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-700 transition-colors"
+            >
+              {t('dashboard.filters.last6Months')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDateRangeToLastMonths(12)}
+              className="px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-700 transition-colors"
+            >
+              {t('dashboard.filters.last12Months')}
+            </button>
+          </div>
           <div className="relative" ref={datePickerRef}>
             <button
               type="button"
@@ -562,8 +612,69 @@ const Dashboard: React.FC = () => {
       </div>
 
       {canViewDashboard && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {kpiData.map((item, index) => <KpiCard key={index} {...item} loading={loading} />)}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium text-gray-800 dark:text-gray-200">{greeting}{userDisplayName ? `, ${userDisplayName}` : ''}</span>
+              <span className="mx-2">·</span>
+              <span>{todayDateStr}</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {canViewTenants && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/tenants')}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {t('sidebar.tenants')}
+                </button>
+              )}
+              {canViewSubscriptions && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/subscriptions')}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {t('sidebar.subscriptions')}
+                </button>
+              )}
+              {(isSuperAdmin() || hasPermission('can_manage_payment_gateways') || hasPermission('can_view_dashboard')) && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/payment-gateways')}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {t('sidebar.paymentGateways')}
+                </button>
+              )}
+              {(isSuperAdmin() || hasPermission('can_view_reports') || hasPermission('can_view_dashboard')) && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/reports')}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {t('sidebar.reports')}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {canViewDashboard && (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">{t('dashboard.sectionRevenue')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <KpiCard {...kpiData[0]} loading={loading} />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">{t('dashboard.sectionSubscriptions')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {kpiData.slice(1, 4).map((item, index) => <KpiCard key={index} {...item} loading={loading} />)}
+            </div>
+          </div>
         </div>
       )}
 
@@ -573,24 +684,26 @@ const Dashboard: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">{t('dashboard.revenueGrowth.title')}</h3>
           {loading ? <Skeleton className="w-full h-[350px]" /> : (
             <ResponsiveContainer width="100%" height={350}>
-              <LineChart
-                data={revenueData}
-              >
-                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+              <LineChart data={revenueData} isAnimationActive>
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
                 <XAxis
                   dataKey="name"
                   interval={0}
                   angle={0}
                   textAnchor="middle"
                   height={60}
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 11, fill: chartAxisStroke }}
                   dy={10}
+                  stroke={chartAxisStroke}
+                  axisLine={{ stroke: chartGridStroke }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0 }}
+                  tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartAxisStroke }}
                   width={language === 'ar' ? 60 : 50}
+                  stroke={chartAxisStroke}
+                  axisLine={{ stroke: chartGridStroke }}
                 />
-                <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }} />
+                <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
                 <Legend
                   wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }}
                   formatter={(value) => ` ${value}`}
@@ -612,27 +725,28 @@ const Dashboard: React.FC = () => {
             ) : (
               <div className="w-full min-h-[350px]">
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart
-                    data={planData}
-                    barCategoryGap={16}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                  <BarChart data={planData} barCategoryGap={16} isAnimationActive>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
                     <XAxis
                       type="category"
                       dataKey="name"
                       textAnchor={language === 'ar' ? 'middle' : 'end'}
                       height={60}
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 12, fill: chartAxisStroke }}
                       interval={0}
                       dy={10}
                       dx={language === 'ar' ? 0 : 12}
+                      stroke={chartAxisStroke}
+                      axisLine={{ stroke: chartGridStroke }}
                     />
                     <YAxis
                       type="number"
-                      tick={{ fontSize: 12, dx: language === 'ar' ? -25 : 0 }}
+                      tick={{ fontSize: 12, dx: language === 'ar' ? -25 : 0, fill: chartAxisStroke }}
                       width={language === 'ar' ? 50 : 50}
+                      stroke={chartAxisStroke}
+                      axisLine={{ stroke: chartGridStroke }}
                     />
-                    <Tooltip cursor={{ fill: 'rgba(107, 114, 128, 0.1)' }} contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }} />
+                    <Tooltip cursor={{ fill: isDark ? 'rgba(107, 114, 128, 0.2)' : 'rgba(107, 114, 128, 0.08)' }} contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
                     <Legend
                       wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }}
                       formatter={(value) => ` ${value}`}
@@ -653,31 +767,57 @@ const Dashboard: React.FC = () => {
         {canViewTenants && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentCompanies.title')}</h3>
-          {loading ? <ListSkeleton /> : (
-            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-              {recentCompanies.map((company, index) => (
-                <li key={index} className="py-3 flex justify-between items-center">
-                  <span className="font-medium">{company.name}</span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{company.plan}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+            {loading ? (
+              <ListSkeleton />
+            ) : recentCompanies.length === 0 ? (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6 px-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.recentCompanies.empty')}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/tenants')}
+                  className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                  {t('dashboard.viewTenants')}
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                {recentCompanies.map((company, index) => (
+                  <li key={index} className="py-3 flex justify-between items-center">
+                    <span className="font-medium">{company.name}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{company.plan}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
         {canViewPayments && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold mb-4">{t('dashboard.recentPayments.title')}</h3>
-          {loading ? <ListSkeleton /> : (
-            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-              {recentPayments.map((payment, index) => (
-                <li key={index} className="py-3 flex justify-between items-center">
-                  <span className="font-medium">{payment.name}</span>
-                  <span className="text-sm font-semibold text-green-500">{payment.amount}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+            {loading ? (
+              <ListSkeleton />
+            ) : recentPayments.length === 0 ? (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6 px-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.recentPayments.empty')}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/subscriptions')}
+                  className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                  {t('dashboard.viewSubscriptions')}
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                {recentPayments.map((payment, index) => (
+                  <li key={index} className="py-3 flex justify-between items-center">
+                    <span className="font-medium">{payment.name}</span>
+                    <span className="text-sm font-semibold text-green-500">{payment.amount}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
       </div>
