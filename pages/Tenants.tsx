@@ -23,6 +23,7 @@ interface TenantsProps {
     onUpdateTenant: (tenant: Tenant) => void;
     onActivateTenant: (tenantId: number, planId: number, startDate: string, endDate: string) => Promise<void>;
     onDeactivateTenant: (tenantId: number) => Promise<void>;
+    onDeleteTenant: (tenantId: number) => Promise<void>;
     isLoading?: boolean;
     onRefresh?: () => void;
 }
@@ -34,6 +35,7 @@ const Tenants: React.FC<TenantsProps> = ({
     onUpdateTenant, 
     onActivateTenant,
     onDeactivateTenant,
+    onDeleteTenant,
     isLoading = false,
     onRefresh
 }) => {
@@ -51,6 +53,9 @@ const Tenants: React.FC<TenantsProps> = ({
     const [isImpersonateConfirmOpen, setIsImpersonateConfirmOpen] = useState(false);
     const [tenantToImpersonate, setTenantToImpersonate] = useState<Tenant | null>(null);
     const [isImpersonating, setIsImpersonating] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const handleViewDetails = (tenant: Tenant) => {
         setSelectedTenant(tenant);
@@ -189,6 +194,27 @@ const Tenants: React.FC<TenantsProps> = ({
         }
     };
 
+    const handleDeleteClick = (tenant: Tenant) => {
+        setTenantToDelete(tenant);
+        setIsDeleteConfirmOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!tenantToDelete) return;
+        setIsDeleting(true);
+        try {
+            await onDeleteTenant(tenantToDelete.id);
+            showAlert(t('tenants.delete.success'), { variant: 'success' });
+            setIsDeleteConfirmOpen(false);
+            setTenantToDelete(null);
+            if (onRefresh) await onRefresh();
+        } catch {
+            // Error already shown by App handleDeleteTenant
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -269,6 +295,13 @@ const Tenants: React.FC<TenantsProps> = ({
                                                 title={t('tenants.actions.view')}
                                             >
                                                 <Icon name="view" className="w-5 h-5"/>
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteClick(tenant)}
+                                                className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                title={t('tenants.actions.delete')}
+                                            >
+                                                <Icon name="trash" className="w-5 h-5" />
                                             </button>
                                             <label 
                                                 className="relative inline-flex items-center cursor-pointer" 
@@ -352,6 +385,37 @@ const Tenants: React.FC<TenantsProps> = ({
                                 className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium transition-colors disabled:opacity-50"
                             >
                                 {isImpersonating ? '...' : t('tenants.actions.impersonate')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isDeleteConfirmOpen && tenantToDelete && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4" onClick={() => !isDeleting && (setIsDeleteConfirmOpen(false), setTenantToDelete(null))}>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            {t('tenants.delete.confirmTitle')}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            {t('tenants.delete.confirmMessage')}
+                        </p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                            {tenantToDelete.name}
+                        </p>
+                        <div className={`flex gap-3 ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
+                            <button
+                                onClick={() => { setIsDeleteConfirmOpen(false); setTenantToDelete(null); }}
+                                disabled={isDeleting}
+                                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                onClick={handleDeleteConfirm}
+                                disabled={isDeleting}
+                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50"
+                            >
+                                {isDeleting ? '...' : t('tenants.actions.delete')}
                             </button>
                         </div>
                     </div>

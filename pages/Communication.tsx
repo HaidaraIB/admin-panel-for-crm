@@ -5,36 +5,92 @@ import { Broadcast } from '../types';
 import { useI18n } from '../context/i18n';
 import BroadcastViewModal from '../components/BroadcastViewModal';
 import AlertDialog from '../components/AlertDialog';
-import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI } from '../services/api';
+import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getCompaniesAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-const mapBroadcastFromApi = (broadcast: any): Broadcast => ({
-    id: broadcast.id,
-    subject: broadcast.subject,
-    content: broadcast.content || '',
-    target: (broadcast.target || 'all') as Broadcast['target'],
-    broadcast_type: (broadcast.broadcast_type || 'email') as Broadcast['broadcast_type'],
-    status: (broadcast.status || 'draft') as Broadcast['status'],
-    createdAt: broadcast.created_at,
-    scheduledAt: broadcast.scheduled_at,
-    sentAt: broadcast.sent_at,
-});
+const mapBroadcastFromApi = (broadcast: any): Broadcast => {
+    const targets = Array.isArray(broadcast.targets) && broadcast.targets.length > 0
+        ? broadcast.targets
+        : ['all'];
+    return {
+        id: broadcast.id,
+        subject: broadcast.subject,
+        content: broadcast.content || '',
+        target: (targets[0] || 'all') as Broadcast['target'],
+        targets,
+        broadcast_type: (broadcast.broadcast_type || 'email') as Broadcast['broadcast_type'],
+        status: (broadcast.status || 'draft') as Broadcast['status'],
+        createdAt: broadcast.created_at,
+        scheduledAt: broadcast.scheduled_at,
+        sentAt: broadcast.sent_at,
+    };
+};
+
+/** Resolve target to a display label (all, plan name, role, or company name). */
+function getTargetDisplayLabel(
+    target: string,
+    plans: { id: number; name: string; name_ar?: string }[],
+    companies: { id: number; name: string }[],
+    language: string,
+    t: (key: string) => string
+): string {
+    if (target === 'all') return t('communication.new.target.all');
+    if (target.startsWith('plan_')) {
+        const id = parseInt(target.replace('plan_', ''), 10);
+        const plan = plans.find((p) => p.id === id);
+        return plan ? (language === 'ar' ? (plan.name_ar || plan.name) : plan.name) : target;
+    }
+    if (target.startsWith('role_')) {
+        const role = target.replace('role_', '');
+        if (role === 'admin') return t('communication.new.target.roleAdmin');
+        if (role === 'supervisor') return t('communication.new.target.roleSupervisor');
+        if (role === 'employee') return t('communication.new.target.roleEmployee');
+    }
+    if (target.startsWith('company_')) {
+        const id = parseInt(target.replace('company_', ''), 10);
+        const company = companies.find((c) => c.id === id);
+        return company ? company.name : target;
+    }
+    return target;
+}
+
+/** Comma-separated display labels for multiple targets. */
+function getTargetsDisplayLabel(
+    targets: string[],
+    plans: { id: number; name: string; name_ar?: string }[],
+    companies: { id: number; name: string }[],
+    language: string,
+    t: (key: string) => string
+): string {
+    if (!targets || targets.length === 0) return t('communication.new.target.all');
+    return targets.map((tgt) => getTargetDisplayLabel(tgt, plans, companies, language, t)).join(', ');
+}
+
+/** Display status: show "Scheduled" when pending and has scheduled_at. */
+function getDisplayStatus(broadcast: Broadcast): Broadcast['status'] {
+    if (broadcast.status === 'pending' && broadcast.scheduledAt) return 'scheduled';
+    return broadcast.status;
+}
 
 interface NewBroadcastProps {
     onBroadcastCreated: () => void;
 }
 
-const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
+interface NewBroadcastPropsWithPlans extends NewBroadcastProps {
+    plans: { id: number; name: string; name_ar?: string }[];
+    companies: { id: number; name: string }[];
+}
+
+const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated, plans, companies }) => {
     const { t, language } = useI18n();
     const [subject, setSubject] = useState('');
     const [content, setContent] = useState('');
-    const [target, setTarget] = useState('all');
+    const [targets, setTargets] = useState<string[]>([]);
+    const [targetSelectValue, setTargetSelectValue] = useState('');
     const [broadcastType, setBroadcastType] = useState<'email' | 'push'>('email');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
-    const [plans, setPlans] = useState<any[]>([]);
-    const [isLoadingPlans, setIsLoadingPlans] = useState(false);
     const [alertDialog, setAlertDialog] = useState<{
         isOpen: boolean;
         title: string;
@@ -47,23 +103,18 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
         type: 'info',
     });
 
-    useEffect(() => {
-        const fetchPlans = async () => {
-            setIsLoadingPlans(true);
-            try {
-                const response = await getPlansAPI();
-                setPlans(response.results || []);
-            } catch (error) {
-                console.error('Error fetching plans:', error);
-            } finally {
-                setIsLoadingPlans(false);
-            }
-        };
-        fetchPlans();
-    }, []);
+    const addTarget = (value: string) => {
+        if (!value || targets.includes(value)) return;
+        setTargets((prev) => [...prev, value]);
+        setTargetSelectValue('');
+    };
 
+    const removeTarget = (value: string) => {
+        setTargets((prev) => prev.filter((t) => t !== value));
+    };
 
     const handleSchedule = async () => {
+        const effectiveTargets = targets.length > 0 ? targets : ['all'];
         if (!subject || !content || !scheduledDate || !scheduledTime) {
             setAlertDialog({
                 isOpen: true,
@@ -83,7 +134,7 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
             setAlertDialog({
                 isOpen: true,
                 title: t('communication.alerts.validation.title'),
-                message: t('communication.alerts.schedulePastError') || 'يجب أن يكون وقت الجدولة في المستقبل',
+                message: t('communication.alerts.schedulePastError'),
                 type: 'warning',
             });
             return;
@@ -95,7 +146,7 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
             const broadcast = await createBroadcastAPI({
                 subject,
                 content,
-                target,
+                targets: effectiveTargets,
                 broadcast_type: broadcastType,
                 status: 'pending',
             });
@@ -111,15 +162,17 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
             });
             setSubject('');
             setContent('');
+            setTargets([]);
             setScheduledDate('');
             setScheduledTime('');
             onBroadcastCreated();
         } catch (error: any) {
             console.error('Error scheduling broadcast:', error);
+            const msg = error?.message || '';
             setAlertDialog({
                 isOpen: true,
                 title: t('communication.alerts.scheduleError.title'),
-                message: error.message || t('communication.alerts.scheduleError.message'),
+                message: /no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (msg || t('communication.alerts.scheduleError.message')),
                 type: 'error',
             });
         } finally {
@@ -137,12 +190,13 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
             });
             return;
         }
+        const effectiveTargets = targets.length > 0 ? targets : ['all'];
         setIsSubmitting(true);
         try {
             const broadcast = await createBroadcastAPI({
                 subject,
                 content,
-                target,
+                targets: effectiveTargets,
                 broadcast_type: broadcastType,
             });
             await sendBroadcastAPI(broadcast.id);
@@ -154,13 +208,15 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
             });
             setSubject('');
             setContent('');
+            setTargets([]);
             onBroadcastCreated();
         } catch (error: any) {
             console.error('Error sending broadcast:', error);
+            const msg = error?.message || '';
             setAlertDialog({
                 isOpen: true,
                 title: t('communication.alerts.sendError.title'),
-                message: error.message || t('communication.alerts.sendError.message'),
+                message: /no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (msg || t('communication.alerts.sendError.message')),
                 type: 'error',
             });
         } finally {
@@ -185,19 +241,58 @@ const NewBroadcast: React.FC<NewBroadcastProps> = ({ onBroadcastCreated }) => {
             </div>
             <div>
                 <label className="block text-sm font-medium mb-1">{t('communication.new.to')}</label>
-                <select 
+                <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"
-                    value={target}
-                    onChange={(e) => setTarget(e.target.value)}
-                    disabled={isLoadingPlans}
+                    value={targetSelectValue}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        if (v) addTarget(v);
+                    }}
                 >
+                    <option value="">{t('communication.new.target.addPlaceholder')}</option>
                     <option value="all">{t('communication.new.target.all')}</option>
-                    {plans.map((plan) => (
-                        <option key={plan.id} value={`plan_${plan.id}`}>
-                            {language === 'ar' ? (plan.name_ar || plan.name) : plan.name}
-                        </option>
-                    ))}
+                    <optgroup label={t('communication.new.target.byRole')}>
+                        <option value="role_admin">{t('communication.new.target.roleAdmin')}</option>
+                        <option value="role_supervisor">{t('communication.new.target.roleSupervisor')}</option>
+                        <option value="role_employee">{t('communication.new.target.roleEmployee')}</option>
+                    </optgroup>
+                    {plans.length > 0 && (
+                        <optgroup label={t('communication.new.target.plans')}>
+                            {plans.map((plan) => (
+                                <option key={plan.id} value={`plan_${plan.id}`}>
+                                    {language === 'ar' ? (plan.name_ar || plan.name) : plan.name}
+                                </option>
+                            ))}
+                        </optgroup>
+                    )}
+                    {companies.length > 0 && (
+                        <optgroup label={t('communication.new.target.company')}>
+                            {companies.map((company) => (
+                                <option key={company.id} value={`company_${company.id}`}>
+                                    {company.name}
+                                </option>
+                            ))}
+                        </optgroup>
+                    )}
                 </select>
+                {targets.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {targets.map((tgt) => (
+                            <span
+                                key={tgt}
+                                onClick={() => removeTarget(tgt)}
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200 cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
+                                title={t('communication.new.target.removeTag')}
+                            >
+                                {getTargetDisplayLabel(tgt, plans, companies, language, t)}
+                                <Icon name="x" className="w-3.5 h-3.5" />
+                            </span>
+                        ))}
+                    </div>
+                )}
+                {targets.length === 0 && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('communication.new.target.emptyHint')}</p>
+                )}
             </div>
             <div>
                 <label className="block text-sm font-medium mb-1">{t('communication.new.subject')}</label>
@@ -268,9 +363,11 @@ interface HistoryProps {
     onRefresh?: () => void;
     isLoading?: boolean;
     lastUpdated?: string | null;
+    plans: { id: number; name: string; name_ar?: string }[];
+    companies: { id: number; name: string }[];
 }
 
-const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh, isLoading = false, lastUpdated }) => {
+const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh, isLoading = false, lastUpdated, plans, companies }) => {
     const { t, language } = useI18n();
 
     const statusLabels: Record<Broadcast['status'], string> = {
@@ -287,10 +384,6 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
         pending: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
         failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
         draft: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
-    };
-
-    const targetLabels: Record<Broadcast['target'], string> = {
-        all: t('communication.new.target.all'),
     };
 
     const getDisplayDate = (record: Broadcast) => {
@@ -390,11 +483,11 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                                             }
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-center">{targetLabels[item.target] || item.target}</td>
+                                    <td className="px-6 py-4 text-center">{getTargetsDisplayLabel(item.targets ?? [item.target], plans, companies, language, t)}</td>
                                     <td className="px-6 py-4 text-center">{getDisplayDate(item)}</td>
                                     <td className="px-6 py-4 text-center">
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[item.status] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>
-                                            {statusLabels[item.status] || item.status}
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[getDisplayStatus(item)] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>
+                                            {statusLabels[getDisplayStatus(item)] || item.status}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
@@ -402,7 +495,7 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                                             <button onClick={() => onView(item)} className="p-1 text-blue-600 hover:text-blue-800" title={t('communication.history.actions.view')}>
                                                 <Icon name="view" className="w-5 h-5" />
                                             </button>
-                                            {item.status === 'scheduled' && (
+                                            {(getDisplayStatus(item) === 'scheduled' || item.status === 'draft') && (
                                                 <button onClick={() => onDelete(item.id)} className="p-1 text-red-600 hover:text-red-800" title={t('communication.history.actions.delete')}>
                                                     <Icon name="trash" className="w-5 h-5" />
                                                 </button>
@@ -420,7 +513,7 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
 };
 
 const Communication: React.FC = () => {
-    const { t } = useI18n();
+    const { t, language } = useI18n();
     const [activeTab, setActiveTab] = useState(() => {
         return localStorage.getItem('communication_activeTab') || 'new';
     });
@@ -430,6 +523,8 @@ const Communication: React.FC = () => {
         localStorage.setItem('communication_activeTab', activeTab);
     }, [activeTab]);
     const [history, setHistory] = useState<Broadcast[]>([]);
+    const [plans, setPlans] = useState<{ id: number; name: string; name_ar?: string }[]>([]);
+    const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
     const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isHistoryLoading, setIsHistoryLoading] = useState(true);
@@ -486,6 +581,22 @@ const Communication: React.FC = () => {
     useEffect(() => {
         loadBroadcasts();
     }, [loadBroadcasts]);
+
+    useEffect(() => {
+        const fetchPlansAndCompanies = async () => {
+            try {
+                const [plansRes, companiesRes] = await Promise.all([
+                    getPlansAPI(),
+                    getCompaniesAPI(),
+                ]);
+                setPlans(plansRes.results || []);
+                setCompanies((companiesRes.results || []).map((c: any) => ({ id: c.id, name: c.name || c.company_name || String(c.id) })));
+            } catch (e) {
+                console.error('Error fetching plans/companies:', e);
+            }
+        };
+        fetchPlansAndCompanies();
+    }, []);
 
     useEffect(() => {
         if (activeTab === 'history') {
@@ -568,7 +679,7 @@ const Communication: React.FC = () => {
                 ))}
                 </nav>
             </div>
-            {activeTab === 'new' && <NewBroadcast onBroadcastCreated={loadBroadcasts} />}
+            {activeTab === 'new' && <NewBroadcast onBroadcastCreated={loadBroadcasts} plans={plans} companies={companies} />}
             {activeTab === 'history' && (
                 <History
                     history={history}
@@ -577,6 +688,8 @@ const Communication: React.FC = () => {
                     onRefresh={loadBroadcasts}
                     isLoading={isHistoryLoading}
                     lastUpdated={lastUpdatedAt}
+                    plans={plans}
+                    companies={companies}
                 />
             )}
             <BroadcastViewModal 
@@ -584,6 +697,8 @@ const Communication: React.FC = () => {
                 onClose={handleCloseModal}
                 broadcast={selectedBroadcast}
                 isLoading={isViewLoading}
+                targetLabel={selectedBroadcast ? getTargetsDisplayLabel(selectedBroadcast.targets ?? [selectedBroadcast.target], plans, companies, language, t) : ''}
+                displayStatus={selectedBroadcast ? getDisplayStatus(selectedBroadcast) : undefined}
             />
             <AlertDialog
                 isOpen={confirmDialog.isOpen}

@@ -313,12 +313,24 @@ const Dashboard: React.FC = () => {
       // Get ALL currently active subscriptions (not filtered by date range for MRR and active tenants)
       // MRR and Active Tenants should reflect current state, not historical state
       const allActiveSubscriptions = subscriptions.filter((sub: any) => sub.is_active);
-      
-      // Calculate MRR from ALL currently active subscriptions (current state)
-      const mrr = allActiveSubscriptions.reduce((sum: number, sub: any) => {
-        const plan = plans.find((p: any) => p.id === sub.plan);
-        return sum + (plan ? parseFloat(plan.price_monthly || 0) : 0);
-      }, 0);
+
+      // MRR = sum of successful payment amounts in the last 30 days (pending/failed not counted)
+      const todayForMrr = new Date();
+      todayForMrr.setHours(23, 59, 59, 999);
+      const thirtyDaysAgoForMrr = new Date(todayForMrr);
+      thirtyDaysAgoForMrr.setDate(thirtyDaysAgoForMrr.getDate() - 30);
+      thirtyDaysAgoForMrr.setHours(0, 0, 0, 0);
+      const isSuccessfulPayment = (p: any) => {
+        const status = (p.payment_status || '').toLowerCase();
+        return status === 'completed' || status === 'successful' || status === 'success';
+      };
+      const mrr = payments
+        .filter((p: any) => {
+          if (!isSuccessfulPayment(p) || !p.created_at) return false;
+          const d = new Date(p.created_at);
+          return d >= thirtyDaysAgoForMrr && d <= todayForMrr;
+        })
+        .reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
 
       // Count ALL active tenants (current state)
       const activeTenants = allActiveSubscriptions.length;
@@ -684,7 +696,7 @@ const Dashboard: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">{t('dashboard.revenueGrowth.title')}</h3>
           {loading ? <Skeleton className="w-full h-[350px]" /> : (
             <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={revenueData} isAnimationActive>
+              <LineChart data={revenueData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
                 <XAxis
                   dataKey="name"
@@ -709,7 +721,7 @@ const Dashboard: React.FC = () => {
                   formatter={(value) => ` ${value}`}
                   iconSize={12}
                 />
-                <Line type="monotone" dataKey="revenue" name={t('dashboard.revenueGrowth.revenue')} stroke="hsl(var(--color-primary-500))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="revenue" name={t('dashboard.revenueGrowth.revenue')} stroke="hsl(var(--color-primary-500))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} isAnimationActive />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -725,7 +737,7 @@ const Dashboard: React.FC = () => {
             ) : (
               <div className="w-full min-h-[350px]">
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={planData} barCategoryGap={16} isAnimationActive>
+                  <BarChart data={planData} barCategoryGap={16}>
                     <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
                     <XAxis
                       type="category"
@@ -752,7 +764,7 @@ const Dashboard: React.FC = () => {
                       formatter={(value) => ` ${value}`}
                       iconSize={12}
                     />
-                    <Bar dataKey="count" name={t('dashboard.planDistribution.tenants')} fill="hsl(var(--color-primary-500))" barSize={56} />
+                    <Bar dataKey="count" name={t('dashboard.planDistribution.tenants')} fill="hsl(var(--color-primary-500))" barSize={56} isAnimationActive />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

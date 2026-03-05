@@ -38,7 +38,7 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
         } else if (isQicard) {
             return <img src="/q_card_logo.svg" alt="QiCard" className="h-10 w-auto object-contain" />;
         } else if (isFib) {
-            return <span className="text-xl font-bold text-blue-700 dark:text-blue-400">FIB</span>;
+            return <img src="/fib_logo.png" alt="FIB" className="h-10 w-auto object-contain" />;
         } else {
             return <i className={`pf pf-${gateway.id.toLowerCase()} pf-3x`}></i>;
         }

@@ -734,6 +734,20 @@ export const deleteSystemBackupAPI = async (id: string) => {
 };
 
 /**
+ * Fetch backup file for download (returns raw Response for blob handling).
+ * GET /api/settings/backups/{id}/download/
+ */
+export async function getSystemBackupDownloadResponse(id: string): Promise<Response> {
+  const token = localStorage.getItem('accessToken');
+  const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+  };
+  const url = `${BASE_URL}/settings/backups/${id}/download/`;
+  return fetch(url, { headers });
+}
+
+/**
  * Get audit logs for system actions
  * GET /api/settings/audit-logs/
  */

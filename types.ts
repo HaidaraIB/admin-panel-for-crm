@@ -72,7 +72,13 @@ export interface Invoice {
     status: InvoiceStatus;
 }
 
-export type BroadcastTarget = 'all' | `plan_${number}`;
+export type BroadcastTarget =
+    | 'all'
+    | `plan_${number}`
+    | 'role_admin'
+    | 'role_supervisor'
+    | 'role_employee'
+    | `company_${number}`;
 export type BroadcastStatus = 'sent' | 'scheduled' | 'pending' | 'failed' | 'draft';
 export type BroadcastType = 'email' | 'push';
 
@@ -81,6 +87,8 @@ export interface Broadcast {
     subject: string;
     content: string;
     target: BroadcastTarget;
+    /** When non-empty, broadcast is sent to the union of all listed targets. */
+    targets?: string[];
     broadcast_type: BroadcastType;
     status: BroadcastStatus;
     createdAt: string;

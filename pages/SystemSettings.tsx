@@ -10,7 +10,7 @@ import { useUser } from '../context/UserContext';
 import { translateApiMessage } from '../utils/translateApiError';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemSettingsAPI, updateSystemSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI } from '../services/api';
 
 // Helper to get headers with API Key (same as in api.ts)
 const getHeadersWithApiKey = (customHeaders: Record<string, string> = {}): Record<string, string> => {
@@ -172,6 +172,7 @@ const SecurityBackups: React.FC = () => {
     const [restoringId, setRestoringId] = useState<string | null>(null);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [scheduleSaving, setScheduleSaving] = useState(false);
+    const [confirmBackupAction, setConfirmBackupAction] = useState<{ type: 'delete' | 'restore'; backup: SystemBackup } | null>(null);
     const PAGE_SIZE = 20;
 
     useEffect(() => {
@@ -284,8 +285,11 @@ const SecurityBackups: React.FC = () => {
         }
     };
 
-    const handleDeleteBackup = async (backup: SystemBackup) => {
-        if (!window.confirm(t('settings.security.deleteConfirm'))) return;
+    const handleDeleteBackup = (backup: SystemBackup) => {
+        setConfirmBackupAction({ type: 'delete', backup });
+    };
+
+    const performDeleteBackup = async (backup: SystemBackup) => {
         try {
             await deleteSystemBackupAPI(backup.id);
             addLog('audit.log.backupDeleted', { backupId: backup.id });
@@ -294,33 +298,39 @@ const SecurityBackups: React.FC = () => {
         } catch (error) {
             console.error('Failed to delete backup', error);
             setFeedback({ type: 'error', message: t('settings.security.deleteError') });
+        } finally {
+            setConfirmBackupAction(null);
         }
     };
 
     const handleDownloadBackup = async (backup: SystemBackup) => {
-        if (!backup.download_url) {
-            setFeedback({ type: 'error', message: t('settings.security.downloadError') });
-            return;
-        }
         try {
-            const token = localStorage.getItem('accessToken');
-            const response = await fetch(backup.download_url, {
-                headers: getHeadersWithApiKey(
-                    token ? { Authorization: `Bearer ${token}` } : {}
-                ),
-            });
+            const response = await getSystemBackupDownloadResponse(backup.id);
             if (!response.ok) {
-                throw new Error('Download failed');
+                const text = await response.text();
+                let detail = 'Download failed';
+                try {
+                    const errBody = JSON.parse(text);
+                    detail = errBody.detail || detail;
+                } catch {
+                    if (response.status === 404) detail = 'Backup file not found.';
+                }
+                throw new Error(detail);
             }
             const blob = await response.blob();
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = `${backup.id}.sqlite3`;
+            if (disposition) {
+                const match = /filename[*]?=(?:UTF-8'')?["']?([^"'\s;]+)["']?/i.exec(disposition);
+                if (match?.[1]) filename = match[1].trim();
+            }
             const blobUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-            const filename = backup.download_url.split('/').filter(Boolean).pop() || `${backup.id}.sqlite3`;
+            const link = document.createElement('a');
             link.href = blobUrl;
             link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Failed to download backup', error);
@@ -328,9 +338,13 @@ const SecurityBackups: React.FC = () => {
         }
     };
 
-    const handleRestoreBackup = async (backup: SystemBackup) => {
+    const handleRestoreBackup = (backup: SystemBackup) => {
         if (restoringId || backupStatus === 'in-progress') return;
-        if (!window.confirm(t('settings.security.restoreConfirm'))) return;
+        setConfirmBackupAction({ type: 'restore', backup });
+    };
+
+    const performRestoreBackup = async (backup: SystemBackup) => {
+        setConfirmBackupAction(null);
         setRestoringId(backup.id);
         try {
             await restoreSystemBackupAPI(backup.id);
@@ -340,7 +354,7 @@ const SecurityBackups: React.FC = () => {
             console.error('Failed to restore backup', error);
             setFeedback({ type: 'error', message: t('settings.security.restoreError') });
         } finally {
-                setRestoringId(null);
+            setRestoringId(null);
         }
     };
 
@@ -444,14 +458,14 @@ const SecurityBackups: React.FC = () => {
                                     const statusKey = backup.status.replace('-', '_');
                                     return (
                                         <tr key={backup.id} className="bg-white border-b dark:bg-gray-900/30 dark:border-gray-800 hover:bg-primary-50/50 dark:hover:bg-primary-900/20 transition-colors">
-                                            <td className="px-6 py-4 text-center font-mono text-xs break-all">{backup.id}</td>
-                                            <td className="px-6 py-4 text-center">{new Date(backup.created_at).toLocaleString(language)}</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[statusKey] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'}`}>
+                                            <td className="px-6 py-4 text-center font-mono text-xs whitespace-nowrap max-w-[200px] truncate" title={backup.id}>{backup.id}</td>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap">{new Date(backup.created_at).toLocaleString(language)}</td>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap">
+                                                <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColors[statusKey] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'}`}>
                                                     {t(`settings.security.status.${statusKey}`)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">{t(`settings.security.initiator.${backup.initiator.toLowerCase()}`)}</td>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap">{t(`settings.security.initiator.${backup.initiator.toLowerCase()}`)}</td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center space-x-2 rtl:space-x-reverse">
                                                     <button
@@ -518,6 +532,25 @@ const SecurityBackups: React.FC = () => {
                     </nav>
                 )}
             </div>
+
+            <AlertDialog
+                isOpen={confirmBackupAction !== null}
+                onClose={() => setConfirmBackupAction(null)}
+                type="warning"
+                title={t('common.confirm')}
+                message={confirmBackupAction ? (confirmBackupAction.type === 'delete' ? t('settings.security.deleteConfirm') : t('settings.security.restoreConfirm')) : ''}
+                showCancel
+                cancelText={t('common.cancel')}
+                confirmText={confirmBackupAction?.type === 'delete' ? t('settings.security.actions.delete') : t('settings.security.actions.restore')}
+                onConfirm={() => {
+                    if (!confirmBackupAction) return;
+                    if (confirmBackupAction.type === 'delete') {
+                        performDeleteBackup(confirmBackupAction.backup);
+                    } else {
+                        performRestoreBackup(confirmBackupAction.backup);
+                    }
+                }}
+            />
         </div>
     );
 };

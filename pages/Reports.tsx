@@ -7,7 +7,11 @@ import { getPaymentsAPI, getSubscriptionsAPI, getCompaniesAPI } from '../service
 import Skeleton from '../components/Skeleton';
 import ReportsFilterDrawer, { ReportsFilters, reportsFilterDefaults } from '../components/ReportsFilterDrawer';
 
-const COLORS = ['#3b82f6', '#ef4444'];
+// ألوان متوافقة مع نمط التطبيق (primary من الثيم)
+const CHART_COLORS = {
+  primary: 'hsl(var(--color-primary-500))',
+  primaryLight: 'hsl(var(--color-primary-400))',
+};
 
 const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
@@ -94,6 +98,14 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
     const { t, language } = useI18n();
     const [mrrData, setMrrData] = useState<Array<{month: string; MRR: number; ARR: number}>>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    const chartGridStroke = isDark ? '#4b5563' : '#e5e7eb';
+    const chartAxisStroke = isDark ? '#9ca3af' : '#6b7280';
+    const tooltipContentStyle = isDark
+        ? { backgroundColor: 'rgba(31, 41, 55, 0.95)', border: 'none', borderRadius: '8px', color: '#f3f4f6' as const }
+        : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#111827' as const, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' };
+    const tooltipLabelStyle = isDark ? { color: '#9ca3af' } : { color: '#6b7280' };
+    const tooltipItemStyle = isDark ? { color: '#f3f4f6' } : { color: '#111827' };
 
     useEffect(() => {
         loadRevenueData();
@@ -199,28 +211,32 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
              ) : (
              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={mrrData}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
                     <XAxis 
                         dataKey="month" 
                         interval={0}
                         angle={0}
                         textAnchor="middle"
                         height={60}
-                        tick={{ fontSize: 11 }}
+                        tick={{ fontSize: 11, fill: chartAxisStroke }}
                         dy={10}
+                        stroke={chartAxisStroke}
+                        axisLine={{ stroke: chartGridStroke }}
                     />
                     <YAxis 
-                        tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0 }}
+                        tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartAxisStroke }}
                         width={language === 'ar' ? 60 : 50}
+                        stroke={chartAxisStroke}
+                        axisLine={{ stroke: chartGridStroke }}
                     />
-                    <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }}/>
+                    <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
                         <Legend 
                             wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
                             formatter={(value) => ` ${value}`}
                             iconSize={12}
                         />
-                        <Bar dataKey="MRR" fill="#3b82f6" name={t('reports.revenue.mrr')} />
-                        <Bar dataKey="ARR" fill="#818cf8" name={t('reports.revenue.arr')} />
+                        <Bar dataKey="MRR" fill={CHART_COLORS.primary} name={t('reports.revenue.mrr')} />
+                        <Bar dataKey="ARR" fill={CHART_COLORS.primaryLight} name={t('reports.revenue.arr')} />
                 </BarChart>
             </ResponsiveContainer>
              )}
@@ -234,6 +250,16 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
     const [subscriberData, setSubscriberData] = useState<Array<{month: string; new: number; churned: number}>>([]);
     const [conversionData, setConversionData] = useState<Array<{name: string; value: number}>>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    const chartGridStroke = isDark ? '#4b5563' : '#e5e7eb';
+    const chartAxisStroke = isDark ? '#9ca3af' : '#6b7280';
+    const tooltipContentStyle = isDark
+        ? { backgroundColor: 'rgba(31, 41, 55, 0.95)', border: 'none', borderRadius: '8px', color: '#f3f4f6' as const }
+        : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#111827' as const, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' };
+    const tooltipLabelStyle = isDark ? { color: '#9ca3af' } : { color: '#6b7280' };
+    const tooltipItemStyle = isDark ? { color: '#f3f4f6' } : { color: '#111827' };
+    const chartMuted = isDark ? '#9ca3af' : '#6b7280'; // لون ثانوي يظهر جيداً على الخلفية الفاتحة والداكنة
+    const conversionChartColors = [CHART_COLORS.primary, chartMuted];
 
     useEffect(() => {
         loadSubscriberData();
@@ -367,28 +393,32 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
                  ) : (
                  <ResponsiveContainer width="100%" height={300}>
                         <LineChart data={subscriberData}>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
+                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
                             <XAxis 
                                 dataKey="month" 
                                 interval={0}
                                 angle={0}
                                 textAnchor="middle"
                                 height={60}
-                                tick={{ fontSize: 11 }}
+                                tick={{ fontSize: 11, fill: chartAxisStroke }}
                                 dy={10}
+                                stroke={chartAxisStroke}
+                                axisLine={{ stroke: chartGridStroke }}
                             />
                             <YAxis 
-                                tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0 }}
+                                tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartAxisStroke }}
                                 width={language === 'ar' ? 60 : 50}
+                                stroke={chartAxisStroke}
+                                axisLine={{ stroke: chartGridStroke }}
                             />
-                            <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }}/>
+                            <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
                             <Legend 
                                 wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
                                 formatter={(value) => ` ${value}`}
                                 iconSize={12}
                             />
-                            <Line type="monotone" dataKey="new" name={t('reports.subscribers.new')} stroke="#10b981" />
-                            <Line type="monotone" dataKey="churned" name={t('reports.subscribers.churned')} stroke="#ef4444" />
+                            <Line type="monotone" dataKey="new" name={t('reports.subscribers.new')} stroke={CHART_COLORS.primary} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            <Line type="monotone" dataKey="churned" name={t('reports.subscribers.churned')} stroke={chartMuted} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                 </ResponsiveContainer>
                  )}
@@ -406,15 +436,15 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
                                 cy="50%" 
                                 labelLine={false} 
                                 outerRadius={80} 
-                                fill="#8884d8" 
+                                fill={CHART_COLORS.primary} 
                                 dataKey="value" 
                                 label={false}
                             >
                                 {conversionData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    <Cell key={`cell-${index}`} fill={conversionChartColors[index % conversionChartColors.length]} />
                                 ))}
                             </Pie>
-                             <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: 'none' }}/>
+                             <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
                              <Legend 
                                 wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
                                 formatter={(value) => ` ${value}`}

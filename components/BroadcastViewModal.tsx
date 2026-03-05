@@ -10,9 +10,13 @@ interface BroadcastViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   isLoading?: boolean;
+  /** Precomputed label for target (e.g. plan name, role, company). */
+  targetLabel?: string;
+  /** Derived display status (e.g. "scheduled" when pending + scheduled_at). */
+  displayStatus?: Broadcast['status'];
 }
 
-const BroadcastViewModal: React.FC<BroadcastViewModalProps> = ({ broadcast, isOpen, onClose, isLoading = false }) => {
+const BroadcastViewModal: React.FC<BroadcastViewModalProps> = ({ broadcast, isOpen, onClose, isLoading = false, targetLabel, displayStatus }) => {
   const { t, language } = useI18n();
 
   if (!isOpen || !broadcast) return null;
@@ -20,18 +24,20 @@ const BroadcastViewModal: React.FC<BroadcastViewModalProps> = ({ broadcast, isOp
   const statusTranslations: Record<Broadcast['status'], string> = {
     sent: t('communication.history.status.sent'),
     scheduled: t('communication.history.status.scheduled'),
+    pending: t('communication.history.status.pending'),
+    failed: t('communication.history.status.failed'),
     draft: t('communication.history.status.draft'),
   };
   
   const statusColors: Record<Broadcast['status'], string> = {
     sent: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
     scheduled: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    pending: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+    failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
     draft: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
   };
 
-  const targetLabels: Record<Broadcast['target'], string> = {
-    all: t('communication.new.target.all'),
-  };
+  const effectiveStatus = displayStatus ?? broadcast.status;
 
   const dateLabel = (() => {
     const value = broadcast.sentAt || broadcast.scheduledAt || broadcast.createdAt;
@@ -74,7 +80,7 @@ const BroadcastViewModal: React.FC<BroadcastViewModalProps> = ({ broadcast, isOp
             </div>
              <div>
               <label className={labelClasses}>{t('communication.history.table.target')}</label>
-              <p className={valueClasses}>{targetLabels[broadcast.target] || broadcast.target}</p>
+              <p className={valueClasses}>{targetLabel ?? broadcast.target}</p>
             </div>
             <div>
               <label className={labelClasses}>{t('communication.history.table.date')}</label>
@@ -83,8 +89,8 @@ const BroadcastViewModal: React.FC<BroadcastViewModalProps> = ({ broadcast, isOp
             <div>
               <label className={labelClasses}>{t('communication.history.table.status')}</label>
               <div className={valueClasses}>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[broadcast.status]}`}>
-                  {statusTranslations[broadcast.status] || broadcast.status}
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[effectiveStatus]}`}>
+                  {statusTranslations[effectiveStatus] || broadcast.status}
                 </span>
               </div>
             </div>

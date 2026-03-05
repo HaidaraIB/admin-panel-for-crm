@@ -330,6 +330,19 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteTenant = async (tenantId: number) => {
+    try {
+      const company = await getCompanyAPI(tenantId);
+      await deleteCompanyAPI(tenantId);
+      addLog('audit.log.tenantDeleted', { companyName: company.name });
+      await loadTenants();
+    } catch (error: any) {
+      console.error('Error deleting tenant:', error);
+      showAlert(translateApiMessage(error.message, t) || t('errors.deleteTenant'), { variant: 'error' });
+      throw error;
+    }
+  };
+
   const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return (
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
@@ -413,6 +426,7 @@ const App: React.FC = () => {
                   onUpdateTenant={handleUpdateTenant}
                   onActivateTenant={handleActivateTenant}
                   onDeactivateTenant={handleDeactivateTenant}
+                  onDeleteTenant={handleDeleteTenant}
                   isLoading={isLoadingTenants} 
                   onRefresh={loadTenants} 
                 />
