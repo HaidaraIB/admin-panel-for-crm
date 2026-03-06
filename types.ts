@@ -1,5 +1,18 @@
 
-export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'Subscriptions' | 'Reports' | 'Communication' | 'Settings' | 'PaymentGateways';
+export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'Subscriptions' | 'Reports' | 'Communication' | 'Settings' | 'PaymentGateways' | 'SupportTickets';
+
+export type TicketStatus = 'open' | 'in_progress' | 'closed';
+
+export interface SupportTicket {
+  id: number;
+  title: string;
+  description: string;
+  status: TicketStatus;
+  company_name?: string;
+  created_by_username?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export enum TenantStatus {
   Active = 'Active',

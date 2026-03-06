@@ -373,10 +373,13 @@ const PaymentsTab: React.FC = () => {
                         break;
                 }
                 
+                const amountUsd = payment.amount_usd != null ? parseFloat(payment.amount_usd) : null;
                 return {
                     id: payment.id.toString(), // API field: id
                     companyName: payment.subscription_company_name || 'Unknown', // From subscription relation
-                    amount: parseFloat(payment.amount || 0), // API field: amount
+                    amount: parseFloat(payment.amount || 0), // API field: amount (original currency)
+                    amountUsd, // Display in USD
+                    currency: (payment.currency || 'USD').toUpperCase(),
                     plan: payment.subscription_plan_name || 'Unknown', // From subscription relation
                     status: status,
                     date: payment.created_at ? new Date(payment.created_at).toISOString().split('T')[0] : '', // API field: created_at
@@ -428,7 +431,7 @@ const PaymentsTab: React.FC = () => {
                             <tr key={p.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                                 <td className="px-6 py-4 text-center font-mono">{p.id}</td>
                                 <td className="px-6 py-4 text-center">{p.companyName}</td>
-                                <td className="px-6 py-4 text-center">${p.amount}</td>
+                                <td className="px-6 py-4 text-center">${(p.amountUsd != null ? p.amountUsd : p.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
                                 <td className="px-6 py-4 text-center">{p.date}</td>
                             </tr>

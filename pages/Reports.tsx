@@ -158,7 +158,7 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
                 const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth()}`;
                 const monthData = revenueByMonth.find((m) => m.key === key);
                 if (monthData) {
-                    const amount = parseFloat(payment.amount || 0);
+                    const amount = payment.amount_usd != null ? parseFloat(payment.amount_usd) : parseFloat(payment.amount || 0);
                     monthData.MRR += amount;
                     monthData.ARR += amount * 12; // Annualized
                 }

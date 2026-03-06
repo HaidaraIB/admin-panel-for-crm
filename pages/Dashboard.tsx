@@ -330,7 +330,7 @@ const Dashboard: React.FC = () => {
           const d = new Date(p.created_at);
           return d >= thirtyDaysAgoForMrr && d <= todayForMrr;
         })
-        .reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
+        .reduce((sum: number, p: any) => sum + (p.amount_usd != null ? parseFloat(p.amount_usd) : parseFloat(p.amount || 0)), 0);
 
       // Count ALL active tenants (current state)
       const activeTenants = allActiveSubscriptions.length;
@@ -432,7 +432,7 @@ const Dashboard: React.FC = () => {
           const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth()}`;
           const monthData = revenueByMonth.find(m => m.key === key);
           if (monthData) {
-            const amount = parseFloat(payment.amount || 0);
+            const amount = payment.amount_usd != null ? parseFloat(payment.amount_usd) : parseFloat(payment.amount || 0);
             monthData.revenue += amount;
           }
         }
@@ -486,7 +486,7 @@ const Dashboard: React.FC = () => {
         });
       setRecentCompanies(recent);
 
-      // Recent payments (last 5) - show ALL completed payments, not filtered by date range
+      // Recent payments (last 5) - show ALL completed payments in USD (amount_usd)
       const recentPaymentsList = payments
         .filter((payment: any) => {
           const paymentStatus = payment.payment_status?.toLowerCase() || '';
@@ -494,10 +494,13 @@ const Dashboard: React.FC = () => {
         })
         .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
-        .map((payment: any) => ({
-          name: payment.subscription_company_name || t('dashboard.unknown'),
-          amount: `$${parseFloat(payment.amount || 0).toFixed(2)}`
-        }));
+        .map((payment: any) => {
+          const amountUsd = payment.amount_usd != null ? parseFloat(payment.amount_usd) : parseFloat(payment.amount || 0);
+          return {
+            name: payment.subscription_company_name || t('dashboard.unknown'),
+            amount: `$${amountUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          };
+        });
       setRecentPayments(recentPaymentsList);
     } catch (error) {
       console.error('Error loading dashboard data:', error);

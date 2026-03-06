@@ -30,10 +30,12 @@ async function apiRequest<T>(
   const token = localStorage.getItem('accessToken');
   
   // Build headers with API Key and authentication
+  const uiLanguage = typeof window !== 'undefined' ? localStorage.getItem('language') : null;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
     ...(API_KEY && { 'X-API-Key': API_KEY }),
+    ...(uiLanguage === 'ar' || uiLanguage === 'en' ? { 'X-Language': uiLanguage } : {}),
     ...Object.fromEntries(
       Object.entries(options.headers || {}).map(([k, v]) => [k, String(v)])
     ),
@@ -869,6 +871,33 @@ export const deleteLimitedAdminAPI = async (id: number) => {
 export const toggleLimitedAdminActiveAPI = async (id: number) => {
   return apiRequest<any>(`/limited-admins/${id}/toggle_active/`, {
     method: 'POST',
+  });
+};
+
+/** GET /api/support-tickets/ - list all support tickets (super admin) */
+export const getSupportTicketsAPI = async (params?: { page?: number; page_size?: number }) => {
+  const query = params
+    ? new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params).filter(([, v]) => v != null) as [string, string][]
+        )
+      ).toString()
+    : '';
+  return apiRequest<{ count: number; next: string | null; previous: string | null; results: any[] }>(
+    `/support-tickets/${query ? `?${query}` : ''}`
+  );
+};
+
+/** GET /api/support-tickets/{id}/ - get one ticket */
+export const getSupportTicketAPI = async (id: number) => {
+  return apiRequest<any>(`/support-tickets/${id}/`);
+};
+
+/** PATCH /api/support-tickets/{id}/ - update ticket status */
+export const updateSupportTicketStatusAPI = async (id: number, data: { status: string }) => {
+  return apiRequest<any>(`/support-tickets/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
   });
 };
 

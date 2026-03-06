@@ -10,6 +10,7 @@ interface LimitedAdminPermissions {
   can_manage_communication: boolean;
   can_manage_settings: boolean;
   can_manage_limited_admins: boolean;
+  can_manage_support_tickets: boolean;
 }
 
 interface LimitedAdmin {

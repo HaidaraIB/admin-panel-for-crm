@@ -5,7 +5,7 @@ import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';
 import { useUser } from '../context/UserContext';
 
-type PermissionKey = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_settings';
+type PermissionKey = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_settings' | 'can_manage_support_tickets';
 
 interface SidebarProps {
   activePage: string;
@@ -31,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
     { path: '/payment-gateways', labelKey: 'sidebar.paymentGateways', icon: 'cash', permission: 'can_manage_payment_gateways' },
     { path: '/reports', labelKey: 'sidebar.reports', icon: 'reports', permission: 'can_view_reports' },
     { path: '/communication', labelKey: 'sidebar.communication', icon: 'communication', permission: 'can_manage_communication' },
+    { path: '/support-tickets', labelKey: 'sidebar.supportTickets', icon: 'supportTickets', permission: 'can_manage_support_tickets' },
   ];
 
   const menuItems = allMenuItems.filter((item) => canAccess(item.permission));

@@ -7,6 +7,7 @@ const arTranslations = {
   "sidebar.paymentGateways": "بوابات الدفع",
   "sidebar.reports": "التقارير",
   "sidebar.communication": "التواصل",
+  "sidebar.supportTickets": "تذاكر الدعم",
   "sidebar.settings": "الإعدادات",
   "sidebar.logout": "تسجيل الخروج",
   "header.superAdmin": "مدير النظام",
@@ -568,7 +569,24 @@ const arTranslations = {
   "audit.log.limitedAdminCreated": "أنشأ مدير محدود: {adminName}",
   "audit.log.limitedAdminUpdated": "حدّث مدير محدود: {adminName}",
   "audit.log.limitedAdminDeleted": "حذف مدير محدود: {adminName}",
-  "audit.log.limitedAdminToggled": "غيّر حالة مدير محدود: {adminName}"
+  "audit.log.limitedAdminToggled": "غيّر حالة مدير محدود: {adminName}",
+  "tickets.title": "تذاكر الدعم",
+  "tickets.status.open": "مفتوح",
+  "tickets.status.in_progress": "قيد المعالجة",
+  "tickets.status.closed": "مغلق",
+  "tickets.company": "الشركة",
+  "tickets.sender": "المرسل",
+  "tickets.subject": "الموضوع",
+  "tickets.date": "التاريخ",
+  "tickets.changeStatus": "تغيير الحالة",
+  "tickets.noTickets": "لا توجد تذاكر.",
+  "tickets.description": "الوصف",
+  "tickets.statusLabel": "الحالة",
+  "tickets.updatedAt": "آخر تحديث",
+  "tickets.actions": "إجراءات",
+  "tickets.viewDetails": "عرض التفاصيل",
+  "tickets.details": "التفاصيل",
+  "common.close": "إغلاق"
 };
 
 const enTranslations = {
@@ -578,6 +596,7 @@ const enTranslations = {
   "sidebar.paymentGateways": "Payment Gateways",
   "sidebar.reports": "Reports",
   "sidebar.communication": "Communication",
+  "sidebar.supportTickets": "Support Tickets",
   "sidebar.settings": "Settings",
   "sidebar.logout": "Logout",
   "header.superAdmin": "Super Admin",
@@ -995,7 +1014,7 @@ const enTranslations = {
   "errors.permissionManageSettings": "You do not have permission to manage settings.",
   "errors.permissionManageLimitedAdmins": "You do not have permission to manage limited admins.",
   "errors.permissionPerformAction": "You do not have permission to perform this action.",
-  "errors.subscriptionExpired": "Your subscription is not active or has expired. Please contact support or complete your payment to access the system.",
+  "errors.subscriptionExpired": "Your subscription is not active or has expired. Please contact support or Complete Your Payment to access the system.",
   "validation.requiredFields": "Please fill in all required fields",
   "common.savePlan": "Save Plan",
   "common.createAndSave": "Create & Save",
@@ -1138,7 +1157,24 @@ const enTranslations = {
   "audit.log.limitedAdminCreated": "Created limited admin: {adminName}",
   "audit.log.limitedAdminUpdated": "Updated limited admin: {adminName}",
   "audit.log.limitedAdminDeleted": "Deleted limited admin: {adminName}",
-  "audit.log.limitedAdminToggled": "Toggled limited admin: {adminName}"
+  "audit.log.limitedAdminToggled": "Toggled limited admin: {adminName}",
+  "tickets.title": "Support Tickets",
+  "tickets.status.open": "Open",
+  "tickets.status.in_progress": "In Progress",
+  "tickets.status.closed": "Closed",
+  "tickets.company": "Company",
+  "tickets.sender": "Sender",
+  "tickets.subject": "Subject",
+  "tickets.date": "Date",
+  "tickets.changeStatus": "Change status",
+  "tickets.noTickets": "No tickets.",
+  "tickets.description": "Description",
+  "tickets.statusLabel": "Status",
+  "tickets.updatedAt": "Last updated",
+  "tickets.actions": "Actions",
+  "tickets.viewDetails": "View details",
+  "tickets.details": "Details",
+  "common.close": "Close"
 };
 
 type Language = 'en' | 'ar';

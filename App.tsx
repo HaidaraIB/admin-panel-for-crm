@@ -9,6 +9,7 @@ import Subscriptions from './pages/Subscriptions';
 import Reports from './pages/Reports';
 import Communication from './pages/Communication';
 import SystemSettings from './pages/SystemSettings';
+import SupportTickets from './pages/SupportTickets';
 import LoginPage from './pages/LoginPage';
 import PaymentGateways from './pages/PaymentGateways';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -21,7 +22,7 @@ import { translateApiMessage } from './utils/translateApiError';
 import FullPageLoader from './components/FullPageLoader';
 import { getCompaniesAPI, getCompanyAPI, getSubscriptionsAPI, getPlansAPI, createCompanyAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI } from './services/api';
 
-type RoutePermission = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_settings';
+type RoutePermission = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_settings' | 'can_manage_support_tickets';
 
 const PermissionGuard: React.FC<{ permission: RoutePermission; children: React.ReactNode }> = ({ permission, children }) => {
   const { hasPermission, isSuperAdmin, loading } = useUser();
@@ -52,6 +53,7 @@ const App: React.FC = () => {
       '/reports': 'Reports',
       '/communication': 'Communication',
       '/settings': 'Settings',
+      '/support-tickets': 'SupportTickets',
     };
     return routeMap[pathname] || 'Dashboard';
   };
@@ -490,6 +492,18 @@ const App: React.FC = () => {
             <PermissionGuard permission="can_manage_settings">
               <Layout>
                 <SystemSettings key={`settings-${language}`} />
+              </Layout>
+            </PermissionGuard>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/support-tickets"
+        element={
+          <ProtectedRoute>
+            <PermissionGuard permission="can_manage_support_tickets">
+              <Layout>
+                <SupportTickets key={`support-tickets-${language}`} />
               </Layout>
             </PermissionGuard>
           </ProtectedRoute>

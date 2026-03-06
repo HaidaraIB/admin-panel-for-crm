@@ -13,7 +13,7 @@ const API_MESSAGE_TO_KEY: Record<string, string> = {
   'You do not have permission to manage settings.': 'errors.permissionManageSettings',
   'You do not have permission to manage limited admins.': 'errors.permissionManageLimitedAdmins',
   'You do not have permission to perform this action.': 'errors.permissionPerformAction',
-  'Your subscription is not active or has expired. Please contact support or complete your payment to access the system.': 'errors.subscriptionExpired',
+  'Your subscription is not active or has expired. Please contact support or Complete Your Payment to access the system.': 'errors.subscriptionExpired',
 };
 
 export function translateApiMessage(
