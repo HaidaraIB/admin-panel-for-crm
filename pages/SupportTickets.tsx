@@ -1,8 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Icon from '../components/Icon';
 import { useI18n } from '../context/i18n';
 import { getSupportTicketsAPI, updateSupportTicketStatusAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+
+const STATUS_OPTIONS = [
+  { value: 'open', labelKey: 'tickets.status.open', className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100 border-amber-300 dark:border-amber-700' },
+  { value: 'in_progress', labelKey: 'tickets.status.in_progress', className: 'bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100 border-blue-300 dark:border-blue-700' },
+  { value: 'closed', labelKey: 'tickets.status.closed', className: 'bg-green-100 text-green-900 dark:bg-green-900/50 dark:text-green-100 border-green-300 dark:border-green-700' },
+] as const;
 
 const SupportTickets: React.FC = () => {
   const { t, language } = useI18n();
@@ -10,6 +16,8 @@ const SupportTickets: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [openStatusDropdownId, setOpenStatusDropdownId] = useState<number | null>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -27,14 +35,38 @@ const SupportTickets: React.FC = () => {
     loadTickets();
   }, [loadTickets]);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setOpenStatusDropdownId(null);
+      }
+    };
+    if (openStatusDropdownId !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [openStatusDropdownId]);
+
   const handleStatusChange = async (id: number, newStatus: string) => {
     setUpdatingId(id);
+    setOpenStatusDropdownId(null);
     try {
       await updateSupportTicketStatusAPI(id, { status: newStatus });
       await loadTickets();
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const getStatusStyle = (status: string) => {
+    const opt = STATUS_OPTIONS.find((o) => o.value === status) || STATUS_OPTIONS[0];
+    return opt.className;
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (status === 'closed') return t('tickets.status.closed');
+    if (status === 'in_progress') return t('tickets.status.in_progress');
+    return t('tickets.status.open');
   };
 
   const isRtl = language === 'ar';
@@ -119,16 +151,38 @@ const SupportTickets: React.FC = () => {
                         : '—'}
                     </td>
                     <td className="px-6 py-3">
-                      <select
-                        value={ticket.status || 'open'}
-                        onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
-                        disabled={updatingId === ticket.id}
-                        className={`text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 ${isRtl ? 'mr-0 ml-2' : ''}`}
+                      <div
+                        className="relative inline-block min-w-[8rem]"
+                        ref={openStatusDropdownId === ticket.id ? statusDropdownRef : undefined}
                       >
-                        <option value="open">{t('tickets.status.open')}</option>
-                        <option value="in_progress">{t('tickets.status.in_progress')}</option>
-                        <option value="closed">{t('tickets.status.closed')}</option>
-                      </select>
+                        <button
+                          type="button"
+                          onClick={() => updatingId !== ticket.id && setOpenStatusDropdownId((id) => (id === ticket.id ? null : ticket.id))}
+                          disabled={updatingId === ticket.id}
+                          className={`inline-flex items-center justify-between gap-1.5 w-full text-sm font-medium rounded border px-2 py-1.5 ${getStatusStyle(ticket.status || 'open')} ${isRtl ? 'flex-row-reverse' : ''} disabled:opacity-60`}
+                        >
+                          <span>{getStatusLabel(ticket.status || 'open')}</span>
+                          <Icon name="chevronDown" className="w-4 h-4 shrink-0" />
+                        </button>
+                        {openStatusDropdownId === ticket.id && (
+                          <ul
+                            className="absolute z-10 mt-1 w-full rounded border border-gray-300 dark:border-gray-600 shadow-lg overflow-hidden min-w-[10rem] bg-white dark:bg-gray-700"
+                            role="listbox"
+                          >
+                            {STATUS_OPTIONS.map((opt) => (
+                              <li key={opt.value} role="option">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStatusChange(ticket.id, opt.value)}
+                                  className="w-full text-left text-sm font-medium px-2 py-2 border-b border-gray-200 dark:border-gray-600 last:border-b-0 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600 ${isRtl ? 'text-right' : ''}"
+                                >
+                                  {t(opt.labelKey)}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-3">
                       <button
@@ -211,7 +265,7 @@ const SupportTickets: React.FC = () => {
                       <span
                         className={`inline-block mt-0.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
                           selectedTicket.status === 'closed'
-                            ? 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200'
                             : selectedTicket.status === 'in_progress'
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200'
                             : 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200'
@@ -249,6 +303,30 @@ const SupportTickets: React.FC = () => {
                   )}
                 </div>
               </section>
+              {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                <section>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                    {t('tickets.screenshots') || 'Screenshots'}
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {selectedTicket.attachments.map((att: { id: number; url: string }) => (
+                      <a
+                        key={att.id}
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700/50 hover:opacity-90 focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                      >
+                        <img
+                          src={att.url}
+                          alt=""
+                          className="h-24 w-auto object-cover max-w-[180px]"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
           </div>
         </div>

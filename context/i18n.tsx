@@ -573,7 +573,7 @@ const arTranslations = {
   "tickets.title": "تذاكر الدعم",
   "tickets.status.open": "مفتوح",
   "tickets.status.in_progress": "قيد المعالجة",
-  "tickets.status.closed": "مغلق",
+  "tickets.status.closed": "تم حل المشكلة",
   "tickets.company": "الشركة",
   "tickets.sender": "المرسل",
   "tickets.subject": "الموضوع",
@@ -586,6 +586,7 @@ const arTranslations = {
   "tickets.actions": "إجراءات",
   "tickets.viewDetails": "عرض التفاصيل",
   "tickets.details": "التفاصيل",
+  "tickets.screenshots": "لقطات الشاشة",
   "common.close": "إغلاق"
 };
 
@@ -1161,7 +1162,7 @@ const enTranslations = {
   "tickets.title": "Support Tickets",
   "tickets.status.open": "Open",
   "tickets.status.in_progress": "In Progress",
-  "tickets.status.closed": "Closed",
+  "tickets.status.closed": "Problem solved",
   "tickets.company": "Company",
   "tickets.sender": "Sender",
   "tickets.subject": "Subject",
@@ -1174,6 +1175,7 @@ const enTranslations = {
   "tickets.actions": "Actions",
   "tickets.viewDetails": "View details",
   "tickets.details": "Details",
+  "tickets.screenshots": "Screenshots",
   "common.close": "Close"
 };
 
