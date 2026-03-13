@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Icon from '../components/Icon';
 import { Tenant, TenantStatus, Page } from '../types';
 import { useI18n } from '../context/i18n';
@@ -40,6 +41,7 @@ const Tenants: React.FC<TenantsProps> = ({
     onRefresh
 }) => {
     const { t, language } = useI18n();
+    const navigate = useNavigate();
     const { addLog } = useAuditLog();
     const { isSuperAdmin } = useUser();
     const { showAlert } = useAlert();
@@ -220,6 +222,14 @@ const Tenants: React.FC<TenantsProps> = ({
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('tenants.title')}</h1>
                 <div className="flex gap-2 self-start md:self-auto">
+                    <button
+                        onClick={() => navigate('/tenants/add')}
+                        className="flex items-center space-x-2 rtl:space-x-reverse px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium transition-colors"
+                        type="button"
+                    >
+                        <Icon name="plus" className="w-5 h-5" />
+                        <span>{t('tenants.add.button')}</span>
+                    </button>
                     <button
                         onClick={() => setIsFilterDrawerOpen(true)}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:border-primary-400 dark:hover:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition"

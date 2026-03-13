@@ -1,46 +1,110 @@
 /**
  * API Service for Admin Panel
  * Connects to Django REST Framework backend
+ * Follows clean code: single responsibility, DRY, typed responses, optional cache for list endpoints.
  */
+
+import type { LimitedAdmin, SystemBackup } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 
-/**
- * Helper function to add API Key to headers
- */
-function getHeadersWithApiKey(customHeaders: Record<string, string> = {}): Record<string, string> {
+// ==================== Types ====================
+
+/** Standard paginated list response from Django REST Framework */
+export interface PaginatedResponse<T> {
+  results: T[];
+  count: number;
+  next?: string | null;
+  previous?: string | null;
+}
+
+/** API error with optional field-level errors (DRF validation) */
+export interface ApiError extends Error {
+  fields?: Record<string, string | string[]>;
+}
+
+// ==================== Helpers ====================
+
+/** Build query string from params; skips null/undefined and empty values. */
+function buildQueryString(params: Record<string, string | number | undefined | null> = {}): string {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') {
+      searchParams.append(key, String(value));
+    }
+  });
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+}
+
+/** Headers for unauthenticated requests (login, refresh). */
+function getUnauthHeaders(customHeaders: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
     ...customHeaders,
   };
-  if (API_KEY) {
-    headers['X-API-Key'] = API_KEY;
-  }
+  if (API_KEY) headers['X-API-Key'] = API_KEY;
   return headers;
 }
 
+/** Headers for authenticated requests (Bearer + API Key + Language). */
+function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const uiLanguage = typeof window !== 'undefined' ? localStorage.getItem('language') : null;
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...(API_KEY && { 'X-API-Key': API_KEY }),
+    ...(uiLanguage === 'ar' || uiLanguage === 'en' ? { 'X-Language': uiLanguage } : {}),
+    ...extra,
+  };
+}
+
 /**
- * Helper function to make API requests with JWT authentication
+ * In-memory cache for frequently used list APIs to reduce duplicate network calls.
+ * TTL in ms; invalidate via invalidateListCache() after mutations.
+ */
+const listCache = new Map<string, { data: unknown; expires: number }>();
+const LIST_CACHE_TTL_MS = 60_000;
+
+function getCached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const cached = listCache.get(key);
+  if (cached && Date.now() < cached.expires) {
+    return Promise.resolve(cached.data as T);
+  }
+  return fetcher().then((data) => {
+    listCache.set(key, { data, expires: Date.now() + LIST_CACHE_TTL_MS });
+    return data;
+  });
+}
+
+/** Call after create/update/delete on companies, plans, or subscriptions so list views stay fresh. */
+export function invalidateListCache(resource?: 'companies' | 'plans' | 'subscriptions'): void {
+  if (resource) {
+    for (const key of listCache.keys()) {
+      if (key.startsWith(resource)) listCache.delete(key);
+    }
+  } else {
+    listCache.clear();
+  }
+}
+
+/**
+ * Authenticated API request with 401 refresh retry and consistent error shape.
  */
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
   retryOn401: boolean = true
 ): Promise<T> {
-  const token = localStorage.getItem('accessToken');
-  
-  // Build headers with API Key and authentication
-  const uiLanguage = typeof window !== 'undefined' ? localStorage.getItem('language') : null;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...(API_KEY && { 'X-API-Key': API_KEY }),
-    ...(uiLanguage === 'ar' || uiLanguage === 'en' ? { 'X-Language': uiLanguage } : {}),
+    ...getAuthHeaders(),
     ...Object.fromEntries(
       Object.entries(options.headers || {}).map(([k, v]) => [k, String(v)])
     ),
   };
-  
+
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers,
@@ -68,23 +132,17 @@ async function apiRequest<T>(
                         JSON.stringify(errorData) || `API Error: ${response.status} ${response.statusText}`;
     console.error('API Error:', response.status, errorData);
     
-    // Create error object with fields for field-specific errors
-    const error: any = new Error(errorMessage);
-    
-    // Check for field-specific errors (Django REST Framework format)
+    const error = new Error(errorMessage) as ApiError;
     if (errorData && typeof errorData === 'object') {
-      const fieldErrors: Record<string, any> = {};
+      const fieldErrors: Record<string, string | string[]> = {};
       Object.keys(errorData).forEach(key => {
         if (key !== 'detail' && key !== 'message' && key !== 'error') {
-          fieldErrors[key] = errorData[key];
+          const val = errorData[key];
+          fieldErrors[key] = Array.isArray(val) ? val : String(val);
         }
       });
-      
-      if (Object.keys(fieldErrors).length > 0) {
-        error.fields = fieldErrors;
-      }
+      if (Object.keys(fieldErrors).length > 0) error.fields = fieldErrors;
     }
-    
     throw error;
   }
 
@@ -110,9 +168,7 @@ async function apiRequest<T>(
 export const loginAPI = async (username: string, password: string) => {
   const response = await fetch(`${BASE_URL}/auth/login/`, {
     method: 'POST',
-    headers: getHeadersWithApiKey({
-      'Content-Type': 'application/json',
-    }),
+    headers: getUnauthHeaders(),
     body: JSON.stringify({ username, password }),
   });
 
@@ -147,9 +203,7 @@ export const refreshTokenAPI = async () => {
 
   const response = await fetch(`${BASE_URL}/auth/refresh/`, {
     method: 'POST',
-    headers: getHeadersWithApiKey({
-      'Content-Type': 'application/json',
-    }),
+    headers: getUnauthHeaders(),
     body: JSON.stringify({ refresh: refreshToken }),
   });
 
@@ -176,16 +230,15 @@ export const getCurrentUserAPI = async () => {
 // ==================== Companies (Tenants) APIs ====================
 
 /**
- * Get all companies (tenants)
+ * Get all companies (tenants). Uses short-lived cache to avoid duplicate calls across pages.
  * GET /api/companies/
  */
 export const getCompaniesAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/companies/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  const cacheKey = `companies${query}`;
+  return getCached(cacheKey, () =>
+    apiRequest<PaginatedResponse<unknown>>(`/companies/${query}`)
+  );
 };
 
 /**
@@ -201,10 +254,12 @@ export const getCompanyAPI = async (id: number) => {
  * POST /api/companies/
  */
 export const createCompanyAPI = async (companyData: any) => {
-  return apiRequest<any>('/companies/', {
+  const result = await apiRequest<any>('/companies/', {
     method: 'POST',
     body: JSON.stringify(companyData),
   });
+  invalidateListCache('companies');
+  return result;
 };
 
 /**
@@ -212,10 +267,12 @@ export const createCompanyAPI = async (companyData: any) => {
  * PUT /api/companies/{id}/
  */
 export const updateCompanyAPI = async (id: number, companyData: any) => {
-  return apiRequest<any>(`/companies/${id}/`, {
+  const result = await apiRequest<any>(`/companies/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(companyData),
   });
+  invalidateListCache('companies');
+  return result;
 };
 
 /**
@@ -223,24 +280,24 @@ export const updateCompanyAPI = async (id: number, companyData: any) => {
  * DELETE /api/companies/{id}/
  */
 export const deleteCompanyAPI = async (id: number) => {
-  return apiRequest<void>(`/companies/${id}/`, {
+  await apiRequest<void>(`/companies/${id}/`, {
     method: 'DELETE',
   });
+  invalidateListCache('companies');
 };
 
 // ==================== Subscriptions APIs ====================
 
 /**
- * Get all subscriptions
+ * Get all subscriptions. Uses short-lived cache to avoid duplicate calls across pages.
  * GET /api/subscriptions/
  */
 export const getSubscriptionsAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/subscriptions/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  const cacheKey = `subscriptions${query}`;
+  return getCached(cacheKey, () =>
+    apiRequest<PaginatedResponse<unknown>>(`/subscriptions/${query}`)
+  );
 };
 
 /**
@@ -256,10 +313,12 @@ export const getSubscriptionAPI = async (id: number) => {
  * POST /api/subscriptions/
  */
 export const createSubscriptionAPI = async (subscriptionData: any) => {
-  return apiRequest<any>('/subscriptions/', {
+  const result = await apiRequest<any>('/subscriptions/', {
     method: 'POST',
     body: JSON.stringify(subscriptionData),
   });
+  invalidateListCache('subscriptions');
+  return result;
 };
 
 /**
@@ -267,10 +326,12 @@ export const createSubscriptionAPI = async (subscriptionData: any) => {
  * PUT /api/subscriptions/{id}/
  */
 export const updateSubscriptionAPI = async (id: number, subscriptionData: any) => {
-  return apiRequest<any>(`/subscriptions/${id}/`, {
+  const result = await apiRequest<any>(`/subscriptions/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(subscriptionData),
   });
+  invalidateListCache('subscriptions');
+  return result;
 };
 
 /**
@@ -278,24 +339,24 @@ export const updateSubscriptionAPI = async (id: number, subscriptionData: any) =
  * DELETE /api/subscriptions/{id}/
  */
 export const deleteSubscriptionAPI = async (id: number) => {
-  return apiRequest<void>(`/subscriptions/${id}/`, {
+  await apiRequest<void>(`/subscriptions/${id}/`, {
     method: 'DELETE',
   });
+  invalidateListCache('subscriptions');
 };
 
 // ==================== Plans APIs ====================
 
 /**
- * Get all plans
+ * Get all plans. Uses short-lived cache to avoid duplicate calls across pages.
  * GET /api/plans/
  */
 export const getPlansAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/plans/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  const cacheKey = `plans${query}`;
+  return getCached(cacheKey, () =>
+    apiRequest<PaginatedResponse<unknown>>(`/plans/${query}`)
+  );
 };
 
 /**
@@ -316,10 +377,12 @@ export const createPlanAPI = async (planData: any) => {
     description_ar: planData.description_ar ?? planData.description ?? '',
     name_ar: planData.name_ar ?? planData.name ?? '',
   };
-  return apiRequest<any>('/plans/', {
+  const result = await apiRequest<any>('/plans/', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  invalidateListCache('plans');
+  return result;
 };
 
 /**
@@ -332,10 +395,12 @@ export const updatePlanAPI = async (id: number, planData: any) => {
     description_ar: planData.description_ar ?? planData.description ?? '',
     name_ar: planData.name_ar ?? planData.name ?? '',
   };
-  return apiRequest<any>(`/plans/${id}/`, {
+  const result = await apiRequest<any>(`/plans/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+  invalidateListCache('plans');
+  return result;
 };
 
 /**
@@ -343,9 +408,10 @@ export const updatePlanAPI = async (id: number, planData: any) => {
  * DELETE /api/plans/{id}/
  */
 export const deletePlanAPI = async (id: number) => {
-  return apiRequest<void>(`/plans/${id}/`, {
+  await apiRequest<void>(`/plans/${id}/`, {
     method: 'DELETE',
   });
+  invalidateListCache('plans');
 };
 
 // ==================== Payments APIs ====================
@@ -355,12 +421,8 @@ export const deletePlanAPI = async (id: number) => {
  * GET /api/payments/
  */
 export const getPaymentsAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/payments/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<unknown>>(`/payments/${query}`);
 };
 
 /**
@@ -400,12 +462,8 @@ export const updatePaymentAPI = async (id: number, paymentData: any) => {
  * GET /api/users/
  */
 export const getUsersAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/users/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<unknown>>(`/users/${query}`);
 };
 
 /**
@@ -432,15 +490,8 @@ export const impersonateAPI = async (payload: { company_id?: number; user_id?: n
  * GET /api/auth/impersonate-exchange/?code=...
  */
 export const impersonateExchangeAPI = async (code: string) => {
-  const response = await fetch(
-    `${import.meta.env.VITE_API_URL || ''}/auth/impersonate-exchange/?code=${encodeURIComponent(code)}`,
-    {
-      method: 'GET',
-      headers: {
-        ...(import.meta.env.VITE_API_KEY ? { 'X-API-Key': import.meta.env.VITE_API_KEY } : {}),
-      },
-    }
-  );
+  const url = `${BASE_URL}/auth/impersonate-exchange/?code=${encodeURIComponent(code)}`;
+  const response = await fetch(url, { method: 'GET', headers: getUnauthHeaders() });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.error || 'Invalid or expired code');
@@ -464,23 +515,38 @@ export const changePasswordAPI = async (currentPassword: string, newPassword: st
 };
 
 /**
- * Register company with admin user
- * POST /api/auth/register/
+ * Check registration availability (domain, email, username, phone)
+ * POST /api/auth/check-availability/
  */
-export const registerCompanyAPI = async (companyData: {
-  company_name: string;
-  domain: string;
-  specialization: string;
-  admin_username: string;
-  admin_email: string;
-  admin_password: string;
-  admin_first_name?: string;
-  admin_last_name?: string;
+export const checkRegistrationAvailabilityAPI = async (fields: {
+  company_domain?: string;
+  email?: string;
+  username?: string;
+  phone?: string;
 }) => {
-  return apiRequest<any>('/auth/register/', {
+  return apiRequest<{ available: boolean }>('/auth/check-availability/', {
     method: 'POST',
-    body: JSON.stringify(companyData),
+    body: JSON.stringify(fields),
   });
+};
+
+/**
+ * Register company with owner (nested format, same as CRM-project)
+ * POST /api/auth/register/
+ * Body: { company: { name, domain, specialization }, owner: { first_name, last_name, email, username, password, phone }, plan_id?, billing_cycle? }
+ */
+export const registerCompanyAPI = async (data: {
+  company: { name: string; domain: string; specialization: 'real_estate' | 'services' | 'products' };
+  owner: { first_name: string; last_name: string; email: string; username: string; password: string; phone: string };
+  plan_id?: number | null;
+  billing_cycle?: 'monthly' | 'yearly';
+}) => {
+  const result = await apiRequest<any>('/auth/register/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  invalidateListCache('companies');
+  return result;
 };
 
 // ==================== Invoices APIs ====================
@@ -490,12 +556,8 @@ export const registerCompanyAPI = async (companyData: {
  * GET /api/invoices/
  */
 export const getInvoicesAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/invoices/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<unknown>>(`/invoices/${query}`);
 };
 
 /**
@@ -545,12 +607,8 @@ export const markInvoicePaidAPI = async (id: number) => {
  * GET /api/broadcasts/
  */
 export const getBroadcastsAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/broadcasts/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<unknown>>(`/broadcasts/${query}`);
 };
 
 /**
@@ -621,12 +679,8 @@ export const scheduleBroadcastAPI = async (id: number, scheduledAt: string) => {
  * GET /api/payment-gateways/
  */
 export const getPaymentGatewaysAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/payment-gateways/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<unknown>>(`/payment-gateways/${query}`);
 };
 
 /**
@@ -697,10 +751,8 @@ export const testPaymentGatewayConnectionAPI = async (id: number, config: any) =
  * GET /api/settings/backups/
  */
 export const getSystemBackupsAPI = async (params?: { page?: number }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.page) queryParams.append('page', String(params.page));
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/settings/backups/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<SystemBackup>>(`/settings/backups/${query}`);
 };
 
 /**
@@ -739,14 +791,10 @@ export const deleteSystemBackupAPI = async (id: string) => {
  * Fetch backup file for download (returns raw Response for blob handling).
  * GET /api/settings/backups/{id}/download/
  */
+/** Returns raw Response for blob download; uses shared auth headers. */
 export async function getSystemBackupDownloadResponse(id: string): Promise<Response> {
-  const token = localStorage.getItem('accessToken');
-  const headers: Record<string, string> = {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
-  };
-  const url = `${BASE_URL}/settings/backups/${id}/download/`;
-  return fetch(url, { headers });
+  const headers = getAuthHeaders();
+  return fetch(`${BASE_URL}/settings/backups/${id}/download/`, { headers });
 }
 
 /**
@@ -754,10 +802,8 @@ export async function getSystemBackupDownloadResponse(id: string): Promise<Respo
  * GET /api/settings/audit-logs/
  */
 export const getSystemAuditLogsAPI = async (params?: { page?: number }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.page) queryParams.append('page', String(params.page));
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/settings/audit-logs/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<unknown>>(`/settings/audit-logs/${query}`);
 };
 
 // ==================== System Settings APIs ====================
@@ -801,12 +847,8 @@ export const updateSystemSettingsAPI = async (settingsData: {
  * GET /api/limited-admins/
  */
 export const getLimitedAdminsAPI = async (params?: { search?: string; ordering?: string }) => {
-  const queryParams = new URLSearchParams();
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.ordering) queryParams.append('ordering', params.ordering);
-  
-  const query = queryParams.toString();
-  return apiRequest<{ results: any[]; count: number }>(`/limited-admins/${query ? `?${query}` : ''}`);
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<LimitedAdmin>>(`/limited-admins/${query}`);
 };
 
 /**
@@ -876,16 +918,8 @@ export const toggleLimitedAdminActiveAPI = async (id: number) => {
 
 /** GET /api/support-tickets/ - list all support tickets (super admin) */
 export const getSupportTicketsAPI = async (params?: { page?: number; page_size?: number }) => {
-  const query = params
-    ? new URLSearchParams(
-        Object.fromEntries(
-          Object.entries(params).filter(([, v]) => v != null) as [string, string][]
-        )
-      ).toString()
-    : '';
-  return apiRequest<{ count: number; next: string | null; previous: string | null; results: any[] }>(
-    `/support-tickets/${query ? `?${query}` : ''}`
-  );
+  const query = buildQueryString(params ?? {});
+  return apiRequest<PaginatedResponse<unknown>>(`/support-tickets/${query}`);
 };
 
 /** GET /api/support-tickets/{id}/ - get one ticket */

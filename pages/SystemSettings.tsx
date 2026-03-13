@@ -12,18 +12,6 @@ import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
 import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI } from '../services/api';
 
-// Helper to get headers with API Key (same as in api.ts)
-const getHeadersWithApiKey = (customHeaders: Record<string, string> = {}): Record<string, string> => {
-  const API_KEY = import.meta.env.VITE_API_KEY || '';
-  const headers: Record<string, string> = {
-    ...customHeaders,
-  };
-  if (API_KEY) {
-    headers['X-API-Key'] = API_KEY;
-  }
-  return headers;
-};
-
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
 const BACKUP_SCHEDULE_STORAGE_KEY = 'systemSettings.backupSchedule';
@@ -195,7 +183,7 @@ const SecurityBackups: React.FC = () => {
         setIsLoading(true);
         try {
             const response = await getSystemBackupsAPI({ page });
-            setBackups(response.results || []);
+            setBackups((response.results ?? []) as SystemBackup[]);
             setTotalBackups(response.count || 0);
         } catch (error) {
             console.error('Failed to load backups', error);
@@ -638,7 +626,7 @@ const LimitedAdmins: React.FC = () => {
         setIsLoading(true);
         try {
             const response = await getLimitedAdminsAPI();
-            setLimitedAdmins(response.results || []);
+            setLimitedAdmins((response.results ?? []) as LimitedAdmin[]);
         } catch (error) {
             console.error('Error loading limited admins:', error);
         } finally {

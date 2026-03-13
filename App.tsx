@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import Tenants from './pages/Tenants';
+import AddTenant from './pages/AddTenant';
 import Subscriptions from './pages/Subscriptions';
 import Reports from './pages/Reports';
 import Communication from './pages/Communication';
@@ -20,7 +21,7 @@ import { useUser } from './context/UserContext';
 import { useAlert } from './context/AlertContext';
 import { translateApiMessage } from './utils/translateApiError';
 import FullPageLoader from './components/FullPageLoader';
-import { getCompaniesAPI, getCompanyAPI, getSubscriptionsAPI, getPlansAPI, createCompanyAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI } from './services/api';
+import { getCompaniesAPI, getCompanyAPI, getSubscriptionsAPI, getPlansAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI, invalidateListCache } from './services/api';
 
 type RoutePermission = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_settings' | 'can_manage_support_tickets';
 
@@ -63,13 +64,30 @@ const App: React.FC = () => {
   const [isLoadingTenants, setIsLoadingTenants] = useState(false);
   const { addLog } = useAuditLog();
   const [isPageLoading, setIsPageLoading] = useState(false);
+  const prevPathnameRef = useRef<string>(location.pathname);
 
-  // Fetch tenants from API
+  // On any page navigation, clear list cache so the new page always gets fresh API data
+  useEffect(() => {
+    invalidateListCache();
+  }, [location.pathname]);
+
+  // Fetch tenants when authenticated (e.g. after login)
   useEffect(() => {
     if (isAuthenticated) {
       loadTenants();
     }
   }, [isAuthenticated]);
+
+  // When user navigates TO the companies/tenants page, refetch
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const cameFromAnotherPage = prevPathnameRef.current !== '/tenants';
+    prevPathnameRef.current = currentPath;
+
+    if (isAuthenticated && currentPath === '/tenants' && cameFromAnotherPage) {
+      loadTenants();
+    }
+  }, [isAuthenticated, location.pathname]);
 
   const loadTenants = async () => {
     setIsLoadingTenants(true);
@@ -197,25 +215,10 @@ const App: React.FC = () => {
     window.location.href = '/login';
   };
 
-  const handleSaveTenant = async (newTenant: Omit<Tenant, 'id'>) => {
-    try {
-      // Use API field names: name, domain, specialization
-      const companyData = {
-        name: newTenant.name,
-        domain: newTenant.domain.replace('.platform.com', ''), // Remove domain suffix if present
-        specialization: newTenant.specialization || 'real_estate',
-      };
-
-      const createdCompany = await createCompanyAPI(companyData);
-      addLog('audit.log.tenantCreated', { companyName: newTenant.name });
-      
-      // Reload tenants to get updated list
-      await loadTenants();
-      window.location.href = '/tenants';
-    } catch (error: any) {
-      console.error('Error creating tenant:', error);
-      showAlert(translateApiMessage(error.message, t) || t('errors.createTenant'), { variant: 'error' });
-    }
+  const handleAddTenantSuccess = async (newTenant: Omit<Tenant, 'id'>) => {
+    addLog('audit.log.tenantCreated', { companyName: newTenant.name });
+    await loadTenants();
+    navigate('/tenants');
   };
   
   const handleUpdateTenant = async (updatedTenant: Tenant) => {
@@ -432,6 +435,18 @@ const App: React.FC = () => {
                   isLoading={isLoadingTenants} 
                   onRefresh={loadTenants} 
                 />
+              </Layout>
+            </PermissionGuard>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tenants/add"
+        element={
+          <ProtectedRoute>
+            <PermissionGuard permission="can_manage_tenants">
+              <Layout>
+                <AddTenant key={`add-tenant-${language}`} onSave={handleAddTenantSuccess} />
               </Layout>
             </PermissionGuard>
           </ProtectedRoute>
