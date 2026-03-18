@@ -11,7 +11,7 @@ import { useTheme } from '../context/ThemeContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuditLog } from '../context/AuditLogContext';
 import PlanCardSkeleton from '../components/PlanCardSkeleton';
-import { getPlansAPI, createPlanAPI, updatePlanAPI, deletePlanAPI, getSubscriptionsAPI, updateSubscriptionAPI, getCompaniesAPI, getInvoicesAPI } from '../services/api';
+import { getPlansAPI, createPlanAPI, updatePlanAPI, deletePlanAPI, getSubscriptionsAPI, updateSubscriptionAPI, getCompaniesAPI, getInvoicesAPI, checkHasSuccessfulPaymentForSubscription } from '../services/api';
 import { getPaymentsAPI } from '../services/api';
 import { useAlert } from '../context/AlertContext';
 import { translateApiMessage } from '../utils/translateApiError';
@@ -56,9 +56,11 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 trialDays: plan.trial_days || 0, // API field: trial_days
                 users: plan.users || 'unlimited' as const, // API field: users
                 clients: plan.clients || 'unlimited' as const, // API field: clients
-                storage: plan.storage || 10, // API field: storage
                 features: plan.description || '', // API field: description
                 featuresAr: plan.description_ar || '', // API field: description_ar (if available)
+                entitlementsFeatures: plan.features || {},
+                entitlementsLimits: plan.limits || {},
+                entitlementsUsageLimitsMonthly: plan.usage_limits_monthly || {},
                 visible: plan.visible !== false, // API field: visible
             }));
             setPlans(apiPlans);
@@ -96,7 +98,9 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     trial_days: planToSave.trialDays, // API field: trial_days
                     users: planToSave.users, // API field: users
                     clients: planToSave.clients, // API field: clients
-                    storage: planToSave.storage, // API field: storage
+                    features: planToSave.entitlementsFeatures || {}, // API field: features (JSON)
+                    limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
+                    usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
                     visible: planToSave.visible, // API field: visible
                 });
             addLog('audit.log.planUpdated', { planName: planToSave.name });
@@ -112,7 +116,9 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     trial_days: planToSave.trialDays, // API field: trial_days
                     users: planToSave.users, // API field: users
                     clients: planToSave.clients, // API field: clients
-                    storage: planToSave.storage, // API field: storage
+                    features: planToSave.entitlementsFeatures || {}, // API field: features (JSON)
+                    limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
+                    usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
                     visible: planToSave.visible !== false, // API field: visible
                 });
                 addLog('audit.log.planCreated', { planName: planToSave.name });
@@ -180,7 +186,9 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 trial_days: planToToggleVisibility.trialDays,
                 users: planToToggleVisibility.users,
                 clients: planToToggleVisibility.clients,
-                storage: planToToggleVisibility.storage,
+                features: planToToggleVisibility.entitlementsFeatures || {},
+                limits: planToToggleVisibility.entitlementsLimits || {},
+                usage_limits_monthly: planToToggleVisibility.entitlementsUsageLimitsMonthly || {},
                 visible: !planToToggleVisibility.visible,
             });
             await loadPlans();
@@ -251,11 +259,6 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                                     <Icon name="users" className="w-4 h-4 mr-2 text-primary-600" />
                                     <span className="font-semibold">{plan.clients === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.clients}</span>
                                     <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.clients')}</span>
-                                </li>
-                                <li className="flex items-center">
-                                    <Icon name="database" className="w-4 h-4 mr-2 text-primary-600" />
-                                    <span className="font-semibold">{plan.storage}</span>
-                                    <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.storageGB')}</span>
                                 </li>
                                 {plan.trialDays > 0 && (
                                     <li className="flex items-center">
@@ -608,6 +611,10 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const { showAlert } = useAlert();
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showFirstConfirm, setShowFirstConfirm] = useState(false);
+  const [showNoPaymentConfirm, setShowNoPaymentConfirm] = useState(false);
+  const [pendingActivateSub, setPendingActivateSub] = useState<any | null>(null);
+  const [isTogglingSub, setIsTogglingSub] = useState(false);
 
   useEffect(() => {
     loadSubscriptions();
@@ -647,15 +654,65 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   };
 
   const handleToggleActive = async (subscription: any) => {
+    const turningOn = !subscription.is_active;
+    if (turningOn) {
+      setPendingActivateSub(subscription);
+      setShowFirstConfirm(true);
+      return;
+    }
     try {
       await updateSubscriptionAPI(subscription.id, {
         ...subscription,
-        is_active: !subscription.is_active
+        is_active: false
       });
       await loadSubscriptions();
     } catch (error: any) {
       console.error('Error updating subscription:', error);
       showAlert(translateApiMessage(error.message, t) || t('errors.updateSubscription'), { variant: 'error' });
+    }
+  };
+
+  const handleFirstConfirmActivate = async () => {
+    if (!pendingActivateSub) return;
+    setShowFirstConfirm(false);
+    const sub = pendingActivateSub;
+
+    const hasPayment = await checkHasSuccessfulPaymentForSubscription(sub.id);
+    if (!hasPayment) {
+      setShowNoPaymentConfirm(true);
+      return;
+    }
+
+    setIsTogglingSub(true);
+    try {
+      await updateSubscriptionAPI(sub.id, { ...sub, is_active: true });
+      setPendingActivateSub(null);
+      await loadSubscriptions();
+    } catch (error: any) {
+      console.error('Error updating subscription:', error);
+      showAlert(translateApiMessage(error.message, t) || t('errors.updateSubscription'), { variant: 'error' });
+    } finally {
+      setIsTogglingSub(false);
+    }
+  };
+
+  const handleNoPaymentConfirmActivate = async () => {
+    if (!pendingActivateSub) return;
+    const sub = pendingActivateSub;
+    setShowNoPaymentConfirm(false);
+    setPendingActivateSub(null);
+    setIsTogglingSub(true);
+    try {
+      await updateSubscriptionAPI(sub.id, {
+        ...sub,
+        is_active: true
+      });
+      await loadSubscriptions();
+    } catch (error: any) {
+      console.error('Error updating subscription:', error);
+      showAlert(translateApiMessage(error.message, t) || t('errors.updateSubscription'), { variant: 'error' });
+    } finally {
+      setIsTogglingSub(false);
     }
   };
 
@@ -735,6 +792,28 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
           </tbody>
         </table>
       </div>
+      <AlertDialog
+        isOpen={showFirstConfirm}
+        onClose={() => { setShowFirstConfirm(false); setPendingActivateSub(null); }}
+        title={t('subscriptions.activation.confirmTitle')}
+        message={t('subscriptions.activation.confirmMessage')}
+        type="info"
+        showCancel
+        confirmText={t('subscriptions.activation.confirmActivate')}
+        onConfirm={handleFirstConfirmActivate}
+        disabled={isTogglingSub}
+      />
+      <AlertDialog
+        isOpen={showNoPaymentConfirm}
+        onClose={() => { setShowNoPaymentConfirm(false); setPendingActivateSub(null); }}
+        title={t('subscriptions.activation.noPaymentWarningTitle')}
+        message={t('subscriptions.activation.noPaymentWarningMessage')}
+        type="warning"
+        showCancel
+        confirmText={t('subscriptions.activation.confirmActivate')}
+        onConfirm={handleNoPaymentConfirmActivate}
+        disabled={isTogglingSub}
+      />
     </div>
   );
 };

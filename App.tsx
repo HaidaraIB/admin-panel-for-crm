@@ -262,10 +262,10 @@ const App: React.FC = () => {
         }
       }
 
-      // Check if subscription already exists
+      // Use existing subscription for this company if any (active or not) so only one sub per company
       const subscriptionsResponse = await getSubscriptionsAPI();
       const existingSubscription = subscriptionsResponse.results?.find(
-        (sub: any) => sub.company === tenantId && sub.is_active
+        (sub: any) => sub.company === tenantId
       );
 
       const subscriptionData = {
@@ -278,14 +278,14 @@ const App: React.FC = () => {
       };
 
       if (existingSubscription) {
-        // Update existing subscription - include all required fields
+        // Update existing subscription - backend will deactivate other subs for this company
         await updateSubscriptionAPI(existingSubscription.id, {
           ...existingSubscription,
           ...subscriptionData,
         });
         addLog('audit.log.tenantActivated', { companyName: company.name });
       } else {
-        // Create new subscription
+        // Create new subscription - backend will ensure only one active per company
         await createSubscriptionAPI(subscriptionData);
         addLog('audit.log.tenantActivated', { companyName: company.name });
       }

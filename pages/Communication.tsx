@@ -5,7 +5,7 @@ import { Broadcast } from '../types';
 import { useI18n } from '../context/i18n';
 import BroadcastViewModal from '../components/BroadcastViewModal';
 import AlertDialog from '../components/AlertDialog';
-import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getCompaniesAPI } from '../services/api';
+import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getCompaniesAPI, sendSmsBroadcastAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const mapBroadcastFromApi = (broadcast: any): Broadcast => {
@@ -356,6 +356,159 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
     </div>
 )};
 
+interface SendSMSProps {
+    plans: { id: number; name: string; name_ar?: string }[];
+    companies: { id: number; name: string }[];
+}
+
+const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
+    const { t, language } = useI18n();
+    const [content, setContent] = useState('');
+    const [targets, setTargets] = useState<string[]>([]);
+    const [targetSelectValue, setTargetSelectValue] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [alertDialog, setAlertDialog] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info';
+    }>({ isOpen: false, title: '', message: '', type: 'info' });
+
+    const addTarget = (value: string) => {
+        if (!value || targets.includes(value)) return;
+        setTargets((prev) => [...prev, value]);
+        setTargetSelectValue('');
+    };
+
+    const removeTarget = (value: string) => {
+        setTargets((prev) => prev.filter((tgt) => tgt !== value));
+    };
+
+    const handleSend = async () => {
+        if (!content.trim()) {
+            setAlertDialog({
+                isOpen: true,
+                title: t('communication.alerts.validation.title'),
+                message: t('communication.alerts.validation.message'),
+                type: 'warning',
+            });
+            return;
+        }
+        const effectiveTargets = targets.length > 0 ? targets : ['all'];
+        setIsSubmitting(true);
+        try {
+            const result = await sendSmsBroadcastAPI({ targets: effectiveTargets, content: content.trim() });
+            const sent = result?.sent_count ?? 0;
+            setAlertDialog({
+                isOpen: true,
+                title: t('communication.alerts.sendSuccess.title'),
+                message: t('communication.sms.success') + (sent > 0 ? ` (${sent})` : ''),
+                type: 'success',
+            });
+            setContent('');
+            setTargets([]);
+        } catch (error: any) {
+            const msg = error?.message || '';
+            setAlertDialog({
+                isOpen: true,
+                title: t('communication.alerts.sendError.title'),
+                message: /no recipients|No recipients|phone/i.test(msg) ? t('communication.sms.noRecipients') : (msg || t('communication.alerts.sendError.message')),
+                type: 'error',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-4">{t('communication.sms.title')}</h2>
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium mb-1">{t('communication.new.to')}</label>
+                    <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        value={targetSelectValue}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            if (v) addTarget(v);
+                        }}
+                    >
+                        <option value="">{t('communication.new.target.addPlaceholder')}</option>
+                        <option value="all">{t('communication.new.target.all')}</option>
+                        <optgroup label={t('communication.new.target.byRole')}>
+                            <option value="role_admin">{t('communication.new.target.roleAdmin')}</option>
+                            <option value="role_supervisor">{t('communication.new.target.roleSupervisor')}</option>
+                            <option value="role_employee">{t('communication.new.target.roleEmployee')}</option>
+                        </optgroup>
+                        {plans.length > 0 && (
+                            <optgroup label={t('communication.new.target.plans')}>
+                                {plans.map((plan) => (
+                                    <option key={plan.id} value={`plan_${plan.id}`}>
+                                        {language === 'ar' ? (plan.name_ar || plan.name) : plan.name}
+                                    </option>
+                                ))}
+                            </optgroup>
+                        )}
+                        {companies.length > 0 && (
+                            <optgroup label={t('communication.new.target.company')}>
+                                {companies.map((company) => (
+                                    <option key={company.id} value={`company_${company.id}`}>
+                                        {company.name}
+                                    </option>
+                                ))}
+                            </optgroup>
+                        )}
+                    </select>
+                    {targets.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {targets.map((tgt) => (
+                                <span
+                                    key={tgt}
+                                    onClick={() => removeTarget(tgt)}
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200 cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
+                                    title={t('communication.new.target.removeTag')}
+                                >
+                                    {getTargetDisplayLabel(tgt, plans, companies, language, t)}
+                                    <Icon name="x" className="w-3.5 h-3.5" />
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    {targets.length === 0 && (
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('communication.new.target.emptyHint')}</p>
+                    )}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1">{t('communication.sms.content')}</label>
+                    <textarea
+                        rows={6}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                    />
+                </div>
+                <div className={`flex justify-end ${language === 'ar' ? 'gap-4' : 'gap-2'}`}>
+                    <button
+                        onClick={handleSend}
+                        disabled={isSubmitting}
+                        className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                        {isSubmitting ? <LoadingSpinner /> : t('communication.sms.send')}
+                    </button>
+                </div>
+            </div>
+            <AlertDialog
+                isOpen={alertDialog.isOpen}
+                onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+                title={alertDialog.title}
+                message={alertDialog.message}
+                type={alertDialog.type}
+            />
+        </div>
+    );
+};
+
 interface HistoryProps {
     history: Broadcast[];
     onView: (broadcast: Broadcast) => void;
@@ -555,6 +708,7 @@ const Communication: React.FC = () => {
 
     const tabs = [
         { id: 'new', label: t('communication.tabs.new') },
+        { id: 'sms', label: t('communication.tabs.sms') },
         { id: 'history', label: t('communication.tabs.history') },
     ];
 
@@ -680,6 +834,7 @@ const Communication: React.FC = () => {
                 </nav>
             </div>
             {activeTab === 'new' && <NewBroadcast onBroadcastCreated={loadBroadcasts} plans={plans} companies={companies} />}
+            {activeTab === 'sms' && <SendSMS plans={plans} companies={companies} />}
             {activeTab === 'history' && (
                 <History
                     history={history}

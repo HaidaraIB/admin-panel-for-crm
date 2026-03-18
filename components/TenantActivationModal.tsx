@@ -4,7 +4,8 @@ import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
 import { translateApiMessage } from '../utils/translateApiError';
 import Icon from './Icon';
-import { getPlansAPI } from '../services/api';
+import AlertDialog from './AlertDialog';
+import { getPlansAPI, checkHasSuccessfulPaymentForCompany } from '../services/api';
 
 interface TenantActivationModalProps {
   tenant: Tenant | null;
@@ -29,6 +30,9 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
   const [endDate, setEndDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+  const [showFirstConfirm, setShowFirstConfirm] = useState(false);
+  const [showNoPaymentConfirm, setShowNoPaymentConfirm] = useState(false);
+  const [pendingActivate, setPendingActivate] = useState<{ tenantId: number; planId: number; startDate: string; endDate: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -91,15 +95,48 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
         return;
       }
 
-      setIsLoading(true);
-      try {
-        await onActivate(tenant.id, selectedPlanId as number, startDate, endDate);
-        onClose();
-      } catch (error: any) {
-        showAlert(translateApiMessage(error.message, t) || t('errors.activateTenant'), { variant: 'error' });
-      } finally {
-        setIsLoading(false);
-      }
+      // First confirmation dialog
+      setPendingActivate({ tenantId: tenant.id, planId: selectedPlanId as number, startDate, endDate });
+      setShowFirstConfirm(true);
+    }
+  };
+
+  const handleFirstConfirm = async () => {
+    setShowFirstConfirm(false);
+    if (!pendingActivate) return;
+    const { tenantId, planId, startDate, endDate } = pendingActivate;
+
+    const hasPayment = await checkHasSuccessfulPaymentForCompany(tenantId);
+    if (!hasPayment) {
+      setShowNoPaymentConfirm(true);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await onActivate(tenantId, planId, startDate, endDate);
+      setPendingActivate(null);
+      onClose();
+    } catch (error: any) {
+      showAlert(translateApiMessage(error.message, t) || t('errors.activateTenant'), { variant: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNoPaymentConfirm = async () => {
+    if (!pendingActivate) return;
+    setShowNoPaymentConfirm(false);
+    const { tenantId, planId, startDate, endDate } = pendingActivate;
+    setPendingActivate(null);
+    setIsLoading(true);
+    try {
+      await onActivate(tenantId, planId, startDate, endDate);
+      onClose();
+    } catch (error: any) {
+      showAlert(translateApiMessage(error.message, t) || t('errors.activateTenant'), { variant: 'error' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -229,6 +266,28 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
           </div>
         </form>
       </div>
+      <AlertDialog
+        isOpen={showFirstConfirm}
+        onClose={() => { setShowFirstConfirm(false); setPendingActivate(null); }}
+        title={t('tenants.activation.confirmTitle')}
+        message={t('tenants.activation.confirmMessage')}
+        type="info"
+        showCancel
+        confirmText={t('tenants.activation.confirmActivate')}
+        onConfirm={handleFirstConfirm}
+        disabled={isLoading}
+      />
+      <AlertDialog
+        isOpen={showNoPaymentConfirm}
+        onClose={() => { setShowNoPaymentConfirm(false); setPendingActivate(null); }}
+        title={t('tenants.activation.noPaymentWarningTitle')}
+        message={t('tenants.activation.noPaymentWarningMessage')}
+        type="warning"
+        showCancel
+        confirmText={t('tenants.activation.confirmActivate')}
+        onConfirm={handleNoPaymentConfirm}
+        disabled={isLoading}
+      />
     </div>
   );
 };

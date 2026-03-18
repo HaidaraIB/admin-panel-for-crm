@@ -425,6 +425,47 @@ export const getPaymentsAPI = async (params?: { search?: string; ordering?: stri
   return apiRequest<PaginatedResponse<unknown>>(`/payments/${query}`);
 };
 
+const SUCCESSFUL_PAYMENT_STATUSES = ['completed', 'successful', 'success'];
+
+/**
+ * Check if a company (tenant) has at least one successful payment.
+ * Uses subscriptions for that company and payments list; returns false on API error to avoid blocking activation.
+ */
+export async function checkHasSuccessfulPaymentForCompany(tenantId: number): Promise<boolean> {
+  try {
+    const [subsRes, paymentsRes] = await Promise.all([getSubscriptionsAPI(), getPaymentsAPI()]);
+    const subs = (subsRes.results || []) as { id: number; company: number }[];
+    const companySubIds = new Set(subs.filter((s) => s.company === tenantId).map((s) => s.id));
+    if (companySubIds.size === 0) return false;
+    const payments = (paymentsRes.results || []) as { subscription: number; payment_status?: string }[];
+    const status = (p: { payment_status?: string }) =>
+      (p.payment_status || '').toLowerCase();
+    return payments.some(
+      (p) => companySubIds.has(p.subscription) && SUCCESSFUL_PAYMENT_STATUSES.includes(status(p))
+    );
+  } catch {
+    return true; // On error, do not block activation (no warning dialog)
+  }
+}
+
+/**
+ * Check if a subscription has at least one successful payment.
+ * Returns false on API error to avoid blocking activation.
+ */
+export async function checkHasSuccessfulPaymentForSubscription(subscriptionId: number): Promise<boolean> {
+  try {
+    const paymentsRes = await getPaymentsAPI();
+    const payments = (paymentsRes.results || []) as { subscription: number; payment_status?: string }[];
+    const status = (p: { payment_status?: string }) =>
+      (p.payment_status || '').toLowerCase();
+    return payments.some(
+      (p) => p.subscription === subscriptionId && SUCCESSFUL_PAYMENT_STATUSES.includes(status(p))
+    );
+  } catch {
+    return true; // On error, do not block activation
+  }
+}
+
 /**
  * Get payment by ID
  * GET /api/payments/{id}/
@@ -672,6 +713,17 @@ export const scheduleBroadcastAPI = async (id: number, scheduledAt: string) => {
   });
 };
 
+/**
+ * Send SMS broadcast to targets (same as broadcast: all, plan_X, role_*, company_X).
+ * POST /api/broadcasts/send-sms/
+ */
+export const sendSmsBroadcastAPI = async (body: { targets: string[]; content: string }) => {
+  return apiRequest<{ sent_count: number; skipped_count: number }>('/broadcasts/send-sms/', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+};
+
 // ==================== Payment Gateways APIs ====================
 
 /**
@@ -837,6 +889,46 @@ export const updateSystemSettingsAPI = async (settingsData: {
   return apiRequest<any>('/settings/system/1/', {
     method: 'PATCH',
     body: JSON.stringify(settingsData),
+  });
+};
+
+/**
+ * Get platform Twilio settings (for admin SMS broadcast).
+ * GET /api/settings/platform-twilio/ or .../1/
+ */
+export const getPlatformTwilioSettingsAPI = async () => {
+  try {
+    const response = await apiRequest<any>('/settings/platform-twilio/1/');
+    return response;
+  } catch (error: any) {
+    if (error.message && error.message.includes('404')) {
+      return {
+        id: 1,
+        account_sid: '',
+        twilio_number: '',
+        auth_token_masked: null,
+        sender_id: '',
+        is_enabled: false,
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Update platform Twilio settings.
+ * PUT /api/settings/platform-twilio/1/
+ */
+export const updatePlatformTwilioSettingsAPI = async (data: {
+  account_sid?: string;
+  twilio_number?: string;
+  auth_token?: string;
+  sender_id?: string;
+  is_enabled?: boolean;
+}) => {
+  return apiRequest<any>('/settings/platform-twilio/1/', {
+    method: 'PUT',
+    body: JSON.stringify(data),
   });
 };
 

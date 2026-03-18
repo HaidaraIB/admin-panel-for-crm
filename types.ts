@@ -49,9 +49,20 @@ export interface Plan {
     trialDays: number;
     users: number | 'unlimited';
     clients: number | 'unlimited';
-    storage: number; // In GB
     features: string; // English description / features list
     featuresAr?: string; // Arabic description / features list
+    /**
+     * Entitlements (new in backend Plan model):
+     * - plan.features (JSON) => feature flags
+     * - plan.limits (JSON) => extra quotas beyond users/clients
+     * - plan.usage_limits_monthly (JSON) => monthly usage caps
+     *
+     * We keep these separate to avoid colliding with the legacy `features` string above
+     * (which maps to API `description`).
+     */
+    entitlementsFeatures?: Record<string, boolean>;
+    entitlementsLimits?: Record<string, number | 'unlimited' | null>;
+    entitlementsUsageLimitsMonthly?: Record<string, number | 'unlimited' | null>;
     visible: boolean;
 }
 

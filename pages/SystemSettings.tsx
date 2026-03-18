@@ -10,7 +10,7 @@ import { useUser } from '../context/UserContext';
 import { translateApiMessage } from '../utils/translateApiError';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI } from '../services/api';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -543,6 +543,198 @@ const SecurityBackups: React.FC = () => {
     );
 };
 
+export interface PlatformTwilioSettingsData {
+    id?: number;
+    account_sid?: string;
+    twilio_number?: string;
+    auth_token_masked?: string | null;
+    sender_id?: string;
+    is_enabled?: boolean;
+}
+
+const TwilioSmsSettings: React.FC = () => {
+    const { t } = useI18n();
+    const { addLog } = useAuditLog();
+    const [accountSid, setAccountSid] = useState('');
+    const [twilioNumber, setTwilioNumber] = useState('');
+    const [authToken, setAuthToken] = useState('');
+    const [showAuthToken, setShowAuthToken] = useState(false);
+    const [senderId, setSenderId] = useState('');
+    const [isEnabled, setIsEnabled] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    useEffect(() => {
+        loadSettings();
+    }, []);
+
+    useEffect(() => {
+        if (!feedback) return;
+        const timer = setTimeout(() => setFeedback(null), 6000);
+        return () => clearTimeout(timer);
+    }, [feedback]);
+
+    const loadSettings = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getPlatformTwilioSettingsAPI();
+            if (data) {
+                setAccountSid(data.account_sid || '');
+                setTwilioNumber(data.twilio_number || '');
+                setSenderId(data.sender_id || '');
+                setIsEnabled(!!data.is_enabled);
+                setAuthToken('');
+            }
+        } catch (error) {
+            console.error('Failed to load Twilio settings', error);
+            setFeedback({ type: 'error', message: t('settings.twilio.loadError') || 'Failed to load Twilio settings' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            const payload: {
+                account_sid: string;
+                twilio_number: string;
+                sender_id: string;
+                is_enabled: boolean;
+                auth_token?: string;
+            } = {
+                account_sid: accountSid.trim(),
+                twilio_number: twilioNumber.trim(),
+                sender_id: senderId.trim(),
+                is_enabled: isEnabled,
+            };
+            if (authToken.trim()) payload.auth_token = authToken.trim();
+            await updatePlatformTwilioSettingsAPI(payload);
+            addLog('audit.log.twilioSettingsSaved');
+            setFeedback({ type: 'success', message: t('settings.twilio.saveSuccess') || 'Twilio settings saved.' });
+            setAuthToken('');
+        } catch (error: any) {
+            console.error('Failed to save Twilio settings', error);
+            setFeedback({ type: 'error', message: error?.message || t('settings.twilio.saveError') || 'Failed to save Twilio settings' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const renderFeedback = () => {
+        if (!feedback) return null;
+        const isSuccess = feedback.type === 'success';
+        return (
+            <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
+                isSuccess
+                    ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
+                    : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
+            }`}>
+                <Icon name={isSuccess ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span>{feedback.message}</span>
+            </div>
+        );
+    };
+
+    return (
+        <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.twilio.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.twilio.description')}</p>
+            {renderFeedback()}
+            {isLoading ? (
+                <div className="flex justify-center py-8">
+                    <LoadingSpinner />
+                </div>
+            ) : (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.accountSid')}</label>
+                        <input
+                            type="text"
+                            value={accountSid}
+                            onChange={(e) => setAccountSid(e.target.value)}
+                            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="ACxxxxxxxxxx"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.authToken')}</label>
+                        <div className="flex items-center gap-2 max-w-md">
+                            <input
+                                type={showAuthToken ? 'text' : 'password'}
+                                value={authToken}
+                                onChange={(e) => setAuthToken(e.target.value)}
+                                autoComplete="new-password"
+                                name="twilio_platform_auth_token"
+                                id="twilio_platform_auth_token"
+                                data-form-type="other"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder={t('settings.twilio.authTokenPlaceholder')}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowAuthToken((v) => !v)}
+                                className="p-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                title={showAuthToken ? (t('settings.twilio.hideToken') || 'Hide token') : (t('settings.twilio.showToken') || 'Show token')}
+                                aria-label={showAuthToken ? (t('settings.twilio.hideToken') || 'Hide token') : (t('settings.twilio.showToken') || 'Show token')}
+                            >
+                                <Icon name={showAuthToken ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.authTokenHelp')}</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.twilioNumber')}</label>
+                        <input
+                            type="text"
+                            value={twilioNumber}
+                            onChange={(e) => setTwilioNumber(e.target.value)}
+                            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="+9647xxxxxxxx"
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.twilioNumberHelp')}</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.senderId')}</label>
+                        <input
+                            type="text"
+                            value={senderId}
+                            onChange={(e) => setSenderId(e.target.value)}
+                            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="Optional"
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.senderIdHelp')}</p>
+                    </div>
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="twilio-enabled"
+                                checked={isEnabled}
+                                onChange={(e) => setIsEnabled(e.target.checked)}
+                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <label htmlFor="twilio-enabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.twilio.isEnabled')}</label>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.isEnabledHelp')}</p>
+                    </div>
+                    <div>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                        >
+                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving')}</span></> : (t('settings.general.save') || 'Save Changes')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const AuditLog: React.FC = () => {
     const { t, language } = useI18n();
     const { logs } = useAuditLog();
@@ -858,7 +1050,7 @@ const SystemSettings: React.FC = () => {
     const loadSavedTab = (): string => {
         if (typeof window === 'undefined') return 'general';
         const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'security', 'limitedAdmins', 'audit'];
+        const validTabs = ['general', 'security', 'twilio', 'limitedAdmins', 'audit'];
         if (saved && validTabs.includes(saved)) {
             return saved;
         }
@@ -884,6 +1076,7 @@ const SystemSettings: React.FC = () => {
     const settingsMenu = [
         { id: 'general', label: t('settings.menu.general') || 'General' },
         { id: 'security', label: t('settings.menu.security') },
+        { id: 'twilio', label: t('settings.menu.twilio') || 'Twilio (SMS)' },
         ...(canSeeLimitedAdmins ? [{ id: 'limitedAdmins' as const, label: t('settings.menu.limitedAdmins') || 'Limited Admins' }] : []),
         { id: 'audit', label: t('settings.menu.audit') },
     ];
@@ -895,6 +1088,7 @@ const SystemSettings: React.FC = () => {
         switch (activeSetting) {
             case 'general': return <GeneralSettings />;
             case 'security': return <SecurityBackups />;
+            case 'twilio': return <TwilioSmsSettings />;
             case 'limitedAdmins': return <LimitedAdmins />;
             case 'audit': return <AuditLog />;
             default: return <GeneralSettings />;
