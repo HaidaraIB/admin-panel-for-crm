@@ -14,9 +14,22 @@ import PlanCardSkeleton from '../components/PlanCardSkeleton';
 import { getPlansAPI, createPlanAPI, updatePlanAPI, deletePlanAPI, getSubscriptionsAPI, updateSubscriptionAPI, getCompaniesAPI, getInvoicesAPI, checkHasSuccessfulPaymentForSubscription } from '../services/api';
 import { getPaymentsAPI } from '../services/api';
 import { useAlert } from '../context/AlertContext';
-import { translateApiMessage } from '../utils/translateApiError';
+import { translateAdminApiError } from '../utils/translateApiError';
 import AlertDialog from '../components/AlertDialog';
 
+/** Mirrors API `subscriptions.plan_constraints.classify_plan_kind` for UI typing. */
+function classifyPlanTypeFromApi(plan: {
+  price_monthly?: string | number;
+  price_yearly?: string | number;
+  trial_days?: number;
+}): 'Paid' | 'Trial' | 'Free' {
+  const pm = parseFloat(String(plan.price_monthly ?? 0)) || 0;
+  const py = parseFloat(String(plan.price_yearly ?? 0)) || 0;
+  const td = Number(plan.trial_days ?? 0) || 0;
+  if (pm > 0 || py > 0) return 'Paid';
+  if (td > 0) return 'Trial';
+  return 'Free';
+}
 
 interface SubscriptionsProps {
     tenants: Tenant[];
@@ -50,7 +63,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 id: plan.id,
                 name: plan.name, // API field: name
                 nameAr: plan.name_ar || '', // API field: name_ar
-                type: 'Paid' as const, // Default to Paid, can be enhanced based on plan.type if available
+                type: classifyPlanTypeFromApi(plan),
                 priceMonthly: parseFloat(plan.price_monthly || 0), // API field: price_monthly
                 priceYearly: parseFloat(plan.price_yearly || 0), // API field: price_yearly
                 trialDays: plan.trial_days || 0, // API field: trial_days
@@ -61,6 +74,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 entitlementsFeatures: plan.features || {},
                 entitlementsLimits: plan.limits || {},
                 entitlementsUsageLimitsMonthly: plan.usage_limits_monthly || {},
+                tier: typeof plan.tier === 'number' ? plan.tier : 0,
                 visible: plan.visible !== false, // API field: visible
             }));
             setPlans(apiPlans);
@@ -102,6 +116,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
                     usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
                     visible: planToSave.visible, // API field: visible
+                    tier: planToSave.tier ?? 0,
                 });
             addLog('audit.log.planUpdated', { planName: planToSave.name });
         } else {
@@ -120,6 +135,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
                     usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
                     visible: planToSave.visible !== false, // API field: visible
+                    tier: planToSave.tier ?? 0,
                 });
                 addLog('audit.log.planCreated', { planName: planToSave.name });
             }
@@ -127,7 +143,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         handleCloseModal();
         } catch (error: any) {
             console.error('Error saving plan:', error);
-            showAlert(translateApiMessage(error.message, t) || t('errors.savePlan'), { variant: 'error' });
+            showAlert(translateAdminApiError(error, t) || t('errors.savePlan'), { variant: 'error' });
         } finally {
             setIsSavingPlan(false);
         }
@@ -153,7 +169,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             await loadPlans();
         } catch (error: any) {
             console.error('Error deleting plan:', error);
-            showAlert(translateApiMessage(error.message, t) || t('errors.deletePlan'), { variant: 'error' });
+            showAlert(translateAdminApiError(error, t) || t('errors.deletePlan'), { variant: 'error' });
         } finally {
             setIsDeletingPlan(false);
             closeDeleteDialog();
@@ -195,7 +211,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             addLog('audit.log.planVisibilityToggled', { planName: planToToggleVisibility.name });
         } catch (error: any) {
             console.error('Error toggling plan visibility:', error);
-            showAlert(translateApiMessage(error.message, t) || t('errors.togglePlanVisibility'), { variant: 'error' });
+            showAlert(translateAdminApiError(error, t) || t('errors.togglePlanVisibility'), { variant: 'error' });
         } finally {
             setIsTogglingVisibility(false);
             closeVisibilityDialog();
@@ -309,6 +325,8 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             onSave={handleSavePlan}
             planToEdit={editingPlan}
             isLoading={isSavingPlan}
+            trialSlotTaken={plans.some(p => p.type === 'Trial' && p.id !== editingPlan?.id)}
+            freeForeverSlotTaken={plans.some(p => p.type === 'Free' && p.id !== editingPlan?.id)}
         />
         <AlertDialog
             isOpen={isDeleteDialogOpen}
@@ -630,13 +648,13 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       ]);
 
       const subs = subscriptionsRes.results || [];
-      const companies = companiesRes.results || [];
-      const plans = plansRes.results || [];
+      const companies = (companiesRes.results || []) as { id: number; name?: string }[];
+      const plans = (plansRes.results || []) as { id: number; name?: string; name_ar?: string }[];
 
       // Map subscriptions with company and plan names
       const mappedSubs = subs.map((sub: any) => {
-        const company = companies.find((c: any) => c.id === sub.company);
-        const plan = plans.find((p: any) => p.id === sub.plan);
+        const company = companies.find((c) => c.id === sub.company);
+        const plan = plans.find((p) => p.id === sub.plan);
         return {
           ...sub,
           company_name: company?.name || 'Unknown',
@@ -668,7 +686,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       await loadSubscriptions();
     } catch (error: any) {
       console.error('Error updating subscription:', error);
-      showAlert(translateApiMessage(error.message, t) || t('errors.updateSubscription'), { variant: 'error' });
+      showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
     }
   };
 
@@ -690,7 +708,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       await loadSubscriptions();
     } catch (error: any) {
       console.error('Error updating subscription:', error);
-      showAlert(translateApiMessage(error.message, t) || t('errors.updateSubscription'), { variant: 'error' });
+      showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
     } finally {
       setIsTogglingSub(false);
     }
@@ -710,7 +728,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       await loadSubscriptions();
     } catch (error: any) {
       console.error('Error updating subscription:', error);
-      showAlert(translateApiMessage(error.message, t) || t('errors.updateSubscription'), { variant: 'error' });
+      showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
     } finally {
       setIsTogglingSub(false);
     }

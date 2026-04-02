@@ -7,7 +7,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuditLog } from '../context/AuditLogContext';
 import { useAlert } from '../context/AlertContext';
 import { useUser } from '../context/UserContext';
-import { translateApiMessage } from '../utils/translateApiError';
+import { translateAdminApiError } from '../utils/translateApiError';
+import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
 import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI } from '../services/api';
@@ -72,7 +73,10 @@ const GeneralSettings: React.FC = () => {
             setFeedback({ type: 'success', message: t('settings.general.saveSuccess') || 'Settings saved successfully!' });
         } catch (error: any) {
             console.error('Failed to save settings', error);
-            setFeedback({ type: 'error', message: error.message || t('settings.general.saveError') || 'Failed to save settings' });
+            setFeedback({
+                type: 'error',
+                message: translateAdminApiError(error, t) || (error as Error).message || t('settings.general.saveError') || 'Failed to save settings',
+            });
         } finally {
             setIsSaving(false);
         }
@@ -267,7 +271,7 @@ const SecurityBackups: React.FC = () => {
             setFeedback({ type: 'success', message: t('settings.security.scheduleSaved') || 'Backup schedule updated.' });
         } catch (error: any) {
             console.error('Failed to update backup schedule', error);
-            setFeedback({ type: 'error', message: translateApiMessage(error?.message, t) || t('settings.security.scheduleSaveError') || 'Failed to save backup schedule.' });
+            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.security.scheduleSaveError') || 'Failed to save backup schedule.' });
         } finally {
             setScheduleSaving(false);
         }
@@ -299,7 +303,7 @@ const SecurityBackups: React.FC = () => {
                 let detail = 'Download failed';
                 try {
                     const errBody = JSON.parse(text);
-                    detail = errBody.detail || detail;
+                    detail = messageFromParsedErrorBody(errBody, errBody.detail || detail);
                 } catch {
                     if (response.status === 404) detail = 'Backup file not found.';
                 }
@@ -851,7 +855,7 @@ const LimitedAdmins: React.FC = () => {
             handleCloseModal();
         } catch (error: any) {
             console.error('Error saving limited admin:', error);
-            showAlert(translateApiMessage(error.message, t) || t('errors.saveLimitedAdmin'), { variant: 'error' });
+            showAlert(translateAdminApiError(error, t) || t('errors.saveLimitedAdmin'), { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
@@ -864,7 +868,7 @@ const LimitedAdmins: React.FC = () => {
             await loadLimitedAdmins();
         } catch (error: any) {
             console.error('Error toggling limited admin:', error);
-            showAlert(translateApiMessage(error.message, t) || t('errors.toggleLimitedAdmin'), { variant: 'error' });
+            showAlert(translateAdminApiError(error, t) || t('errors.toggleLimitedAdmin'), { variant: 'error' });
         }
     };
 
@@ -879,7 +883,7 @@ const LimitedAdmins: React.FC = () => {
             setAdminToDelete(null);
         } catch (error: any) {
             console.error('Error deleting limited admin:', error);
-            showAlert(translateApiMessage(error.message, t) || t('errors.deleteLimitedAdmin'), { variant: 'error' });
+            showAlert(translateAdminApiError(error, t) || t('errors.deleteLimitedAdmin'), { variant: 'error' });
         } finally {
             setIsDeleting(false);
         }

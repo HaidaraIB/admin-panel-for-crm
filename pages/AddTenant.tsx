@@ -3,12 +3,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
-import { translateApiMessage } from '../utils/translateApiError';
+import { translateAdminApiError } from '../utils/translateApiError';
 import Icon from '../components/Icon';
 import PhoneInput from '../components/PhoneInput';
 import { Tenant } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { registerCompanyAPI, getPlansAPI, checkRegistrationAvailabilityAPI } from '../services/api';
+import { registerCompanyAPI, getPlansAPI, checkRegistrationAvailabilityAPI, type ApiError } from '../services/api';
 
 interface AddTenantProps {
   onSave: (tenant: Omit<Tenant, 'id'>) => void;
@@ -19,6 +19,19 @@ interface PlanOption {
   name: string;
   name_ar?: string;
 }
+
+/** DRF-style nested validation payload from registration endpoint */
+type RegisterValidationErrors = {
+  company?: { name?: string | string[]; domain?: string | string[] };
+  owner?: {
+    first_name?: string | string[];
+    last_name?: string | string[];
+    email?: string | string[];
+    username?: string | string[];
+    phone?: string | string[];
+    password?: string | string[];
+  };
+};
 
 const slugify = (text: string) =>
   text.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -102,15 +115,19 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
     try {
       await checkRegistrationAvailabilityAPI(fields);
       return true;
-    } catch (err: any) {
-      const backend = err?.fields || err?.errors || {};
+    } catch (err: unknown) {
+      const e = err as ApiError;
+      const backend =
+        e.details && typeof e.details === 'object' && !Array.isArray(e.details)
+          ? (e.details as Record<string, unknown>)
+          : e.fields || (err as { errors?: Record<string, unknown> }).errors || {};
       const next: Record<string, string> = {};
       if (backend.company_domain) next.companyDomain = Array.isArray(backend.company_domain) ? backend.company_domain[0] : backend.company_domain;
       if (backend.email) next.email = Array.isArray(backend.email) ? backend.email[0] : backend.email;
       if (backend.username) next.username = Array.isArray(backend.username) ? backend.username[0] : backend.username;
       if (backend.phone) next.phone = Array.isArray(backend.phone) ? backend.phone[0] : backend.phone;
       if (Object.keys(next).length > 0) setErrors((e) => ({ ...e, ...next }));
-      else if (err?.message) setErrors((e) => ({ ...e, general: err.message }));
+      else if (e.message) setErrors((prev) => ({ ...prev, general: e.message }));
       return false;
     } finally {
       setStepCheckLoading(false);
@@ -178,8 +195,16 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
         owner: 0,
         created_at: new Date().toISOString(),
       });
-    } catch (err: any) {
-      const backend = err?.fields || err?.errors || err;
+    } catch (err: unknown) {
+      const e = err as ApiError;
+      const rawDetails =
+        e.details && typeof e.details === 'object' && !Array.isArray(e.details)
+          ? (e.details as Record<string, unknown>)
+          : undefined;
+      const backend = (rawDetails ||
+        e.fields ||
+        (err as { errors?: unknown }).errors ||
+        err) as RegisterValidationErrors | undefined;
       const next: Record<string, string> = {};
       if (backend?.company?.name) next.companyName = Array.isArray(backend.company.name) ? backend.company.name[0] : backend.company.name;
       if (backend?.company?.domain) next.companyDomain = Array.isArray(backend.company.domain) ? backend.company.domain[0] : backend.company.domain;
@@ -190,7 +215,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
       if (backend?.owner?.phone) next.phone = Array.isArray(backend.owner.phone) ? backend.owner.phone[0] : backend.owner.phone;
       if (backend?.owner?.password) next.password = Array.isArray(backend.owner.password) ? backend.owner.password[0] : backend.owner.password;
       if (Object.keys(next).length > 0) setErrors(next);
-      else showAlert(translateApiMessage(err?.message, t) || t('errors.createTenantSubdomain'), { variant: 'error' });
+      else showAlert(translateAdminApiError(err, t) || t('errors.createTenantSubdomain'), { variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -202,7 +227,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
     getPlansAPI()
       .then((res) => {
         if (cancelled) return;
-        const list = res.results || [];
+        const list = (res.results || []) as PlanOption[];
         setPlans(list);
         if (list.length > 0 && !planId) setPlanId(String(list[0].id));
       })

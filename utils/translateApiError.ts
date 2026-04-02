@@ -1,3 +1,5 @@
+import type { ApiError } from '../services/api';
+
 /**
  * Maps known API error messages (English) to i18n keys so they display in the current UI language.
  */
@@ -24,4 +26,16 @@ export function translateApiMessage(
   const trimmed = message.replace(/^\.\s*/, '').trim();
   const key = API_MESSAGE_TO_KEY[trimmed];
   return key ? t(key) : message;
+}
+
+/**
+ * Maps known English messages via translateApiMessage; if the server sent no message, uses error.code.
+ */
+export function translateAdminApiError(error: unknown, t: (key: string) => string): string {
+  const e = error as Partial<ApiError> & { message?: string };
+  const msg = (e.message || '').trim();
+  if (msg) return translateApiMessage(msg, t);
+  if (e.code === 'permission_denied') return t('errors.permissionPerformAction');
+  if (e.code === 'authentication_failed') return t('login.errorInvalidCredentials') || '';
+  return '';
 }

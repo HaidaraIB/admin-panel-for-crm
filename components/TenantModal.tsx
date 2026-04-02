@@ -31,6 +31,11 @@ const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose
     setFormData(prev => prev ? { ...prev, [name]: value } : null);
   };
 
+  const handleTrialConsumedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setFormData(prev => (prev ? { ...prev, freeTrialConsumed: checked } : null));
+  };
+
   const handleSave = () => {
     if (formData) {
       onSave(formData);
@@ -146,6 +151,30 @@ const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose
                       })
                     : '—'}
                 </p>
+              </div>
+              <div className="md:col-span-2">
+                <label className={labelClasses}>{t('tenants.modal.freeTrialConsumed')}</label>
+                {isEditMode ? (
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formData.freeTrialConsumed)}
+                      onChange={handleTrialConsumedChange}
+                      className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{t('tenants.modal.freeTrialConsumedHint')}</span>
+                  </label>
+                ) : (
+                  <p className={valueClasses}>
+                    {formData.freeTrialConsumed
+                      ? language === 'ar'
+                        ? 'نعم'
+                        : 'Yes'
+                      : language === 'ar'
+                        ? 'لا'
+                        : 'No'}
+                  </p>
+                )}
               </div>
             </div>
           </section>

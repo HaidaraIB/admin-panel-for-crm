@@ -743,7 +743,7 @@ const Communication: React.FC = () => {
                     getPlansAPI(),
                     getCompaniesAPI(),
                 ]);
-                setPlans(plansRes.results || []);
+                setPlans((plansRes.results || []) as { id: number; name: string; name_ar?: string }[]);
                 setCompanies((companiesRes.results || []).map((c: any) => ({ id: c.id, name: c.name || c.company_name || String(c.id) })));
             } catch (e) {
                 console.error('Error fetching plans/companies:', e);

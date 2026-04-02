@@ -1,27 +1,34 @@
 /**
- * API Service for Admin Panel
- * Connects to Django REST Framework backend
- * Follows clean code: single responsibility, DRY, typed responses, optional cache for list endpoints.
+ * API Service for Admin Panel — uses shared Axios client (services/httpClient.ts):
+ * /api/v1/, X-API-Key (admin), JWT, envelope unwrap.
  */
 
 import type { LimitedAdmin, SystemBackup } from '../types';
+import { messageFromParsedErrorBody, isApiNotFoundError } from './apiEnvelope';
+import {
+  adminHttp,
+  ADMIN_API_BASE_URL,
+  refreshTokensViaFetch,
+  buildAdminFetchHeaders,
+} from './httpClient';
 
-const BASE_URL = import.meta.env.VITE_API_URL || '';
-const API_KEY = import.meta.env.VITE_API_KEY || '';
+export {
+  unwrapApiData,
+  parseErrorPayload,
+  messageFromParsedErrorBody,
+  isApiNotFoundError,
+} from './apiEnvelope';
+export type { ApiError } from './apiEnvelope';
+export { adminHttp, ADMIN_API_BASE_URL, normalizeAdminApiBaseUrl } from './httpClient';
 
 // ==================== Types ====================
 
-/** Standard paginated list response from Django REST Framework */
+/** Standard paginated list response from Django REST Framework (after envelope unwrap: inside `data`). */
 export interface PaginatedResponse<T> {
   results: T[];
   count: number;
   next?: string | null;
   previous?: string | null;
-}
-
-/** API error with optional field-level errors (DRF validation) */
-export interface ApiError extends Error {
-  fields?: Record<string, string | string[]>;
 }
 
 // ==================== Helpers ====================
@@ -36,29 +43,6 @@ function buildQueryString(params: Record<string, string | number | undefined | n
   });
   const query = searchParams.toString();
   return query ? `?${query}` : '';
-}
-
-/** Headers for unauthenticated requests (login, refresh). */
-function getUnauthHeaders(customHeaders: Record<string, string> = {}): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...customHeaders,
-  };
-  if (API_KEY) headers['X-API-Key'] = API_KEY;
-  return headers;
-}
-
-/** Headers for authenticated requests (Bearer + API Key + Language). */
-function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-  const uiLanguage = typeof window !== 'undefined' ? localStorage.getItem('language') : null;
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...(API_KEY && { 'X-API-Key': API_KEY }),
-    ...(uiLanguage === 'ar' || uiLanguage === 'en' ? { 'X-Language': uiLanguage } : {}),
-    ...extra,
-  };
 }
 
 /**
@@ -90,133 +74,57 @@ export function invalidateListCache(resource?: 'companies' | 'plans' | 'subscrip
   }
 }
 
-/**
- * Authenticated API request with 401 refresh retry and consistent error shape.
- */
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {},
-  retryOn401: boolean = true
-): Promise<T> {
-  const headers: Record<string, string> = {
-    ...getAuthHeaders(),
-    ...Object.fromEntries(
-      Object.entries(options.headers || {}).map(([k, v]) => [k, String(v)])
-    ),
-  };
-
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  // Handle 401 Unauthorized - try to refresh token
-  if (response.status === 401 && retryOn401) {
+/** JSON API request via shared Axios client (interceptor: unwrap + 401 refresh). */
+async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const path = endpoint.replace(/^\//, '');
+  const method = (options.method || 'GET').toUpperCase();
+  let data: unknown = undefined;
+  if (options.body && typeof options.body === 'string' && options.body.length) {
     try {
-      await refreshTokenAPI();
-      return apiRequest<T>(endpoint, options, false);
-    } catch (refreshError) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('isAuthenticated');
-      sessionStorage.removeItem('isAuthenticated');
-      // Don't use window.location.href as it causes infinite refresh loop
-      // Let the App component handle the redirect based on isAuthenticated state
-      throw new Error('Session expired. Please login again.');
+      data = JSON.parse(options.body) as unknown;
+    } catch {
+      data = options.body;
     }
   }
+  const extraHeaders = options.headers
+    ? Object.fromEntries(Object.entries(options.headers).map(([k, v]) => [k, String(v)]))
+    : undefined;
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData.detail || errorData.message || errorData.error || 
-                        JSON.stringify(errorData) || `API Error: ${response.status} ${response.statusText}`;
-    console.error('API Error:', response.status, errorData);
-    
-    const error = new Error(errorMessage) as ApiError;
-    if (errorData && typeof errorData === 'object') {
-      const fieldErrors: Record<string, string | string[]> = {};
-      Object.keys(errorData).forEach(key => {
-        if (key !== 'detail' && key !== 'message' && key !== 'error') {
-          const val = errorData[key];
-          fieldErrors[key] = Array.isArray(val) ? val : String(val);
-        }
-      });
-      if (Object.keys(fieldErrors).length > 0) error.fields = fieldErrors;
-    }
-    throw error;
-  }
-
-  // Handle empty responses
-  const text = await response.text();
-  if (!text) {
-    return undefined as T;
-  }
-  
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined as T;
-  }
+  const res = await adminHttp.request<T>({
+    url: path,
+    method,
+    data:
+      method !== 'GET' && method !== 'HEAD' && method !== 'DELETE' && data !== undefined
+        ? data
+        : undefined,
+    headers: extraHeaders,
+  });
+  return res.data as T;
 }
 
 // ==================== Authentication APIs ====================
 
 /**
  * Login - Get JWT tokens
- * POST /api/auth/login/
+ * POST .../auth/login/
  */
 export const loginAPI = async (username: string, password: string) => {
-  const response = await fetch(`${BASE_URL}/auth/login/`, {
-    method: 'POST',
-    headers: getUnauthHeaders(),
-    body: JSON.stringify({ username, password }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData.detail || errorData.message || 'Invalid username or password';
-    throw new Error(errorMessage);
-  }
-
-  const data = await response.json();
-  
-  // Store tokens
-  if (data.access) {
-    localStorage.setItem('accessToken', data.access);
-  }
-  if (data.refresh) {
-    localStorage.setItem('refreshToken', data.refresh);
-  }
-  
+  const res = await adminHttp.post<{ access?: string; refresh?: string; user?: unknown }>(
+    'auth/login/',
+    { username, password }
+  );
+  const data = res.data;
+  if (data?.access) localStorage.setItem('accessToken', data.access);
+  if (data?.refresh) localStorage.setItem('refreshToken', data.refresh);
   return data;
 };
 
 /**
- * Refresh access token
- * POST /api/auth/refresh/
+ * Refresh access token (also used by Axios 401 interceptor via refreshTokensViaFetch).
  */
 export const refreshTokenAPI = async () => {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    throw new Error('No refresh token available');
-  }
-
-  const response = await fetch(`${BASE_URL}/auth/refresh/`, {
-    method: 'POST',
-    headers: getUnauthHeaders(),
-    body: JSON.stringify({ refresh: refreshToken }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to refresh token');
-  }
-
-  const data = await response.json();
-  if (data.access) {
-    localStorage.setItem('accessToken', data.access);
-  }
-  
-  return data;
+  await refreshTokensViaFetch();
+  return { access: localStorage.getItem('accessToken') ?? undefined };
 };
 
 /**
@@ -531,13 +439,10 @@ export const impersonateAPI = async (payload: { company_id?: number; user_id?: n
  * GET /api/auth/impersonate-exchange/?code=...
  */
 export const impersonateExchangeAPI = async (code: string) => {
-  const url = `${BASE_URL}/auth/impersonate-exchange/?code=${encodeURIComponent(code)}`;
-  const response = await fetch(url, { method: 'GET', headers: getUnauthHeaders() });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || 'Invalid or expired code');
-  }
-  return response.json();
+  const res = await adminHttp.get('auth/impersonate-exchange/', {
+    params: { code },
+  });
+  return res.data;
 };
 
 /**
@@ -843,10 +748,11 @@ export const deleteSystemBackupAPI = async (id: string) => {
  * Fetch backup file for download (returns raw Response for blob handling).
  * GET /api/settings/backups/{id}/download/
  */
-/** Returns raw Response for blob download; uses shared auth headers. */
+/** Returns raw Response for blob download; uses admin API key + JWT. */
 export async function getSystemBackupDownloadResponse(id: string): Promise<Response> {
-  const headers = getAuthHeaders();
-  return fetch(`${BASE_URL}/settings/backups/${id}/download/`, { headers });
+  return fetch(`${ADMIN_API_BASE_URL}/settings/backups/${id}/download/`, {
+    headers: buildAdminFetchHeaders(),
+  });
 }
 
 /**
@@ -869,10 +775,9 @@ export const getSystemSettingsAPI = async () => {
     // Try to get the singleton instance (ID 1)
     const response = await apiRequest<any>('/settings/system/1/');
     return response;
-  } catch (error: any) {
-    // If 404, settings don't exist yet, return default
-    if (error.message && error.message.includes('404')) {
-      return { id: 1, usd_to_iqd_rate: 1300.00 };
+  } catch (error: unknown) {
+    if (isApiNotFoundError(error)) {
+      return { id: 1, usd_to_iqd_rate: 1300.0 };
     }
     throw error;
   }
@@ -900,8 +805,8 @@ export const getPlatformTwilioSettingsAPI = async () => {
   try {
     const response = await apiRequest<any>('/settings/platform-twilio/1/');
     return response;
-  } catch (error: any) {
-    if (error.message && error.message.includes('404')) {
+  } catch (error: unknown) {
+    if (isApiNotFoundError(error)) {
       return {
         id: 1,
         account_sid: '',

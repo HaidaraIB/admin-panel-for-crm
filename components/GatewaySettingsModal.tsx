@@ -38,7 +38,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         clientKey: config.clientKey || '',
         publishableKey: config.publishableKey || '',
         secretKey: config.secretKey || '',
-        terminalId: config.terminalId || config.terminalId || '',
+        terminalId: config.terminalId || '',
         username: config.username || '',
         password: config.password || '',
         clientId: config.clientId || '',
@@ -156,6 +156,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     const gatewayNameLower = gateway.name.toLowerCase();
     const isPaytabs = gatewayNameLower.includes('paytabs') || gateway.id.toLowerCase().includes('paytabs');
     const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
+    const isQicard =
+      gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
     const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
     let hasKeys = false;
     

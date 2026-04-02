@@ -14,6 +14,10 @@ interface PlanModalProps {
   onClose: () => void;
   onSave: (plan: Omit<Plan, 'id'> & { id?: number }) => void;
   isLoading?: boolean;
+  /** True if another plan already occupies the free-trial slot (excluding the plan being edited). */
+  trialSlotTaken?: boolean;
+  /** True if another plan already occupies the free-forever slot (excluding the plan being edited). */
+  freeForeverSlotTaken?: boolean;
 }
 
 const emptyPlan: Omit<Plan, 'id'> = {
@@ -39,10 +43,19 @@ const emptyPlan: Omit<Plan, 'id'> = {
     monthly_whatsapp_messages: null,
     monthly_notifications: null,
   },
+  tier: 0,
   visible: true,
 };
 
-const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSave, isLoading = false }) => {
+const PlanModal: React.FC<PlanModalProps> = ({
+  planToEdit,
+  isOpen,
+  onClose,
+  onSave,
+  isLoading = false,
+  trialSlotTaken = false,
+  freeForeverSlotTaken = false,
+}) => {
   const { t, language } = useI18n();
   const { showAlert } = useAlert();
   const [formData, setFormData] = useState(planToEdit || emptyPlan);
@@ -59,7 +72,11 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
     setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
   };
 
+  const isPlanTypeDisabled = (type: Plan['type']) =>
+    (type === 'Trial' && trialSlotTaken) || (type === 'Free' && freeForeverSlotTaken);
+
   const handleTypeChange = (type: Plan['type']) => {
+    if (isPlanTypeDisabled(type)) return;
     const newFormData = { ...formData, type };
     if (type === 'Trial') {
       newFormData.priceMonthly = 0;
@@ -119,19 +136,70 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
     }));
   };
 
+  const validatePlanForm = (): string | null => {
+    const name = formData.name.trim();
+    const nameAr = (formData.nameAr || '').trim();
+    const description = (formData.features || '').trim();
+    const arabicScript = /[\u0600-\u06FF]/;
+    const latinLetters = /[A-Za-z]/;
+
+    // Align with API: Plan.name required; Plan.description required (non-blank after strip).
+    if (!name) {
+      return 'subscriptions.plans.validation.nameEnglishRequired';
+    }
+    if (arabicScript.test(name)) {
+      return 'subscriptions.plans.invalidEnglishName';
+    }
+    if (!latinLetters.test(name)) {
+      return 'subscriptions.plans.validation.nameEnglishLatin';
+    }
+
+    // API: name_ar is optional (blank=True).
+    if (nameAr) {
+      if (latinLetters.test(nameAr)) {
+        return 'subscriptions.plans.invalidArabicName';
+      }
+      if (!arabicScript.test(nameAr)) {
+        return 'subscriptions.plans.validation.nameArabicScript';
+      }
+    }
+
+    if (!description) {
+      return 'subscriptions.plans.validation.descriptionRequired';
+    }
+
+    if (formData.type === 'Trial') {
+      const td = Number(formData.trialDays);
+      if (!Number.isFinite(td) || td < 1) {
+        return 'subscriptions.plans.validation.trialDaysMin';
+      }
+    }
+
+    if (formData.type === 'Paid') {
+      const pm = Number(formData.priceMonthly);
+      const py = Number(formData.priceYearly);
+      if (!Number.isFinite(pm) || !Number.isFinite(py) || pm <= 0 || py <= 0) {
+        return 'subscriptions.plans.validation.paidPricesPositive';
+      }
+    }
+
+    return null;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const containsArabic = /[\u0600-\u06FF]/;
-    const containsLatin = /[A-Za-z]/;
-    if (containsArabic.test(formData.name)) {
-      showAlert(t('subscriptions.plans.invalidEnglishName') || 'English name cannot include Arabic characters.', { variant: 'warning' });
+    const errorKey = validatePlanForm();
+    if (errorKey) {
+      showAlert(t(errorKey), { variant: 'warning' });
       return;
     }
-    if (formData.nameAr && containsLatin.test(formData.nameAr)) {
-      showAlert(t('subscriptions.plans.invalidArabicName') || 'Arabic name cannot include English characters.', { variant: 'warning' });
-      return;
-    }
-    onSave(formData);
+    onSave({
+      ...formData,
+      name: formData.name.trim(),
+      nameAr: (formData.nameAr || '').trim(),
+      features: (formData.features || '').trim(),
+      featuresAr: (formData.featuresAr || '').trim(),
+    });
   };
 
   const inputClasses = "w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500";
@@ -178,20 +246,55 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
             </div>
 
             <div>
+              <label htmlFor="planTier" className={labelClasses}>
+                {language === 'ar' ? 'مستوى الخطة (tier)' : 'Plan tier (upgrade level)'}
+              </label>
+              <NumberInput
+                id="planTier"
+                name="tier"
+                value={formData.tier ?? 0}
+                onChange={handleInputChange}
+                min={0}
+                step={1}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {language === 'ar'
+                  ? 'رقم أعلى = خطة أعلى؛ يُستخدم للترقية والتخفيض.'
+                  : 'Higher number = higher tier; used for upgrades/downgrades.'}
+              </p>
+            </div>
+
+            <div>
               <label className={labelClasses}>{t('subscriptions.plans.planType')}</label>
               <div className={`flex ${language === 'ar' ? 'flex-row-reverse gap-3 justify-end' : 'gap-4'}`}>
-                {(['Paid', 'Trial', 'Free'] as const).map(type => (
-                  <button type="button" key={type} onClick={() => handleTypeChange(type)} className={`px-4 py-2 rounded-md border text-sm font-medium ${formData.type === type ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'}`}>
-                    {t(`subscriptions.plans.type.${type}`)}
-                  </button>
-                ))}
+                {(['Paid', 'Trial', 'Free'] as const).map((type) => {
+                  const typeDisabled = isPlanTypeDisabled(type);
+                  const selected = formData.type === type;
+                  return (
+                    <button
+                      type="button"
+                      key={type}
+                      disabled={typeDisabled}
+                      onClick={() => handleTypeChange(type)}
+                      className={`px-4 py-2 rounded-md border text-sm font-medium transition ${
+                        typeDisabled
+                          ? 'opacity-45 cursor-not-allowed border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
+                          : selected
+                            ? 'bg-primary-600 text-white border-primary-600'
+                            : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {t(`subscriptions.plans.type.${type}`)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {formData.type === 'Trial' && (
               <div>
                 <label htmlFor="trialDays" className={labelClasses}>{t('subscriptions.plans.trialDuration')}</label>
-                <NumberInput id="trialDays" name="trialDays" value={formData.trialDays} onChange={handleInputChange} min={0} step={1} />
+                <NumberInput id="trialDays" name="trialDays" value={formData.trialDays} onChange={handleInputChange} min={1} step={1} />
               </div>
             )}
 
@@ -407,6 +510,7 @@ const PlanModal: React.FC<PlanModalProps> = ({ planToEdit, isOpen, onClose, onSa
                 className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
                 dir={language === 'ar' ? 'rtl' : 'ltr'}
                 placeholder={t('subscriptions.plans.featuresPlaceholder')}
+                required
               ></textarea>
             </div>
             <div>

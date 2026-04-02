@@ -19,9 +19,14 @@ import { useAuditLog } from './context/AuditLogContext';
 import { useI18n } from './context/i18n';
 import { useUser } from './context/UserContext';
 import { useAlert } from './context/AlertContext';
-import { translateApiMessage } from './utils/translateApiError';
+import { translateAdminApiError } from './utils/translateApiError';
 import FullPageLoader from './components/FullPageLoader';
 import { getCompaniesAPI, getCompanyAPI, getSubscriptionsAPI, getPlansAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI, invalidateListCache } from './services/api';
+
+/** GET /plans/ row subset used when resolving tenant current plan label */
+type ApiPlanRow = { id: number; name?: string; name_ar?: string };
+/** GET /subscriptions/ list item — allows object spread for update payloads */
+type ApiSubscriptionRow = Record<string, unknown> & { id: number; company: number; is_active?: boolean };
 
 type RoutePermission = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_settings' | 'can_manage_support_tickets';
 
@@ -100,8 +105,8 @@ const App: React.FC = () => {
       ]);
 
       const companies = companiesResponse.results || [];
-      const subscriptions = subscriptionsResponse.results || [];
-      const plans = plansResponse.results || [];
+      const subscriptions = (subscriptionsResponse.results || []) as any[];
+      const plans = (plansResponse.results || []) as ApiPlanRow[];
 
       // Create a map of company_id -> active subscription
       const subscriptionMap = new Map();
@@ -141,7 +146,7 @@ const App: React.FC = () => {
         // Get plan name with Arabic support
         let currentPlan = '';
         if (subscription?.plan) {
-          const plan = plans.find((p: any) => p.id === subscription.plan);
+          const plan = plans.find((p) => p.id === subscription.plan);
           if (plan) {
             currentPlan = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
           } else {
@@ -160,6 +165,7 @@ const App: React.FC = () => {
           owner_phone: company.owner_phone,
           created_at: company.created_at,
           updated_at: company.updated_at,
+          freeTrialConsumed: Boolean(company.free_trial_consumed),
           // Legacy fields from subscriptions
           currentPlan: currentPlan,
           status: status,
@@ -171,11 +177,20 @@ const App: React.FC = () => {
       setTenants(mappedTenants);
     } catch (error: any) {
       console.error('Error loading tenants:', error);
-      // If Forbidden or Unauthorized, user might not be super admin or token expired
-      const errorMessage = error.message || '';
-      if (errorMessage.includes('Forbidden') || errorMessage.includes('403') || 
-          errorMessage.includes('Session expired') || errorMessage.includes('401') ||
-          errorMessage.includes('Unauthorized')) {
+      const status = error?.status as number | undefined;
+      const code = error?.code as string | undefined;
+      const errorMessage = error?.message || '';
+      if (
+        status === 401 ||
+        status === 403 ||
+        code === 'permission_denied' ||
+        code === 'authentication_failed' ||
+        errorMessage.includes('Forbidden') ||
+        errorMessage.includes('403') ||
+        errorMessage.includes('Session expired') ||
+        errorMessage.includes('401') ||
+        errorMessage.includes('Unauthorized')
+      ) {
         // Clear auth and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
@@ -228,6 +243,7 @@ const App: React.FC = () => {
         name: updatedTenant.name,
         domain: updatedTenant.domain.replace('.platform.com', ''), // Remove domain suffix if present
         specialization: updatedTenant.specialization || 'real_estate',
+        free_trial_consumed: updatedTenant.freeTrialConsumed ?? false,
       };
 
       await updateCompanyAPI(updatedTenant.id, companyData);
@@ -237,7 +253,7 @@ const App: React.FC = () => {
       await loadTenants();
     } catch (error: any) {
       console.error('Error updating tenant:', error);
-      showAlert(translateApiMessage(error.message, t) || t('errors.updateTenant'), { variant: 'error' });
+      showAlert(translateAdminApiError(error, t) || t('errors.updateTenant'), { variant: 'error' });
     }
   };
 
@@ -264,9 +280,8 @@ const App: React.FC = () => {
 
       // Use existing subscription for this company if any (active or not) so only one sub per company
       const subscriptionsResponse = await getSubscriptionsAPI();
-      const existingSubscription = subscriptionsResponse.results?.find(
-        (sub: any) => sub.company === tenantId
-      );
+      const subscriptionRows = (subscriptionsResponse.results || []) as ApiSubscriptionRow[];
+      const existingSubscription = subscriptionRows.find((sub) => sub.company === tenantId);
 
       const subscriptionData = {
         company: tenantId,
@@ -315,9 +330,8 @@ const App: React.FC = () => {
 
       // Find active subscription and deactivate it
       const subscriptionsResponse = await getSubscriptionsAPI();
-      const activeSubscription = subscriptionsResponse.results?.find(
-        (sub: any) => sub.company === tenantId && sub.is_active
-      );
+      const deactivateRows = (subscriptionsResponse.results || []) as ApiSubscriptionRow[];
+      const activeSubscription = deactivateRows.find((sub) => sub.company === tenantId && sub.is_active);
 
       if (activeSubscription) {
         await updateSubscriptionAPI(activeSubscription.id, {
@@ -343,7 +357,7 @@ const App: React.FC = () => {
       await loadTenants();
     } catch (error: any) {
       console.error('Error deleting tenant:', error);
-      showAlert(translateApiMessage(error.message, t) || t('errors.deleteTenant'), { variant: 'error' });
+      showAlert(translateAdminApiError(error, t) || t('errors.deleteTenant'), { variant: 'error' });
       throw error;
     }
   };

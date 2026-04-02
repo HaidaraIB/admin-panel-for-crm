@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Tenant } from '../types';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
-import { translateApiMessage } from '../utils/translateApiError';
+import { translateAdminApiError } from '../utils/translateApiError';
 import Icon from './Icon';
 import AlertDialog from './AlertDialog';
 import { getPlansAPI, checkHasSuccessfulPaymentForCompany } from '../services/api';
@@ -76,7 +76,7 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
         await onDeactivate(tenant.id);
         onClose();
       } catch (error: any) {
-        showAlert(translateApiMessage(error.message, t) || t('errors.deactivateTenant'), { variant: 'error' });
+        showAlert(translateAdminApiError(error, t) || t('errors.deactivateTenant'), { variant: 'error' });
       } finally {
         setIsLoading(false);
       }
@@ -118,7 +118,7 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
       setPendingActivate(null);
       onClose();
     } catch (error: any) {
-      showAlert(translateApiMessage(error.message, t) || t('errors.activateTenant'), { variant: 'error' });
+      showAlert(translateAdminApiError(error, t) || t('errors.activateTenant'), { variant: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -134,7 +134,7 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
       await onActivate(tenantId, planId, startDate, endDate);
       onClose();
     } catch (error: any) {
-      showAlert(translateApiMessage(error.message, t) || t('errors.activateTenant'), { variant: 'error' });
+      showAlert(translateAdminApiError(error, t) || t('errors.activateTenant'), { variant: 'error' });
     } finally {
       setIsLoading(false);
     }

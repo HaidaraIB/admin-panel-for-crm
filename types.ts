@@ -37,6 +37,8 @@ export interface Tenant {
   status?: TenantStatus;
   startDate?: string;
   endDate?: string;
+  /** API: company.free_trial_consumed — whether the tenant may no longer start a system free trial */
+  freeTrialConsumed?: boolean;
 }
 
 export interface Plan {
@@ -63,6 +65,8 @@ export interface Plan {
     entitlementsFeatures?: Record<string, boolean>;
     entitlementsLimits?: Record<string, number | 'unlimited' | null>;
     entitlementsUsageLimitsMonthly?: Record<string, number | 'unlimited' | null>;
+    /** Higher = higher tier; used for upgrade/downgrade rules on the API. */
+    tier?: number;
     visible: boolean;
 }
 
@@ -77,6 +81,9 @@ export interface Payment {
     id: string;
     companyName: string;
     amount: number;
+    /** When API sends `amount_usd`, used for display; otherwise fall back to `amount`. */
+    amountUsd?: number | null;
+    currency?: string;
     plan: string;
     status: PaymentStatus;
     date: string;
@@ -202,5 +209,12 @@ export interface PaymentGateway {
     merchantId?: string;
     merchantSecret?: string;
     msisdn?: string;
+    // Qi Card
+    terminalId?: string;
+    username?: string;
+    password?: string;
+    // FIB (First Iraqi Bank) OAuth-style credentials
+    clientId?: string;
+    clientSecret?: string;
   };
 }
