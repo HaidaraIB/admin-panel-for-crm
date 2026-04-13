@@ -32,17 +32,17 @@ const emptyPlan: Omit<Plan, 'id'> = {
   features: '',
   featuresAr: '',
   entitlementsFeatures: {
-    whatsapp_enabled: true,
-    sms_enabled: true,
-    backups_enabled: true,
-    lead_import_enabled: true,
+    integration_meta: true,
+    integration_tiktok: true,
+    integration_whatsapp: true,
+    integration_twilio: true,
   },
-  entitlementsLimits: {},
-  entitlementsUsageLimitsMonthly: {
-    monthly_sms_messages: null,
-    monthly_whatsapp_messages: null,
-    monthly_notifications: null,
+  entitlementsLimits: {
+    max_employees: 10,
+    max_clients: 100,
+    max_deals: null,
   },
+  entitlementsUsageLimitsMonthly: {},
   tier: 0,
   visible: true,
 };
@@ -92,10 +92,13 @@ const PlanModal: React.FC<PlanModalProps> = ({
     setFormData(newFormData);
   };
 
-  const handleUnlimitedChange = (field: 'users' | 'clients', isChecked: boolean) => {
+  const handleUnlimitedChange = (field: 'max_employees' | 'max_clients', isChecked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      [field]: isChecked ? 'unlimited' : 10, // Reset to a default number
+      entitlementsLimits: {
+        ...(prev.entitlementsLimits || {}),
+        [field]: isChecked ? 'unlimited' : (field === 'max_employees' ? 10 : 100),
+      },
     }));
   };
 
@@ -114,16 +117,6 @@ const PlanModal: React.FC<PlanModalProps> = ({
     if (!v) return null;
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
-  };
-
-  const handleUsageLimitChange = (key: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      entitlementsUsageLimitsMonthly: {
-        ...(prev.entitlementsUsageLimitsMonthly || {}),
-        [key]: parseNullableNumber(value),
-      },
-    }));
   };
 
   const handleExtraLimitChange = (key: string, value: string) => {
@@ -317,36 +310,78 @@ const PlanModal: React.FC<PlanModalProps> = ({
               <h3 className="font-medium mb-3">{t('subscriptions.plans.resourceLimits')}</h3>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="users" className={labelClasses}>{t('subscriptions.plans.maxUsers')}</label>
+                  <label htmlFor="max_employees" className={labelClasses}>{t('subscriptions.plans.maxUsers')}</label>
                   <div className={`flex items-center gap-2 ${language === 'ar' ? 'justify-start' : ''}`}>
                     {language === 'ar' ? (
                       <>
-                        <NumberInput id="users" name="users" value={formData.users === 'unlimited' ? '' : formData.users} onChange={handleInputChange} min={0} step={1} disabled={formData.users === 'unlimited'} className="max-w-xs" />
-                        <Checkbox id="usersUnlimited" checked={formData.users === 'unlimited'} onChange={(e) => handleUnlimitedChange('users', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
+                        <input
+                          id="max_employees"
+                          className={`${inputClasses} max-w-xs`}
+                          inputMode="numeric"
+                          value={(formData.entitlementsLimits || {}).max_employees === 'unlimited' ? '' : ((formData.entitlementsLimits || {}).max_employees ?? '')}
+                          onChange={(e) => handleExtraLimitChange('max_employees', e.target.value)}
+                          placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                          disabled={(formData.entitlementsLimits || {}).max_employees === 'unlimited'}
+                        />
+                        <Checkbox id="maxEmployeesUnlimited" checked={(formData.entitlementsLimits || {}).max_employees === 'unlimited'} onChange={(e) => handleUnlimitedChange('max_employees', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
                       </>
                     ) : (
                       <>
-                        <NumberInput id="users" name="users" value={formData.users === 'unlimited' ? '' : formData.users} onChange={handleInputChange} min={0} step={1} disabled={formData.users === 'unlimited'} />
-                        <Checkbox id="usersUnlimited" checked={formData.users === 'unlimited'} onChange={(e) => handleUnlimitedChange('users', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
+                        <input
+                          id="max_employees"
+                          className={inputClasses}
+                          inputMode="numeric"
+                          value={(formData.entitlementsLimits || {}).max_employees === 'unlimited' ? '' : ((formData.entitlementsLimits || {}).max_employees ?? '')}
+                          onChange={(e) => handleExtraLimitChange('max_employees', e.target.value)}
+                          placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                          disabled={(formData.entitlementsLimits || {}).max_employees === 'unlimited'}
+                        />
+                        <Checkbox id="maxEmployeesUnlimited" checked={(formData.entitlementsLimits || {}).max_employees === 'unlimited'} onChange={(e) => handleUnlimitedChange('max_employees', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
                       </>
                     )}
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="clients" className={labelClasses}>{t('subscriptions.plans.maxClients')}</label>
+                  <label htmlFor="max_clients" className={labelClasses}>{t('subscriptions.plans.maxClients')}</label>
                   <div className={`flex items-center gap-2 ${language === 'ar' ? 'justify-start' : ''}`}>
                     {language === 'ar' ? (
                       <>
-                        <NumberInput id="clients" name="clients" value={formData.clients === 'unlimited' ? '' : formData.clients} onChange={handleInputChange} min={0} step={1} disabled={formData.clients === 'unlimited'} className="max-w-xs" />
-                        <Checkbox id="clientsUnlimited" checked={formData.clients === 'unlimited'} onChange={(e) => handleUnlimitedChange('clients', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
+                        <input
+                          id="max_clients"
+                          className={`${inputClasses} max-w-xs`}
+                          inputMode="numeric"
+                          value={(formData.entitlementsLimits || {}).max_clients === 'unlimited' ? '' : ((formData.entitlementsLimits || {}).max_clients ?? '')}
+                          onChange={(e) => handleExtraLimitChange('max_clients', e.target.value)}
+                          placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                          disabled={(formData.entitlementsLimits || {}).max_clients === 'unlimited'}
+                        />
+                        <Checkbox id="maxClientsUnlimited" checked={(formData.entitlementsLimits || {}).max_clients === 'unlimited'} onChange={(e) => handleUnlimitedChange('max_clients', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
                       </>
                     ) : (
                       <>
-                        <NumberInput id="clients" name="clients" value={formData.clients === 'unlimited' ? '' : formData.clients} onChange={handleInputChange} min={0} step={1} disabled={formData.clients === 'unlimited'} />
-                        <Checkbox id="clientsUnlimited" checked={formData.clients === 'unlimited'} onChange={(e) => handleUnlimitedChange('clients', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
+                        <input
+                          id="max_clients"
+                          className={inputClasses}
+                          inputMode="numeric"
+                          value={(formData.entitlementsLimits || {}).max_clients === 'unlimited' ? '' : ((formData.entitlementsLimits || {}).max_clients ?? '')}
+                          onChange={(e) => handleExtraLimitChange('max_clients', e.target.value)}
+                          placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                          disabled={(formData.entitlementsLimits || {}).max_clients === 'unlimited'}
+                        />
+                        <Checkbox id="maxClientsUnlimited" checked={(formData.entitlementsLimits || {}).max_clients === 'unlimited'} onChange={(e) => handleUnlimitedChange('max_clients', e.target.checked)} label={t('subscriptions.plans.unlimited')} />
                       </>
                     )}
                   </div>
+                </div>
+                <div>
+                  <label className={labelClasses}>{t('subscriptions.plans.maxDeals') || 'Max deals'}</label>
+                  <input
+                    className={inputClasses}
+                    inputMode="numeric"
+                    value={(formData.entitlementsLimits || {}).max_deals ?? ''}
+                    onChange={(e) => handleExtraLimitChange('max_deals', e.target.value)}
+                    placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                  />
                 </div>
               </div>
             </div>
@@ -363,137 +398,29 @@ const PlanModal: React.FC<PlanModalProps> = ({
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Checkbox
-                      id="feature_whatsapp"
-                      checked={!!(formData.entitlementsFeatures || {}).whatsapp_enabled}
-                      onChange={(e) => handleEntFeatureToggle('whatsapp_enabled', e.target.checked)}
-                      label={t('subscriptions.plans.feature.whatsapp') || 'WhatsApp'}
+                      id="feature_integration_meta"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_meta}
+                      onChange={(e) => handleEntFeatureToggle('integration_meta', e.target.checked)}
+                      label={t('settings.integrations.platform.meta') || 'Meta'}
                     />
                     <Checkbox
-                      id="feature_sms"
-                      checked={!!(formData.entitlementsFeatures || {}).sms_enabled}
-                      onChange={(e) => handleEntFeatureToggle('sms_enabled', e.target.checked)}
-                      label={t('subscriptions.plans.feature.sms') || 'SMS'}
+                      id="feature_integration_tiktok"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_tiktok}
+                      onChange={(e) => handleEntFeatureToggle('integration_tiktok', e.target.checked)}
+                      label={t('settings.integrations.platform.tiktok') || 'TikTok'}
                     />
                     <Checkbox
-                      id="feature_backups"
-                      checked={!!(formData.entitlementsFeatures || {}).backups_enabled}
-                      onChange={(e) => handleEntFeatureToggle('backups_enabled', e.target.checked)}
-                      label={t('subscriptions.plans.feature.backups') || 'Backups'}
+                      id="feature_integration_whatsapp"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_whatsapp}
+                      onChange={(e) => handleEntFeatureToggle('integration_whatsapp', e.target.checked)}
+                      label={t('settings.integrations.platform.whatsapp') || 'WhatsApp'}
                     />
                     <Checkbox
-                      id="feature_lead_import"
-                      checked={!!(formData.entitlementsFeatures || {}).lead_import_enabled}
-                      onChange={(e) => handleEntFeatureToggle('lead_import_enabled', e.target.checked)}
-                      label={t('subscriptions.plans.feature.leadImport') || 'Lead import'}
+                      id="feature_integration_twilio"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_twilio}
+                      onChange={(e) => handleEntFeatureToggle('integration_twilio', e.target.checked)}
+                      label={t('settings.integrations.platform.twilio') || 'Twilio'}
                     />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                    {t('subscriptions.plans.monthlyUsageLimits') || 'Monthly usage limits'}
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                      {t('subscriptions.plans.leaveEmptyUnlimited') || '(leave empty for unlimited)'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClasses}>{t('subscriptions.plans.monthlySms') || 'SMS messages / month'}</label>
-                      <input
-                        className={inputClasses}
-                        inputMode="numeric"
-                        value={
-                          (formData.entitlementsUsageLimitsMonthly || {}).monthly_sms_messages ?? ''
-                        }
-                        onChange={(e) => handleUsageLimitChange('monthly_sms_messages', e.target.value)}
-                        placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClasses}>{t('subscriptions.plans.monthlyWhatsapp') || 'WhatsApp messages / month'}</label>
-                      <input
-                        className={inputClasses}
-                        inputMode="numeric"
-                        value={
-                          (formData.entitlementsUsageLimitsMonthly || {}).monthly_whatsapp_messages ?? ''
-                        }
-                        onChange={(e) => handleUsageLimitChange('monthly_whatsapp_messages', e.target.value)}
-                        placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClasses}>{t('subscriptions.plans.monthlyNotifications') || 'Notifications / month'}</label>
-                      <input
-                        className={inputClasses}
-                        inputMode="numeric"
-                        value={
-                          (formData.entitlementsUsageLimitsMonthly || {}).monthly_notifications ?? ''
-                        }
-                        onChange={(e) => handleUsageLimitChange('monthly_notifications', e.target.value)}
-                        placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                    {t('subscriptions.plans.extraLimits') || 'Extra limits'}
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                      {t('subscriptions.plans.optional') || '(optional)'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClasses}>{t('subscriptions.plans.maxDeals') || 'Max deals'}</label>
-                      <input
-                        className={inputClasses}
-                        inputMode="numeric"
-                        value={(formData.entitlementsLimits || {}).max_deals ?? ''}
-                        onChange={(e) => handleExtraLimitChange('max_deals', e.target.value)}
-                        placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClasses}>{t('subscriptions.plans.maxTasks') || 'Max tasks'}</label>
-                      <input
-                        className={inputClasses}
-                        inputMode="numeric"
-                        value={(formData.entitlementsLimits || {}).max_tasks ?? ''}
-                        onChange={(e) => handleExtraLimitChange('max_tasks', e.target.value)}
-                        placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClasses}>{t('subscriptions.plans.maxIntegrationAccounts') || 'Max integration accounts'}</label>
-                      <input
-                        className={inputClasses}
-                        inputMode="numeric"
-                        value={(formData.entitlementsLimits || {}).max_integration_accounts ?? ''}
-                        onChange={(e) => handleExtraLimitChange('max_integration_accounts', e.target.value)}
-                        placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClasses}>{t('subscriptions.plans.maxWhatsappNumbers') || 'Max WhatsApp numbers'}</label>
-                      <input
-                        className={inputClasses}
-                        inputMode="numeric"
-                        value={(formData.entitlementsLimits || {}).max_whatsapp_numbers ?? ''}
-                        onChange={(e) => handleExtraLimitChange('max_whatsapp_numbers', e.target.value)}
-                        placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClasses}>{t('subscriptions.plans.maxMessageTemplates') || 'Max message templates'}</label>
-                      <input
-                        className={inputClasses}
-                        inputMode="numeric"
-                        value={(formData.entitlementsLimits || {}).max_message_templates ?? ''}
-                        onChange={(e) => handleExtraLimitChange('max_message_templates', e.target.value)}
-                        placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                      />
-                    </div>
                   </div>
                 </div>
               </div>

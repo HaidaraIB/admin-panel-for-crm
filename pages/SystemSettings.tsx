@@ -11,7 +11,7 @@ import { translateAdminApiError } from '../utils/translateApiError';
 import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI } from '../services/api';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -31,10 +31,30 @@ const persistSchedule = (schedule: BackupSchedule) => {
     localStorage.setItem(BACKUP_SCHEDULE_STORAGE_KEY, schedule);
 };
 
+type IntegrationPlatformKey = 'meta' | 'tiktok' | 'whatsapp' | 'twilio';
+type IntegrationPolicyState = Record<IntegrationPlatformKey, {
+    global_enabled: boolean;
+    global_message: string;
+    company_overrides: Record<string, { enabled: boolean; message: string }>;
+}>;
+
+const DEFAULT_INTEGRATION_POLICIES: IntegrationPolicyState = {
+    meta: { global_enabled: true, global_message: '', company_overrides: {} },
+    tiktok: { global_enabled: true, global_message: '', company_overrides: {} },
+    whatsapp: { global_enabled: true, global_message: '', company_overrides: {} },
+    twilio: { global_enabled: true, global_message: '', company_overrides: {} },
+};
+
 const GeneralSettings: React.FC = () => {
     const { t } = useI18n();
     const { addLog } = useAuditLog();
     const [usdToIqdRate, setUsdToIqdRate] = useState<number>(1300);
+    const [mobileMinVersionAndroid, setMobileMinVersionAndroid] = useState('');
+    const [mobileMinVersionIos, setMobileMinVersionIos] = useState('');
+    const [mobileMinBuildAndroid, setMobileMinBuildAndroid] = useState('');
+    const [mobileMinBuildIos, setMobileMinBuildIos] = useState('');
+    const [mobileStoreUrlAndroid, setMobileStoreUrlAndroid] = useState('');
+    const [mobileStoreUrlIos, setMobileStoreUrlIos] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -53,9 +73,14 @@ const GeneralSettings: React.FC = () => {
         setIsLoading(true);
         try {
             const settings = await getSystemSettingsAPI();
-            if (settings && settings.usd_to_iqd_rate) {
-                setUsdToIqdRate(parseFloat(settings.usd_to_iqd_rate));
-            }
+            if (!settings) return;
+            if (settings.usd_to_iqd_rate != null) setUsdToIqdRate(parseFloat(settings.usd_to_iqd_rate));
+            setMobileMinVersionAndroid(settings.mobile_minimum_version_android || '');
+            setMobileMinVersionIos(settings.mobile_minimum_version_ios || '');
+            setMobileMinBuildAndroid(settings.mobile_minimum_build_android?.toString() || '');
+            setMobileMinBuildIos(settings.mobile_minimum_build_ios?.toString() || '');
+            setMobileStoreUrlAndroid(settings.mobile_store_url_android || '');
+            setMobileStoreUrlIos(settings.mobile_store_url_ios || '');
         } catch (error) {
             console.error('Failed to load settings', error);
             setFeedback({ type: 'error', message: t('settings.general.loadError') || 'Failed to load settings' });
@@ -68,7 +93,15 @@ const GeneralSettings: React.FC = () => {
         setIsSaving(true);
         setFeedback(null);
         try {
-            await updateSystemSettingsAPI({ usd_to_iqd_rate: usdToIqdRate });
+            await updateSystemSettingsAPI({
+                usd_to_iqd_rate: usdToIqdRate,
+                mobile_minimum_version_android: mobileMinVersionAndroid.trim(),
+                mobile_minimum_version_ios: mobileMinVersionIos.trim(),
+                mobile_minimum_build_android: mobileMinBuildAndroid.trim() === '' ? null : Number(mobileMinBuildAndroid),
+                mobile_minimum_build_ios: mobileMinBuildIos.trim() === '' ? null : Number(mobileMinBuildIos),
+                mobile_store_url_android: mobileStoreUrlAndroid.trim(),
+                mobile_store_url_ios: mobileStoreUrlIos.trim(),
+            });
             addLog('audit.log.generalSettingsSaved');
             setFeedback({ type: 'success', message: t('settings.general.saveSuccess') || 'Settings saved successfully!' });
         } catch (error: any) {
@@ -131,6 +164,93 @@ const GeneralSettings: React.FC = () => {
                     </div>
                 </div>
 
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t('settings.general.mobileVersion.title') || 'Mobile App Version Gate'}
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.general.mobileVersion.help') || 'Leave minimum version empty to disable force update for that platform.'}
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                {t('settings.general.mobileVersion.minVersionAndroid') || 'Minimum Android Version'}
+                            </label>
+                            <input
+                                type="text"
+                                value={mobileMinVersionAndroid}
+                                onChange={(e) => setMobileMinVersionAndroid(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="1.3.0"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                {t('settings.general.mobileVersion.minBuildAndroid') || 'Minimum Android Build (optional)'}
+                            </label>
+                            <input
+                                type="number"
+                                min="0"
+                                value={mobileMinBuildAndroid}
+                                onChange={(e) => setMobileMinBuildAndroid(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="7"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                {t('settings.general.mobileVersion.storeUrlAndroid') || 'Android Store URL'}
+                            </label>
+                            <input
+                                type="text"
+                                value={mobileStoreUrlAndroid}
+                                onChange={(e) => setMobileStoreUrlAndroid(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="https://play.google.com/store/apps/details?id=..."
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                {t('settings.general.mobileVersion.minVersionIos') || 'Minimum iOS Version'}
+                            </label>
+                            <input
+                                type="text"
+                                value={mobileMinVersionIos}
+                                onChange={(e) => setMobileMinVersionIos(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="1.3.0"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                {t('settings.general.mobileVersion.minBuildIos') || 'Minimum iOS Build (optional)'}
+                            </label>
+                            <input
+                                type="number"
+                                min="0"
+                                value={mobileMinBuildIos}
+                                onChange={(e) => setMobileMinBuildIos(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="7"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                {t('settings.general.mobileVersion.storeUrlIos') || 'iOS Store URL'}
+                            </label>
+                            <input
+                                type="text"
+                                value={mobileStoreUrlIos}
+                                onChange={(e) => setMobileStoreUrlIos(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="https://apps.apple.com/app/id..."
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 <div>
                     <button 
                         onClick={handleSaveChanges} 
@@ -151,6 +271,186 @@ const GeneralSettings: React.FC = () => {
         )}
     </div>
 )};
+
+const IntegrationsControlSettings: React.FC = () => {
+    const { t } = useI18n();
+    const { addLog } = useAuditLog();
+    const [integrationPolicies, setIntegrationPolicies] = useState<IntegrationPolicyState>(DEFAULT_INTEGRATION_POLICIES);
+    const [companies, setCompanies] = useState<Array<{ id: number; name: string }>>([]);
+    const [selectedCompanyId, setSelectedCompanyId] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const platformLabels: Record<IntegrationPlatformKey, string> = {
+        meta: t('settings.integrations.platform.meta') || 'Meta',
+        tiktok: t('settings.integrations.platform.tiktok') || 'TikTok',
+        whatsapp: t('settings.integrations.platform.whatsapp') || 'WhatsApp',
+        twilio: t('settings.integrations.platform.twilio') || 'Twilio',
+    };
+
+    useEffect(() => {
+        const loadAll = async () => {
+            setIsLoading(true);
+            try {
+                const [settings, companiesResponse] = await Promise.all([getSystemSettingsAPI(), getCompaniesAPI()]);
+                const incoming = (settings?.integration_policies || {}) as Partial<IntegrationPolicyState>;
+                setIntegrationPolicies({
+                    meta: { ...DEFAULT_INTEGRATION_POLICIES.meta, ...(incoming.meta || {}), company_overrides: incoming.meta?.company_overrides || {} },
+                    tiktok: { ...DEFAULT_INTEGRATION_POLICIES.tiktok, ...(incoming.tiktok || {}), company_overrides: incoming.tiktok?.company_overrides || {} },
+                    whatsapp: { ...DEFAULT_INTEGRATION_POLICIES.whatsapp, ...(incoming.whatsapp || {}), company_overrides: incoming.whatsapp?.company_overrides || {} },
+                    twilio: { ...DEFAULT_INTEGRATION_POLICIES.twilio, ...(incoming.twilio || {}), company_overrides: incoming.twilio?.company_overrides || {} },
+                });
+                const list = ((companiesResponse?.results || []) as Array<{ id: number; name: string }>).map((c) => ({ id: c.id, name: c.name }));
+                setCompanies(list);
+                if (list.length > 0) setSelectedCompanyId(String(list[0].id));
+            } catch (error) {
+                console.error('Failed to load integration settings', error);
+                setFeedback({ type: 'error', message: t('settings.integrations.loadError') || 'Failed to load integration settings.' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadAll();
+    }, [t]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            await updateSystemSettingsAPI({ integration_policies: integrationPolicies });
+            addLog('audit.log.generalSettingsSaved');
+            setFeedback({ type: 'success', message: t('settings.integrations.saveSuccess') || 'Integration policies saved.' });
+        } catch (error: any) {
+            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.integrations.saveError') || 'Failed to save integration policies.' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h3 className="text-xl font-semibold">{t('settings.integrations.title') || 'Integrations Access Control'}</h3>
+            {feedback && (
+                <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
+                    feedback.type === 'success'
+                        ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
+                        : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
+                }`}>
+                    <Icon name={feedback.type === 'success' ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                    <span>{feedback.message}</span>
+                </div>
+            )}
+            {isLoading ? (
+                <div className="flex justify-center py-8"><LoadingSpinner /></div>
+            ) : (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.integrations.help') || 'Configure global and per-company integration activation. Global message has priority when globally disabled.'}
+                    </p>
+                    <div className="space-y-4">
+                        {(['meta', 'tiktok', 'whatsapp', 'twilio'] as IntegrationPlatformKey[]).map((platform) => {
+                            const policy = integrationPolicies[platform];
+                            const companyOverride = selectedCompanyId ? policy.company_overrides[selectedCompanyId] : undefined;
+                            return (
+                                <div key={platform} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h5 className="font-semibold text-gray-900 dark:text-white">{platformLabels[platform]}</h5>
+                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                            <input
+                                                type="checkbox"
+                                                checked={policy.global_enabled}
+                                                onChange={(e) => setIntegrationPolicies((prev) => ({
+                                                    ...prev,
+                                                    [platform]: { ...prev[platform], global_enabled: e.target.checked },
+                                                }))}
+                                            />
+                                            {t('settings.integrations.globalActive') || 'Global Active'}
+                                        </label>
+                                    </div>
+                                    <textarea
+                                        value={policy.global_message}
+                                        onChange={(e) => setIntegrationPolicies((prev) => ({
+                                            ...prev,
+                                            [platform]: { ...prev[platform], global_message: e.target.value },
+                                        }))}
+                                        rows={2}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder={t('settings.integrations.globalMessagePlaceholder') || 'Global deactivation message'}
+                                    />
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+                                        <select
+                                            value={selectedCompanyId}
+                                            onChange={(e) => setSelectedCompanyId(e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600"
+                                        >
+                                            {companies.map((company) => (
+                                                <option key={company.id} value={company.id}>{company.name}</option>
+                                            ))}
+                                        </select>
+                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                            <input
+                                                type="checkbox"
+                                                checked={companyOverride ? companyOverride.enabled : true}
+                                                onChange={(e) => {
+                                                    if (!selectedCompanyId) return;
+                                                    setIntegrationPolicies((prev) => ({
+                                                        ...prev,
+                                                        [platform]: {
+                                                            ...prev[platform],
+                                                            company_overrides: {
+                                                                ...prev[platform].company_overrides,
+                                                                [selectedCompanyId]: {
+                                                                    enabled: e.target.checked,
+                                                                    message: prev[platform].company_overrides[selectedCompanyId]?.message || '',
+                                                                },
+                                                            },
+                                                        },
+                                                    }));
+                                                }}
+                                            />
+                                            {t('settings.integrations.companyActive') || 'Selected Company Active'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={companyOverride?.message || ''}
+                                            onChange={(e) => {
+                                                if (!selectedCompanyId) return;
+                                                setIntegrationPolicies((prev) => ({
+                                                    ...prev,
+                                                    [platform]: {
+                                                        ...prev[platform],
+                                                        company_overrides: {
+                                                            ...prev[platform].company_overrides,
+                                                            [selectedCompanyId]: {
+                                                                enabled: prev[platform].company_overrides[selectedCompanyId]?.enabled ?? true,
+                                                                message: e.target.value,
+                                                            },
+                                                        },
+                                                    },
+                                                }));
+                                            }}
+                                            className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600"
+                                            placeholder={t('settings.integrations.companyMessagePlaceholder') || 'Company deactivation message'}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                        >
+                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span></> : (t('settings.general.save') || 'Save Changes')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const SecurityBackups: React.FC = () => {
     const { t, language } = useI18n();
@@ -1054,7 +1354,7 @@ const SystemSettings: React.FC = () => {
     const loadSavedTab = (): string => {
         if (typeof window === 'undefined') return 'general';
         const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'security', 'twilio', 'limitedAdmins', 'audit'];
+        const validTabs = ['general', 'integrations', 'security', 'twilio', 'limitedAdmins', 'audit'];
         if (saved && validTabs.includes(saved)) {
             return saved;
         }
@@ -1079,6 +1379,7 @@ const SystemSettings: React.FC = () => {
 
     const settingsMenu = [
         { id: 'general', label: t('settings.menu.general') || 'General' },
+        { id: 'integrations', label: t('settings.menu.integrations') || 'Integrations' },
         { id: 'security', label: t('settings.menu.security') },
         { id: 'twilio', label: t('settings.menu.twilio') || 'Twilio (SMS)' },
         ...(canSeeLimitedAdmins ? [{ id: 'limitedAdmins' as const, label: t('settings.menu.limitedAdmins') || 'Limited Admins' }] : []),
@@ -1091,6 +1392,7 @@ const SystemSettings: React.FC = () => {
         }
         switch (activeSetting) {
             case 'general': return <GeneralSettings />;
+            case 'integrations': return <IntegrationsControlSettings />;
             case 'security': return <SecurityBackups />;
             case 'twilio': return <TwilioSmsSettings />;
             case 'limitedAdmins': return <LimitedAdmins />;

@@ -790,6 +790,17 @@ export const getSystemSettingsAPI = async () => {
 export const updateSystemSettingsAPI = async (settingsData: {
   usd_to_iqd_rate?: number;
   backup_schedule?: 'daily' | 'weekly' | 'monthly';
+  mobile_minimum_version_android?: string;
+  mobile_minimum_version_ios?: string;
+  mobile_minimum_build_android?: number | null;
+  mobile_minimum_build_ios?: number | null;
+  mobile_store_url_android?: string;
+  mobile_store_url_ios?: string;
+  integration_policies?: Record<string, {
+    global_enabled?: boolean;
+    global_message?: string;
+    company_overrides?: Record<string, { enabled?: boolean; message?: string }>;
+  }>;
 }) => {
   return apiRequest<any>('/settings/system/1/', {
     method: 'PATCH',

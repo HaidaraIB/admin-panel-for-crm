@@ -67,12 +67,22 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 priceMonthly: parseFloat(plan.price_monthly || 0), // API field: price_monthly
                 priceYearly: parseFloat(plan.price_yearly || 0), // API field: price_yearly
                 trialDays: plan.trial_days || 0, // API field: trial_days
-                users: plan.users || 'unlimited' as const, // API field: users
-                clients: plan.clients || 'unlimited' as const, // API field: clients
+                users: (plan.limits?.max_employees ?? plan.users ?? 'unlimited') as number | 'unlimited',
+                clients: (plan.limits?.max_clients ?? plan.clients ?? 'unlimited') as number | 'unlimited',
                 features: plan.description || '', // API field: description
                 featuresAr: plan.description_ar || '', // API field: description_ar (if available)
-                entitlementsFeatures: plan.features || {},
-                entitlementsLimits: plan.limits || {},
+                entitlementsFeatures: {
+                    integration_meta: true,
+                    integration_tiktok: true,
+                    integration_whatsapp: true,
+                    integration_twilio: true,
+                    ...(plan.features || {}),
+                },
+                entitlementsLimits: {
+                    max_employees: plan.limits?.max_employees ?? plan.users ?? null,
+                    max_clients: plan.limits?.max_clients ?? plan.clients ?? null,
+                    max_deals: plan.limits?.max_deals ?? null,
+                },
                 entitlementsUsageLimitsMonthly: plan.usage_limits_monthly || {},
                 tier: typeof plan.tier === 'number' ? plan.tier : 0,
                 visible: plan.visible !== false, // API field: visible
@@ -102,6 +112,8 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         try {
         if (planToSave.id) {
                 // Use API field names
+                const maxEmployees = planToSave.entitlementsLimits?.max_employees ?? planToSave.users ?? 'unlimited';
+                const maxClients = planToSave.entitlementsLimits?.max_clients ?? planToSave.clients ?? 'unlimited';
                 await updatePlanAPI(planToSave.id, {
                     name: planToSave.name, // API field: name
                     name_ar: planToSave.nameAr || planToSave.name, // API field: name_ar
@@ -110,8 +122,8 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     price_monthly: planToSave.priceMonthly, // API field: price_monthly
                     price_yearly: planToSave.priceYearly, // API field: price_yearly
                     trial_days: planToSave.trialDays, // API field: trial_days
-                    users: planToSave.users, // API field: users
-                    clients: planToSave.clients, // API field: clients
+                    users: maxEmployees, // legacy compatibility field
+                    clients: maxClients, // legacy compatibility field
                     features: planToSave.entitlementsFeatures || {}, // API field: features (JSON)
                     limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
                     usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
@@ -121,6 +133,8 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             addLog('audit.log.planUpdated', { planName: planToSave.name });
         } else {
                 // Use API field names
+                const maxEmployees = planToSave.entitlementsLimits?.max_employees ?? planToSave.users ?? 'unlimited';
+                const maxClients = planToSave.entitlementsLimits?.max_clients ?? planToSave.clients ?? 'unlimited';
                 await createPlanAPI({
                     name: planToSave.name, // API field: name
                     name_ar: planToSave.nameAr || planToSave.name, // API field: name_ar
@@ -129,8 +143,8 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     price_monthly: planToSave.priceMonthly, // API field: price_monthly
                     price_yearly: planToSave.priceYearly, // API field: price_yearly
                     trial_days: planToSave.trialDays, // API field: trial_days
-                    users: planToSave.users, // API field: users
-                    clients: planToSave.clients, // API field: clients
+                    users: maxEmployees, // legacy compatibility field
+                    clients: maxClients, // legacy compatibility field
                     features: planToSave.entitlementsFeatures || {}, // API field: features (JSON)
                     limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
                     usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
@@ -200,8 +214,8 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 price_monthly: planToToggleVisibility.priceMonthly,
                 price_yearly: planToToggleVisibility.priceYearly,
                 trial_days: planToToggleVisibility.trialDays,
-                users: planToToggleVisibility.users,
-                clients: planToToggleVisibility.clients,
+                users: planToToggleVisibility.entitlementsLimits?.max_employees ?? planToToggleVisibility.users,
+                clients: planToToggleVisibility.entitlementsLimits?.max_clients ?? planToToggleVisibility.clients,
                 features: planToToggleVisibility.entitlementsFeatures || {},
                 limits: planToToggleVisibility.entitlementsLimits || {},
                 usage_limits_monthly: planToToggleVisibility.entitlementsUsageLimitsMonthly || {},
