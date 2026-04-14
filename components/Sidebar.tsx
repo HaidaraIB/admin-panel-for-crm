@@ -27,6 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
   const allMenuItems: { path: string; labelKey: string; icon: string; permission: PermissionKey }[] = [
     { path: '/dashboard', labelKey: 'sidebar.dashboard', icon: 'dashboard', permission: 'can_view_dashboard' },
     { path: '/tenants', labelKey: 'sidebar.tenants', icon: 'tenants', permission: 'can_manage_tenants' },
+    { path: '/tenant-whatsapp', labelKey: 'sidebar.tenantWhatsapp', icon: 'communication', permission: 'can_manage_tenants' },
     { path: '/subscriptions', labelKey: 'sidebar.subscriptions', icon: 'subscriptions', permission: 'can_manage_subscriptions' },
     { path: '/payment-gateways', labelKey: 'sidebar.paymentGateways', icon: 'cash', permission: 'can_manage_payment_gateways' },
     { path: '/reports', labelKey: 'sidebar.reports', icon: 'reports', permission: 'can_view_reports' },

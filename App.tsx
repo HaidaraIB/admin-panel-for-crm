@@ -11,6 +11,7 @@ import Reports from './pages/Reports';
 import Communication from './pages/Communication';
 import SystemSettings from './pages/SystemSettings';
 import SupportTickets from './pages/SupportTickets';
+import TenantWhatsAppChat from './pages/TenantWhatsAppChat';
 import LoginPage from './pages/LoginPage';
 import PaymentGateways from './pages/PaymentGateways';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -54,6 +55,7 @@ const App: React.FC = () => {
     const routeMap: Record<string, Page> = {
       '/dashboard': 'Dashboard',
       '/tenants': 'Tenants',
+      '/tenant-whatsapp': 'TenantWhatsApp',
       '/subscriptions': 'Subscriptions',
       '/payment-gateways': 'PaymentGateways',
       '/reports': 'Reports',
@@ -461,6 +463,18 @@ const App: React.FC = () => {
             <PermissionGuard permission="can_manage_tenants">
               <Layout>
                 <AddTenant key={`add-tenant-${language}`} onSave={handleAddTenantSuccess} />
+              </Layout>
+            </PermissionGuard>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tenant-whatsapp"
+        element={
+          <ProtectedRoute>
+            <PermissionGuard permission="can_manage_tenants">
+              <Layout>
+                <TenantWhatsAppChat key={`tenant-whatsapp-${language}`} />
               </Layout>
             </PermissionGuard>
           </ProtectedRoute>

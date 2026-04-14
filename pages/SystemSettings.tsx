@@ -11,7 +11,7 @@ import { translateAdminApiError } from '../utils/translateApiError';
 import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI } from '../services/api';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -1039,6 +1039,103 @@ const TwilioSmsSettings: React.FC = () => {
     );
 };
 
+const RegistrationOtpSettings: React.FC = () => {
+    const { t } = useI18n();
+    const { addLog } = useAuditLog();
+    const [phoneOtpRequired, setPhoneOtpRequired] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    const loadSettings = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getPhoneOtpRequirementAPI();
+            setPhoneOtpRequired(!!data.phone_otp_required);
+        } catch (error: any) {
+            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.registrationOtp.loadError') });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadSettings();
+    }, []);
+
+    useEffect(() => {
+        if (!feedback) return;
+        const timer = setTimeout(() => setFeedback(null), 6000);
+        return () => clearTimeout(timer);
+    }, [feedback]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            const data = await updatePhoneOtpRequirementAPI(phoneOtpRequired);
+            setPhoneOtpRequired(!!data.phone_otp_required);
+            addLog('audit.log.registrationOtpUpdated', { state: phoneOtpRequired ? t('common.enabled') : t('common.disabled') });
+            setFeedback({ type: 'success', message: t('settings.registrationOtp.saveSuccess') });
+        } catch (error: any) {
+            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.registrationOtp.saveError') });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.registrationOtp.title')}</h3>
+            {feedback && (
+                <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
+                    feedback.type === 'success'
+                        ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
+                        : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
+                }`}>
+                    <Icon name={feedback.type === 'success' ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                    <span>{feedback.message}</span>
+                </div>
+            )}
+            {isLoading ? (
+                <div className="flex justify-center py-8"><LoadingSpinner /></div>
+            ) : (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {t('settings.registrationOtp.description')}
+                    </p>
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="phone-otp-required"
+                                checked={phoneOtpRequired}
+                                onChange={(e) => setPhoneOtpRequired(e.target.checked)}
+                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <label htmlFor="phone-otp-required" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {t('settings.registrationOtp.requireLabel')}
+                            </label>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t('settings.registrationOtp.hint')}
+                        </p>
+                    </div>
+                    <div>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                        >
+                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span></> : (t('settings.general.save') || 'Save Changes')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const AuditLog: React.FC = () => {
     const { t, language } = useI18n();
     const { logs } = useAuditLog();
@@ -1354,7 +1451,7 @@ const SystemSettings: React.FC = () => {
     const loadSavedTab = (): string => {
         if (typeof window === 'undefined') return 'general';
         const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'integrations', 'security', 'twilio', 'limitedAdmins', 'audit'];
+        const validTabs = ['general', 'integrations', 'security', 'twilio', 'registrationOtp', 'limitedAdmins', 'audit'];
         if (saved && validTabs.includes(saved)) {
             return saved;
         }
@@ -1382,6 +1479,7 @@ const SystemSettings: React.FC = () => {
         { id: 'integrations', label: t('settings.menu.integrations') || 'Integrations' },
         { id: 'security', label: t('settings.menu.security') },
         { id: 'twilio', label: t('settings.menu.twilio') || 'Twilio (SMS)' },
+        { id: 'registrationOtp', label: t('settings.menu.registrationOtp') || 'Registration OTP' },
         ...(canSeeLimitedAdmins ? [{ id: 'limitedAdmins' as const, label: t('settings.menu.limitedAdmins') || 'Limited Admins' }] : []),
         { id: 'audit', label: t('settings.menu.audit') },
     ];
@@ -1395,6 +1493,7 @@ const SystemSettings: React.FC = () => {
             case 'integrations': return <IntegrationsControlSettings />;
             case 'security': return <SecurityBackups />;
             case 'twilio': return <TwilioSmsSettings />;
+            case 'registrationOtp': return <RegistrationOtpSettings />;
             case 'limitedAdmins': return <LimitedAdmins />;
             case 'audit': return <AuditLog />;
             default: return <GeneralSettings />;

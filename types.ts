@@ -1,5 +1,5 @@
 
-export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'Subscriptions' | 'Reports' | 'Communication' | 'Settings' | 'PaymentGateways' | 'SupportTickets';
+export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'TenantWhatsApp' | 'Subscriptions' | 'Reports' | 'Communication' | 'Settings' | 'PaymentGateways' | 'SupportTickets';
 
 export type TicketStatus = 'open' | 'in_progress' | 'closed';
 

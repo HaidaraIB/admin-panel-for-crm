@@ -495,6 +495,34 @@ export const registerCompanyAPI = async (data: {
   return result;
 };
 
+/** POST /companies/{id}/admin-whatsapp/send/ */
+export const sendAdminTenantWhatsAppAPI = async (companyId: number, message: string) => {
+  return apiRequest<{ whatsapp_message_id?: string | null }>(
+    `/companies/${companyId}/admin-whatsapp/send/`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }
+  );
+};
+
+/** GET /companies/{id}/admin-whatsapp/messages/ */
+export const getAdminTenantWhatsAppMessagesAPI = async (
+  companyId: number,
+  params?: { page?: number; page_size?: number }
+) => {
+  const q = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+  });
+  return apiRequest<{
+    count: number;
+    page: number;
+    page_size: number;
+    results: unknown[];
+  }>(`/companies/${companyId}/admin-whatsapp/messages/${q}`)
+};
+
 // ==================== Invoices APIs ====================
 
 /**
@@ -845,6 +873,21 @@ export const updatePlatformTwilioSettingsAPI = async (data: {
   return apiRequest<any>('/settings/platform-twilio/1/', {
     method: 'PUT',
     body: JSON.stringify(data),
+  });
+};
+
+/** GET /auth/register/phone-otp-requirement/ */
+export const getPhoneOtpRequirementAPI = async () => {
+  return apiRequest<{ phone_otp_required: boolean }>(
+    '/auth/register/phone-otp-requirement/'
+  );
+};
+
+/** POST /auth/register/phone-otp-requirement/ */
+export const updatePhoneOtpRequirementAPI = async (phoneOtpRequired: boolean) => {
+  return apiRequest<{ phone_otp_required: boolean }>('/auth/register/phone-otp-requirement/', {
+    method: 'POST',
+    body: JSON.stringify({ phone_otp_required: phoneOtpRequired }),
   });
 };
 
