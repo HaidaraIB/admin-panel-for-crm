@@ -10,7 +10,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const DEFAULT_PRIMARY_COLOR = '#9333ea'; // Purple (fixed, not customizable)
+const DEFAULT_PRIMARY_COLOR = '#4215aa'; // Purple (fixed, not customizable)
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [primaryColor] = useState(() => {
