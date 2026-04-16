@@ -92,12 +92,13 @@ const PlanModal: React.FC<PlanModalProps> = ({
     setFormData(newFormData);
   };
 
-  const handleUnlimitedChange = (field: 'max_employees' | 'max_clients', isChecked: boolean) => {
+  const handleUnlimitedChange = (field: 'max_employees' | 'max_clients' | 'max_deals', isChecked: boolean) => {
+    const fallbackValue = field === 'max_employees' ? 10 : field === 'max_clients' ? 100 : null;
     setFormData(prev => ({
       ...prev,
       entitlementsLimits: {
         ...(prev.entitlementsLimits || {}),
-        [field]: isChecked ? 'unlimited' : (field === 'max_employees' ? 10 : 100),
+        [field]: isChecked ? 'unlimited' : fallbackValue,
       },
     }));
   };
@@ -375,13 +376,22 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 </div>
                 <div>
                   <label className={labelClasses}>{t('subscriptions.plans.maxDeals') || 'Max deals'}</label>
-                  <input
-                    className={inputClasses}
-                    inputMode="numeric"
-                    value={(formData.entitlementsLimits || {}).max_deals ?? ''}
-                    onChange={(e) => handleExtraLimitChange('max_deals', e.target.value)}
-                    placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
-                  />
+                  <div className={`flex items-center gap-2 ${language === 'ar' ? 'justify-start' : ''}`}>
+                    <input
+                      className={inputClasses}
+                      inputMode="numeric"
+                      value={(formData.entitlementsLimits || {}).max_deals === 'unlimited' ? '' : ((formData.entitlementsLimits || {}).max_deals ?? '')}
+                      onChange={(e) => handleExtraLimitChange('max_deals', e.target.value)}
+                      placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                      disabled={(formData.entitlementsLimits || {}).max_deals === 'unlimited'}
+                    />
+                    <Checkbox
+                      id="maxDealsUnlimited"
+                      checked={(formData.entitlementsLimits || {}).max_deals === 'unlimited'}
+                      onChange={(e) => handleUnlimitedChange('max_deals', e.target.checked)}
+                      label={t('subscriptions.plans.unlimited')}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

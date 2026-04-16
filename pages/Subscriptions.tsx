@@ -31,6 +31,20 @@ function classifyPlanTypeFromApi(plan: {
   return 'Free';
 }
 
+const CANONICAL_PLAN_FEATURE_KEYS = [
+  'integration_meta',
+  'integration_tiktok',
+  'integration_whatsapp',
+  'integration_twilio',
+] as const;
+
+function sanitizePlanFeatures(raw: unknown): Record<string, boolean> {
+  const source = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+  return Object.fromEntries(
+    CANONICAL_PLAN_FEATURE_KEYS.map((key) => [key, source[key] === undefined ? true : !!source[key]])
+  ) as Record<string, boolean>;
+}
+
 interface SubscriptionsProps {
     tenants: Tenant[];
 }
@@ -71,13 +85,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 clients: (plan.limits?.max_clients ?? plan.clients ?? 'unlimited') as number | 'unlimited',
                 features: plan.description || '', // API field: description
                 featuresAr: plan.description_ar || '', // API field: description_ar (if available)
-                entitlementsFeatures: {
-                    integration_meta: true,
-                    integration_tiktok: true,
-                    integration_whatsapp: true,
-                    integration_twilio: true,
-                    ...(plan.features || {}),
-                },
+                entitlementsFeatures: sanitizePlanFeatures(plan.features),
                 entitlementsLimits: {
                     max_employees: plan.limits?.max_employees ?? plan.users ?? null,
                     max_clients: plan.limits?.max_clients ?? plan.clients ?? null,
@@ -124,7 +132,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     trial_days: planToSave.trialDays, // API field: trial_days
                     users: maxEmployees, // legacy compatibility field
                     clients: maxClients, // legacy compatibility field
-                    features: planToSave.entitlementsFeatures || {}, // API field: features (JSON)
+                    features: sanitizePlanFeatures(planToSave.entitlementsFeatures), // API field: features (JSON)
                     limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
                     usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
                     visible: planToSave.visible, // API field: visible
@@ -145,7 +153,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     trial_days: planToSave.trialDays, // API field: trial_days
                     users: maxEmployees, // legacy compatibility field
                     clients: maxClients, // legacy compatibility field
-                    features: planToSave.entitlementsFeatures || {}, // API field: features (JSON)
+                    features: sanitizePlanFeatures(planToSave.entitlementsFeatures), // API field: features (JSON)
                     limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
                     usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
                     visible: planToSave.visible !== false, // API field: visible
@@ -216,7 +224,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 trial_days: planToToggleVisibility.trialDays,
                 users: planToToggleVisibility.entitlementsLimits?.max_employees ?? planToToggleVisibility.users,
                 clients: planToToggleVisibility.entitlementsLimits?.max_clients ?? planToToggleVisibility.clients,
-                features: planToToggleVisibility.entitlementsFeatures || {},
+                features: sanitizePlanFeatures(planToToggleVisibility.entitlementsFeatures),
                 limits: planToToggleVisibility.entitlementsLimits || {},
                 usage_limits_monthly: planToToggleVisibility.entitlementsUsageLimitsMonthly || {},
                 visible: !planToToggleVisibility.visible,
