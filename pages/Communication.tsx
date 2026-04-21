@@ -590,7 +590,7 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                         disabled={isLoading}
                         className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
                     >
-                        {isLoading ? <LoadingSpinner /> : <Icon name="refresh" className="w-4 h-4" />}
+                        {isLoading ? <LoadingSpinner size="sm" label={t('common.loading') || 'Loading'} /> : <Icon name="refresh" className="w-4 h-4" />}
                         <span>{t('common.refresh')}</span>
                     </button>
                 )}
@@ -611,7 +611,9 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                         {isLoading ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    {t('communication.history.loading')}
+                                    <div className="flex items-center justify-center">
+                                        <LoadingSpinner label={t('communication.history.loading') || 'Loading history'} />
+                                    </div>
                                 </td>
                             </tr>
                         ) : history.length === 0 ? (

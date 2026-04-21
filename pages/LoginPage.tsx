@@ -206,7 +206,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 disabled={isLoading}
                 className="relative flex justify-center w-full px-4 py-3 text-sm font-medium text-white border border-transparent rounded-md group bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-primary-400 dark:disabled:bg-primary-800 transition-colors"
                 >
-                {isLoading ? <LoadingSpinner /> : t('login.signIn')}
+                {isLoading ? <LoadingSpinner size="sm" tone="light" label={t('common.loading') || 'Loading'} /> : t('login.signIn')}
                 </button>
             </div>
             </form>

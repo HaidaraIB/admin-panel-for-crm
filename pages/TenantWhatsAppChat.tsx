@@ -6,6 +6,7 @@ import {
   getAdminTenantWhatsAppMessagesAPI,
 } from '../services/api';
 import type { Tenant } from '../types';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 type ChatRow = {
   id: number;
@@ -104,7 +105,9 @@ const TenantWhatsAppChat: React.FC = () => {
             {t('tenantWhatsapp.selectCompany')}
           </label>
           {loadingList ? (
-            <p className="text-sm text-gray-500">{t('common.loading')}</p>
+            <div className="py-2">
+              <LoadingSpinner label={t('common.loading') || 'Loading'} />
+            </div>
           ) : (
             <select
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
@@ -128,7 +131,9 @@ const TenantWhatsAppChat: React.FC = () => {
         <div className="md:col-span-2 flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 min-h-[420px]">
           <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[480px]">
             {loadingMessages ? (
-              <p className="text-sm text-gray-500">{t('common.loading')}</p>
+              <div className="py-2">
+                <LoadingSpinner label={t('common.loading') || 'Loading'} />
+              </div>
             ) : messages.length === 0 ? (
               <p className="text-sm text-gray-500">{t('tenantWhatsapp.noMessages')}</p>
             ) : (

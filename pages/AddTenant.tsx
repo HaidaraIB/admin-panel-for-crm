@@ -421,7 +421,11 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
             {currentStep === 3 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('tenants.add.stepPlan')}</h3>
-                {loadingPlans && <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</p>}
+                {loadingPlans && (
+                  <div className="py-1">
+                    <LoadingSpinner label={t('common.loading') || 'Loading'} />
+                  </div>
+                )}
                 {!loadingPlans && plans.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">—</p>}
                 {!loadingPlans && plans.length > 0 && (
                   <div className="space-y-2">

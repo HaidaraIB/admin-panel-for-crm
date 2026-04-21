@@ -45,7 +45,7 @@ const LoadingButton: React.FC<LoadingButtonProps> = ({
     >
       {isLoading ? (
         <>
-          <LoadingSpinner />
+          <LoadingSpinner size="sm" tone={variant === 'primary' || variant === 'danger' ? 'light' : 'default'} />
           {loadingText && <span>{loadingText}</span>}
         </>
       ) : (

@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../components/Icon';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { Tenant, TenantStatus, Page } from '../types';
 import { useI18n } from '../context/i18n';
 import { useUser } from '../context/UserContext';
@@ -263,7 +264,9 @@ const Tenants: React.FC<TenantsProps> = ({
                             {isLoading ? (
                                 <tr>
                                     <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                        {t('tenants.loading')}
+                                        <div className="flex items-center justify-center">
+                                            <LoadingSpinner label={t('tenants.loading') || 'Loading tenants'} />
+                                        </div>
                                     </td>
                                 </tr>
                             ) : tenants.length === 0 ? (

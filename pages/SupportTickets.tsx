@@ -93,7 +93,7 @@ const SupportTickets: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
         {loading ? (
           <div className="flex justify-center py-12">
-            <LoadingSpinner />
+            <LoadingSpinner size="lg" label={t('common.loading') || 'Loading'} />
           </div>
         ) : tickets.length === 0 ? (
           <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">

@@ -5,6 +5,7 @@ import { useAlert } from '../context/AlertContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import Icon from './Icon';
 import AlertDialog from './AlertDialog';
+import LoadingSpinner from './LoadingSpinner';
 import { getPlansAPI, checkHasSuccessfulPaymentForCompany } from '../services/api';
 
 interface TenantActivationModalProps {
@@ -175,7 +176,7 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
                 </label>
                 {isLoadingPlans ? (
                   <div className="px-3 py-2 text-gray-500 dark:text-gray-400">
-                    {t('common.loading') || 'Loading...'}
+                    <LoadingSpinner label={t('common.loading') || 'Loading'} />
                   </div>
                 ) : (
                   <select

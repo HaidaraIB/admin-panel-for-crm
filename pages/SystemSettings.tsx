@@ -1317,7 +1317,9 @@ const LimitedAdmins: React.FC = () => {
                             {isLoading ? (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                        {t('common.loading') || 'Loading...'}
+                                        <div className="flex items-center justify-center">
+                                            <LoadingSpinner label={t('common.loading') || 'Loading'} />
+                                        </div>
                                     </td>
                                 </tr>
                             ) : limitedAdmins.length === 0 ? (
