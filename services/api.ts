@@ -11,6 +11,7 @@ import {
   refreshTokensViaFetch,
   buildAdminFetchHeaders,
 } from './httpClient';
+import type { BillingBranding } from '../types';
 
 export {
   unwrapApiData,
@@ -542,36 +543,32 @@ export const getInvoiceAPI = async (id: number) => {
   return apiRequest<any>(`/invoices/${id}/`);
 };
 
-/**
- * Create invoice
- * POST /api/invoices/
- */
-export const createInvoiceAPI = async (invoiceData: any) => {
-  return apiRequest<any>('/invoices/', {
+/** GET /api/invoices/{id}/pdf/ — raw PDF (not JSON envelope), language-aware via X-Language header. */
+export const downloadInvoicePdfAPI = async (id: number, language?: string): Promise<Blob> => {
+  const res = await adminHttp.get<Blob>(`invoices/${id}/pdf/`, {
+    responseType: 'blob',
+    headers: language ? { 'X-Language': language } : undefined,
+  });
+  return res.data;
+};
+
+/** POST /api/invoices/{id}/send-email/ */
+export const sendInvoiceEmailAPI = async (id: number, to?: string) => {
+  return apiRequest<{ status?: string; message?: string }>(`invoices/${id}/send-email/`, {
     method: 'POST',
-    body: JSON.stringify(invoiceData),
+    body: JSON.stringify(to ? { to } : {}),
   });
 };
 
-/**
- * Update invoice
- * PUT /api/invoices/{id}/
- */
-export const updateInvoiceAPI = async (id: number, invoiceData: any) => {
-  return apiRequest<any>(`/invoices/${id}/`, {
-    method: 'PUT',
-    body: JSON.stringify(invoiceData),
-  });
+/** GET /api/settings/billing/1/ */
+export const getBillingSettingsAPI = async (): Promise<BillingBranding & { id?: number }> => {
+  return apiRequest<BillingBranding & { id?: number }>('settings/billing/1/');
 };
 
-/**
- * Mark invoice as paid
- * POST /api/invoices/{id}/mark_paid/
- */
-export const markInvoicePaidAPI = async (id: number) => {
-  return apiRequest<any>(`/invoices/${id}/mark_paid/`, {
-    method: 'POST',
-  });
+/** PATCH /api/settings/billing/1/ (multipart when uploading logo). */
+export const updateBillingSettingsAPI = async (formData: FormData) => {
+  const res = await adminHttp.patch('settings/billing/1/', formData);
+  return res.data;
 };
 
 // ==================== Broadcasts APIs ====================

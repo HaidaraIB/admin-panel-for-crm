@@ -1,17 +1,27 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import ReactDOM from 'react-dom/client';
+import React, { useState, useEffect } from 'react';
 import Icon from '../components/Icon';
-import { Plan, Payment, Invoice, PaymentStatus, InvoiceStatus, Tenant } from '../types';
+import { Plan, Payment, Invoice, PaymentStatus, Tenant, type InvoicePaymentStatus, type BillingBranding } from '../types';
 import { useI18n } from '../context/i18n';
 import PlanModal from '../components/PlanModal';
 import InvoiceModal from '../components/InvoiceModal';
-import InvoiceTemplate from '../components/InvoiceTemplate';
 import { useTheme } from '../context/ThemeContext';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuditLog } from '../context/AuditLogContext';
 import PlanCardSkeleton from '../components/PlanCardSkeleton';
-import { getPlansAPI, createPlanAPI, updatePlanAPI, deletePlanAPI, getSubscriptionsAPI, updateSubscriptionAPI, getCompaniesAPI, getInvoicesAPI, checkHasSuccessfulPaymentForSubscription } from '../services/api';
+import {
+  getPlansAPI,
+  createPlanAPI,
+  updatePlanAPI,
+  deletePlanAPI,
+  getSubscriptionsAPI,
+  updateSubscriptionAPI,
+  getCompaniesAPI,
+  getInvoicesAPI,
+  checkHasSuccessfulPaymentForSubscription,
+  downloadInvoicePdfAPI,
+  sendInvoiceEmailAPI,
+  getBillingSettingsAPI,
+} from '../services/api';
 import { getPaymentsAPI } from '../services/api';
 import { useAlert } from '../context/AlertContext';
 import { translateAdminApiError } from '../utils/translateApiError';
@@ -487,32 +497,83 @@ const PaymentsTab: React.FC = () => {
     )
 };
 
+function normalizeInvoicePaymentStatus(raw: string | undefined): InvoicePaymentStatus {
+    const s = (raw || '').toLowerCase();
+    if (s === 'completed') return 'completed';
+    if (s === 'pending') return 'pending';
+    if (s === 'failed') return 'failed';
+    if (s === 'canceled' || s === 'cancelled') return 'canceled';
+    return 'pending';
+}
+
+function invoiceStatusLabelKey(ps: InvoicePaymentStatus): 'Successful' | 'Pending' | 'Failed' | 'Canceled' {
+    switch (ps) {
+        case 'completed':
+            return 'Successful';
+        case 'pending':
+            return 'Pending';
+        case 'failed':
+            return 'Failed';
+        case 'canceled':
+            return 'Canceled';
+        default:
+            return 'Pending';
+    }
+}
+
+const invoicePaymentStatusColors: Record<InvoicePaymentStatus, string> = {
+    completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+    canceled: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+};
+
 const InvoicesTab: React.FC = () => {
     const { t, language } = useI18n();
     const { logoUrl } = useTheme();
+    const { showAlert } = useAlert();
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [downloadingId, setDownloadingId] = useState<string | null>(null);
+    const [downloadingId, setDownloadingId] = useState<number | null>(null);
+    const [sendingId, setSendingId] = useState<number | null>(null);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [branding, setBranding] = useState<Partial<BillingBranding> | null>(null);
 
     useEffect(() => {
         loadInvoices();
+        getBillingSettingsAPI()
+            .then((b) =>
+                setBranding({
+                    issuer_name: b.issuer_name,
+                    issuer_address: b.issuer_address,
+                    issuer_email: b.issuer_email,
+                    issuer_phone: b.issuer_phone,
+                    issuer_tax_id: b.issuer_tax_id,
+                    footer_text: b.footer_text,
+                    payment_instructions: b.payment_instructions,
+                    logo_url: b.logo_url,
+                }),
+            )
+            .catch(() => setBranding(null));
     }, []);
 
     const loadInvoices = async () => {
         setIsLoading(true);
         try {
             const response = await getInvoicesAPI();
-            // Map API invoice fields to frontend format
             const apiInvoices: Invoice[] = (response.results || []).map((invoice: any) => ({
-                id: invoice.invoice_number || `inv_${invoice.id}`, // API field: invoice_number
-                companyName: invoice.company_name || 'Unknown', // From subscription relation
-                amount: parseFloat(invoice.amount || 0), // API field: amount
-                dueDate: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : '', // API field: due_date
-                status: invoice.status === 'paid' ? InvoiceStatus.Paid 
-                    : invoice.status === 'overdue' ? InvoiceStatus.Overdue 
-                    : InvoiceStatus.Due, // API field: status
+                numericId: invoice.id,
+                id: invoice.invoice_number || `inv_${invoice.id}`,
+                companyName: invoice.company_name || 'Unknown',
+                amount: parseFloat(invoice.amount || 0),
+                currency: (invoice.currency || 'USD').toUpperCase(),
+                dueDate: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : '',
+                paymentStatus: normalizeInvoicePaymentStatus(invoice.payment_status),
+                lineDescription: invoice.line_description || '',
+                planName: invoice.plan_name || '',
+                createdAt: invoice.created_at,
+                paymentId: invoice.payment ?? null,
             }));
             setInvoices(apiInvoices);
         } catch (error) {
@@ -520,15 +581,6 @@ const InvoicesTab: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const downloadRef = useRef<HTMLDivElement>(null);
-    const downloadRootRef = useRef<any>(null);
-
-    const statusColors: { [key in InvoiceStatus]: string } = {
-        [InvoiceStatus.Paid]: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-        [InvoiceStatus.Due]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-        [InvoiceStatus.Overdue]: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
     };
 
     const handleViewInvoice = (invoice: Invoice) => {
@@ -541,49 +593,43 @@ const InvoicesTab: React.FC = () => {
         setSelectedInvoice(null);
     };
 
-    const handleDownloadImage = async (invoice: Invoice) => {
-        setDownloadingId(invoice.id);
-        const downloadContainer = downloadRef.current;
-        if (downloadContainer) {
-            if (!downloadRootRef.current) {
-                downloadRootRef.current = ReactDOM.createRoot(downloadContainer);
-            }
-
-            downloadRootRef.current.render(
-                <React.StrictMode>
-                    <InvoiceTemplate invoice={invoice} logoUrl={logoUrl} t={t} />
-                </React.StrictMode>
-            );
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            const elementToCapture = downloadContainer.firstChild as HTMLElement;
-
-            if (!elementToCapture) {
-                console.error('Failed to find the rendered invoice element for download.');
-                setDownloadingId(null);
-                return;
-            }
-
-            try {
-                // @ts-ignore
-                const canvas = await html2canvas(elementToCapture, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: null,
-                });
-                const link = document.createElement('a');
-                link.download = `invoice-${invoice.id}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            } catch (error) {
-                console.error('Failed to download invoice:', error);
-            } finally {
-                downloadRootRef.current.render(null);
-            }
+    const handleDownloadPdf = async (invoice: Invoice) => {
+        setDownloadingId(invoice.numericId);
+        try {
+            const blob = await downloadInvoicePdfAPI(invoice.numericId, language);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${invoice.id}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (error: any) {
+            console.error('Failed to download invoice PDF:', error);
+            showAlert(translateAdminApiError(error, t) || t('subscriptions.invoices.pdfError'), { variant: 'error' });
+        } finally {
+            setDownloadingId(null);
         }
-        setDownloadingId(null);
     };
+
+    const handleSendEmail = async (invoice: Invoice) => {
+        setSendingId(invoice.numericId);
+        try {
+            await sendInvoiceEmailAPI(invoice.numericId);
+            showAlert(t('subscriptions.invoices.emailSent'), { variant: 'success' });
+            await loadInvoices();
+        } catch (error: any) {
+            showAlert(translateAdminApiError(error, t) || t('subscriptions.invoices.emailError'), { variant: 'error' });
+        } finally {
+            setSendingId(null);
+        }
+    };
+
+    const formatAmount = (amount: number, currency: string) => {
+        const c = (currency || 'USD').toUpperCase();
+        const n = amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return c === 'USD' ? `$${n}` : `${n} ${c}`;
+    };
+
     return (
         <>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
@@ -614,17 +660,40 @@ const InvoicesTab: React.FC = () => {
                                 </tr>
                             ) : (
                                 invoices.map(i => (
-                                <tr key={i.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                <tr key={i.numericId} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                                     <td className="px-6 py-4 text-center font-mono">{i.id}</td>
                                     <td className="px-6 py-4 text-center">{i.companyName}</td>
-                                    <td className="px-6 py-4 text-center">${i.amount}</td>
-                                    <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[i.status]}`}>{t(`status.${i.status}`)}</span></td>
-                                    <td className="px-6 py-4 text-center">{i.dueDate}</td>
+                                    <td className="px-6 py-4 text-center">{formatAmount(i.amount, i.currency)}</td>
+                                    <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${invoicePaymentStatusColors[i.paymentStatus]}`}>{t(`status.${invoiceStatusLabelKey(i.paymentStatus)}`)}</span></td>
+                                    <td className="px-6 py-4 text-center">{i.dueDate || '—'}</td>
                                     <td className="px-6 py-4 text-center">
-                                        <div className="flex items-center justify-center space-x-2">
-                                            <button onClick={() => handleViewInvoice(i)} className="p-1 text-blue-600 hover:text-blue-800" title={t('subscriptions.invoices.viewInvoice')}><Icon name="view" className="w-5 h-5"/></button>
-                                            <button onClick={() => handleDownloadImage(i)} disabled={!!downloadingId} className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50 disabled:cursor-wait" title={t('subscriptions.invoices.downloadInvoice')}>
-                                                {downloadingId === i.id ? <div className="w-5 h-5"><LoadingSpinner/></div> : <Icon name="download" className="w-5 h-5"/>}
+                                        <div className="flex items-center justify-center gap-2">
+                                            <button type="button" onClick={() => handleViewInvoice(i)} className="p-1 text-blue-600 hover:text-blue-800" title={t('subscriptions.invoices.viewInvoice')}><Icon name="view" className="w-5 h-5"/></button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDownloadPdf(i)}
+                                                disabled={downloadingId != null}
+                                                className="w-8 h-8 p-1 flex items-center justify-center text-green-600 hover:text-green-800 disabled:opacity-50 disabled:cursor-wait"
+                                                title={t('subscriptions.invoices.downloadPdf')}
+                                            >
+                                                {downloadingId === i.numericId ? (
+                                                    <Icon name="refresh" className="w-5 h-5 animate-spin" />
+                                                ) : (
+                                                    <Icon name="download" className="w-5 h-5" />
+                                                )}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSendEmail(i)}
+                                                disabled={sendingId != null}
+                                                className="w-8 h-8 p-1 flex items-center justify-center text-purple-600 hover:text-purple-800 disabled:opacity-50 disabled:cursor-wait"
+                                                title={t('subscriptions.invoices.sendEmail')}
+                                            >
+                                                {sendingId === i.numericId ? (
+                                                    <Icon name="refresh" className="w-5 h-5 animate-spin" />
+                                                ) : (
+                                                    <Icon name="mail" className="w-5 h-5" />
+                                                )}
                                             </button>
                                         </div>
                                     </td>
@@ -640,8 +709,8 @@ const InvoicesTab: React.FC = () => {
                 onClose={handleCloseModal}
                 invoice={selectedInvoice}
                 logoUrl={logoUrl}
+                branding={branding}
             />
-            <div ref={downloadRef} style={{ position: 'fixed', top: 0, left: '-9999px', zIndex: -10 }} />
         </>
     )
 };

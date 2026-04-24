@@ -89,18 +89,35 @@ export interface Payment {
     date: string;
 }
 
-export enum InvoiceStatus {
-    Paid = 'Paid',
-    Due = 'Due',
-    Overdue = 'Overdue'
-}
+/** Mirrors API PaymentStatus / invoice `payment_status` (read-only on invoice). */
+export type InvoicePaymentStatus = 'completed' | 'pending' | 'failed' | 'canceled';
 
 export interface Invoice {
+    /** Numeric PK for API actions (PDF, email). */
+    numericId: number;
+    /** Display invoice number (e.g. INV-2026-00001). */
     id: string;
     companyName: string;
     amount: number;
+    currency: string;
     dueDate: string;
-    status: InvoiceStatus;
+    paymentStatus: InvoicePaymentStatus;
+    lineDescription: string;
+    planName: string;
+    createdAt?: string;
+    paymentId?: number | null;
+}
+
+/** Platform billing / PDF branding (singleton). */
+export interface BillingBranding {
+    issuer_name: string;
+    issuer_address: string;
+    issuer_email: string;
+    issuer_phone: string;
+    issuer_tax_id: string;
+    footer_text: string;
+    payment_instructions: string;
+    logo_url?: string | null;
 }
 
 export type BroadcastTarget =

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Invoice } from '../types';
+import type { BillingBranding, Invoice } from '../types';
 import Icon from './Icon';
 import InvoiceTemplate from './InvoiceTemplate';
 import { useI18n } from '../context/i18n';
@@ -9,9 +9,10 @@ interface InvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   logoUrl: string | null;
+  branding?: Partial<BillingBranding> | null;
 }
 
-const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onClose, logoUrl }) => {
+const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onClose, logoUrl, branding }) => {
   const { t } = useI18n();
   if (!isOpen || !invoice) return null;
   
@@ -22,7 +23,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onClose, l
             <Icon name="x" className="w-6 h-6" />
         </button>
         <div className="p-4 sm:p-6">
-          <InvoiceTemplate invoice={invoice} logoUrl={logoUrl} t={t} />
+          <InvoiceTemplate invoice={invoice} logoUrl={logoUrl} branding={branding} t={t} />
         </div>
       </div>
     </div>

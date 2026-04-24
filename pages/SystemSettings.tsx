@@ -11,7 +11,7 @@ import { translateAdminApiError } from '../utils/translateApiError';
 import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -1439,6 +1439,136 @@ const LimitedAdmins: React.FC = () => {
     );
 };
 
+const BillingInvoiceSettings: React.FC = () => {
+    const { t } = useI18n();
+    const { showAlert } = useAlert();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [issuerName, setIssuerName] = useState('');
+    const [issuerAddress, setIssuerAddress] = useState('');
+    const [issuerEmail, setIssuerEmail] = useState('');
+    const [issuerPhone, setIssuerPhone] = useState('');
+    const [issuerTaxId, setIssuerTaxId] = useState('');
+    const [footerText, setFooterText] = useState('');
+    const [paymentInstructions, setPaymentInstructions] = useState('');
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const b = await getBillingSettingsAPI();
+            setIssuerName(b.issuer_name || '');
+            setIssuerAddress(b.issuer_address || '');
+            setIssuerEmail(b.issuer_email || '');
+            setIssuerPhone(b.issuer_phone || '');
+            setIssuerTaxId(b.issuer_tax_id || '');
+            setFooterText(b.footer_text || '');
+            setPaymentInstructions(b.payment_instructions || '');
+            setLogoPreview(b.logo_url || null);
+            setLogoFile(null);
+        } catch {
+            showAlert(t('settings.billing.loadError'), { variant: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    }, [showAlert, t]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        setLogoFile(f || null);
+        if (f) setLogoPreview(URL.createObjectURL(f));
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const fd = new FormData();
+            fd.append('issuer_name', issuerName);
+            fd.append('issuer_address', issuerAddress);
+            fd.append('issuer_email', issuerEmail);
+            fd.append('issuer_phone', issuerPhone);
+            fd.append('issuer_tax_id', issuerTaxId);
+            fd.append('footer_text', footerText);
+            fd.append('payment_instructions', paymentInstructions);
+            if (logoFile) fd.append('logo', logoFile);
+            await updateBillingSettingsAPI(fd);
+            showAlert(t('settings.billing.saveSuccess'), { variant: 'success' });
+            await load();
+        } catch (error: any) {
+            showAlert(translateAdminApiError(error, t) || t('settings.billing.saveError'), { variant: 'error' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex justify-center py-12">
+                <LoadingSpinner />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6 max-w-2xl">
+            <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.billing.title')}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings.billing.description')}</p>
+            </div>
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerName')}</label>
+                    <input className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" value={issuerName} onChange={(e) => setIssuerName(e.target.value)} />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerAddress')}</label>
+                    <textarea className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" rows={3} value={issuerAddress} onChange={(e) => setIssuerAddress(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerEmail')}</label>
+                        <input type="email" className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" value={issuerEmail} onChange={(e) => setIssuerEmail(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerPhone')}</label>
+                        <input className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" value={issuerPhone} onChange={(e) => setIssuerPhone(e.target.value)} />
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerTaxId')}</label>
+                    <input className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" value={issuerTaxId} onChange={(e) => setIssuerTaxId(e.target.value)} />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.footer')}</label>
+                    <textarea className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" rows={2} value={footerText} onChange={(e) => setFooterText(e.target.value)} />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.paymentInstructions')}</label>
+                    <textarea className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" rows={3} value={paymentInstructions} onChange={(e) => setPaymentInstructions(e.target.value)} />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.logo')}</label>
+                    {logoPreview ? <img src={logoPreview} alt="" className="h-16 object-contain mb-2 rounded border border-gray-200 dark:border-gray-600" /> : null}
+                    <input type="file" accept="image/*" onChange={handleLogoChange} className="text-sm" />
+                </div>
+            </div>
+            <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 disabled:opacity-50"
+            >
+                {saving ? t('settings.billing.saving') : t('settings.billing.save')}
+            </button>
+        </div>
+    );
+};
+
 const SystemSettings: React.FC = () => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
@@ -1453,7 +1583,7 @@ const SystemSettings: React.FC = () => {
     const loadSavedTab = (): string => {
         if (typeof window === 'undefined') return 'general';
         const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'integrations', 'security', 'twilio', 'registrationOtp', 'limitedAdmins', 'audit'];
+        const validTabs = ['general', 'integrations', 'security', 'twilio', 'registrationOtp', 'limitedAdmins', 'audit', 'billing'];
         if (saved && validTabs.includes(saved)) {
             return saved;
         }
@@ -1484,6 +1614,7 @@ const SystemSettings: React.FC = () => {
         { id: 'registrationOtp', label: t('settings.menu.registrationOtp') || 'Registration OTP' },
         ...(canSeeLimitedAdmins ? [{ id: 'limitedAdmins' as const, label: t('settings.menu.limitedAdmins') || 'Limited Admins' }] : []),
         { id: 'audit', label: t('settings.menu.audit') },
+        { id: 'billing', label: t('settings.menu.billing') || 'Billing' },
     ];
 
     const renderSetting = () => {
@@ -1498,6 +1629,7 @@ const SystemSettings: React.FC = () => {
             case 'registrationOtp': return <RegistrationOtpSettings />;
             case 'limitedAdmins': return <LimitedAdmins />;
             case 'audit': return <AuditLog />;
+            case 'billing': return <BillingInvoiceSettings />;
             default: return <GeneralSettings />;
         }
     };
