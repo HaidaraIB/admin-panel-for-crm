@@ -80,6 +80,15 @@ export const adminHttp = axios.create({
 
 adminHttp.interceptors.request.use((config) => {
   Object.assign(config.headers, authHeaderParts());
+  // Default instance header is application/json; FormData must use multipart with boundary.
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const hdrs = config.headers;
+    if (hdrs && typeof hdrs.delete === 'function') {
+      hdrs.delete('Content-Type');
+    } else if (hdrs) {
+      Reflect.deleteProperty(hdrs as object, 'Content-Type');
+    }
+  }
   return config;
 });
 

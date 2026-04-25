@@ -1442,6 +1442,8 @@ const LimitedAdmins: React.FC = () => {
 const BillingInvoiceSettings: React.FC = () => {
     const { t } = useI18n();
     const { showAlert } = useAlert();
+    const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
+    const ALLOWED_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [issuerName, setIssuerName] = useState('');
@@ -1453,6 +1455,28 @@ const BillingInvoiceSettings: React.FC = () => {
     const [paymentInstructions, setPaymentInstructions] = useState('');
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<{ issuerEmail?: string; logo?: string }>({});
+
+    const validateIssuerEmail = useCallback((value: string): string | undefined => {
+        const v = value.trim();
+        if (!v) return undefined;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(v)) {
+            return t('settings.billing.validation.emailInvalid') || 'Please enter a valid email address.';
+        }
+        return undefined;
+    }, [t]);
+
+    const validateLogoFile = useCallback((file: File | null): string | undefined => {
+        if (!file) return undefined;
+        if (!ALLOWED_LOGO_MIME_TYPES.has(file.type.toLowerCase())) {
+            return t('settings.billing.validation.logoType') || 'Logo must be PNG, JPG, GIF, or WEBP.';
+        }
+        if (file.size > MAX_LOGO_SIZE_BYTES) {
+            return t('settings.billing.validation.logoSize') || 'Logo must be 2MB or smaller.';
+        }
+        return undefined;
+    }, [t]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -1467,6 +1491,7 @@ const BillingInvoiceSettings: React.FC = () => {
             setPaymentInstructions(b.payment_instructions || '');
             setLogoPreview(b.logo_url || null);
             setLogoFile(null);
+            setFieldErrors({});
         } catch {
             showAlert(t('settings.billing.loadError'), { variant: 'error' });
         } finally {
@@ -1480,11 +1505,28 @@ const BillingInvoiceSettings: React.FC = () => {
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0];
+        const logoError = validateLogoFile(f || null);
+        if (logoError) {
+            setLogoFile(null);
+            setFieldErrors((prev) => ({ ...prev, logo: logoError }));
+            e.target.value = '';
+            return;
+        }
+        setFieldErrors((prev) => ({ ...prev, logo: undefined }));
         setLogoFile(f || null);
         if (f) setLogoPreview(URL.createObjectURL(f));
     };
 
     const handleSave = async () => {
+        const emailError = validateIssuerEmail(issuerEmail);
+        const logoError = validateLogoFile(logoFile);
+        const errors = { issuerEmail: emailError, logo: logoError };
+        setFieldErrors(errors);
+        if (errors.issuerEmail || errors.logo) {
+            showAlert(t('settings.billing.validation.fixErrors') || 'Please fix validation errors before saving.', { variant: 'error' });
+            return;
+        }
+
         setSaving(true);
         try {
             const fd = new FormData();
@@ -1532,7 +1574,19 @@ const BillingInvoiceSettings: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerEmail')}</label>
-                        <input type="email" className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" value={issuerEmail} onChange={(e) => setIssuerEmail(e.target.value)} />
+                        <input
+                            type="email"
+                            className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600"
+                            value={issuerEmail}
+                            onChange={(e) => {
+                                const next = e.target.value;
+                                setIssuerEmail(next);
+                                setFieldErrors((prev) => ({ ...prev, issuerEmail: validateIssuerEmail(next) }));
+                            }}
+                        />
+                        {fieldErrors.issuerEmail ? (
+                            <p className="mt-1 text-xs text-red-500">{fieldErrors.issuerEmail}</p>
+                        ) : null}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerPhone')}</label>
@@ -1555,12 +1609,15 @@ const BillingInvoiceSettings: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.logo')}</label>
                     {logoPreview ? <img src={logoPreview} alt="" className="h-16 object-contain mb-2 rounded border border-gray-200 dark:border-gray-600" /> : null}
                     <input type="file" accept="image/*" onChange={handleLogoChange} className="text-sm" />
+                    {fieldErrors.logo ? (
+                        <p className="mt-1 text-xs text-red-500">{fieldErrors.logo}</p>
+                    ) : null}
                 </div>
             </div>
             <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || Boolean(fieldErrors.issuerEmail || fieldErrors.logo)}
                 className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 disabled:opacity-50"
             >
                 {saving ? t('settings.billing.saving') : t('settings.billing.save')}
