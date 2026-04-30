@@ -8,9 +8,10 @@ import ResetPasswordModal from './ResetPasswordModal';
 interface HeaderProps {
   setIsSidebarOpen: (isOpen: boolean | ((isOpen: boolean) => boolean)) => void;
   onLogoutClick?: () => void;
+  isInternetOnline: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ setIsSidebarOpen, onLogoutClick }) => {
+const Header: React.FC<HeaderProps> = ({ setIsSidebarOpen, onLogoutClick, isInternetOnline }) => {
   const [colorTheme, toggleTheme] = useDarkMode();
   const { language, setLanguage, t } = useI18n();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -46,7 +47,10 @@ const Header: React.FC<HeaderProps> = ({ setIsSidebarOpen, onLogoutClick }) => {
             >
               <Icon name="menu" className="w-6 h-6" />
             </button>
-            {/* Search bar could be implemented here */}
+            <div className={`hidden sm:flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold border ${isInternetOnline ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-900/40' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-900/40'}`}>
+              <span className={`inline-block h-2 w-2 rounded-full ${isInternetOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span>{isInternetOnline ? t('connectivity.online') : t('connectivity.offline')}</span>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <button

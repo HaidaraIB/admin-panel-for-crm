@@ -44,6 +44,11 @@ const App: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isInternetOnline, setIsInternetOnline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  const previousInternetStatusRef = useRef<boolean>(isInternetOnline);
+  const probeInFlightRef = useRef(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const hasToken = localStorage.getItem('accessToken');
     const sessionAuth = sessionStorage.getItem('isAuthenticated') === 'true';
@@ -95,6 +100,92 @@ const App: React.FC = () => {
       loadTenants();
     }
   }, [isAuthenticated, location.pathname]);
+
+  useEffect(() => {
+    const checkUrl = async (url: string): Promise<boolean> => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+      try {
+        await fetch(url, {
+          method: 'GET',
+          cache: 'no-store',
+          mode: 'no-cors',
+          signal: controller.signal,
+        });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    };
+
+    const runConnectivityProbe = async () => {
+      if (probeInFlightRef.current) return;
+      probeInFlightRef.current = true;
+      try {
+        if (!navigator.onLine) {
+          setIsInternetOnline(false);
+          return;
+        }
+        const ts = Date.now();
+        const probeTargets = [
+          `https://www.gstatic.com/generate_204?ts=${ts}`,
+          `https://cp.cloudflare.com/generate_204?ts=${ts}`,
+          `https://www.msftconnecttest.com/connecttest.txt?ts=${ts}`,
+        ];
+        const results = await Promise.all(probeTargets.map((url) => checkUrl(url)));
+        setIsInternetOnline(results.some(Boolean));
+      } finally {
+        probeInFlightRef.current = false;
+      }
+    };
+
+    const handleOnline = () => {
+      void runConnectivityProbe();
+    };
+    const handleOffline = () => setIsInternetOnline(false);
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void runConnectivityProbe();
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisible);
+
+    void runConnectivityProbe();
+    const intervalId = window.setInterval(() => {
+      void runConnectivityProbe();
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisible);
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    const wasOnline = previousInternetStatusRef.current;
+    if (wasOnline === isInternetOnline) return;
+
+    if (!isInternetOnline) {
+      showAlert(
+        t('connectivity.offlineWarning'),
+        { variant: 'warning' }
+      );
+    } else {
+      showAlert(
+        t('connectivity.backOnline'),
+        { variant: 'success' }
+      );
+    }
+
+    previousInternetStatusRef.current = isInternetOnline;
+  }, [isInternetOnline, language, showAlert]);
 
   const loadTenants = async () => {
     setIsLoadingTenants(true);
@@ -373,7 +464,11 @@ const App: React.FC = () => {
           setIsSidebarOpen={setIsSidebarOpen}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header setIsSidebarOpen={setIsSidebarOpen} onLogoutClick={() => setIsLogoutConfirmOpen(true)} />
+          <Header
+            setIsSidebarOpen={setIsSidebarOpen}
+            onLogoutClick={() => setIsLogoutConfirmOpen(true)}
+            isInternetOnline={isInternetOnline}
+          />
           <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6 relative">
             {isPageLoading && <FullPageLoader />}
             <div className={isPageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}>
