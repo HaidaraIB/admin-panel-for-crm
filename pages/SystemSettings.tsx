@@ -11,7 +11,7 @@ import { translateAdminApiError } from '../utils/translateApiError';
 import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getPlatformWhatsAppSettingsAPI, updatePlatformWhatsAppSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getRegistrationEmailRequirementAPI, updateRegistrationEmailRequirementAPI, type PhoneOtpChannel, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -1039,10 +1039,154 @@ const TwilioSmsSettings: React.FC = () => {
     );
 };
 
+const PlatformWhatsAppSettingsPanel: React.FC = () => {
+    const { t } = useI18n();
+    const { addLog } = useAuditLog();
+    const [phoneNumberId, setPhoneNumberId] = useState('');
+    const [accessToken, setAccessToken] = useState('');
+    const [showToken, setShowToken] = useState(false);
+    const [graphVersion, setGraphVersion] = useState('v25.0');
+    const [otpTemplateName, setOtpTemplateName] = useState('');
+    const [otpTemplateLang, setOtpTemplateLang] = useState('en');
+    const [adminTemplateName, setAdminTemplateName] = useState('');
+    const [adminTemplateLang, setAdminTemplateLang] = useState('en');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    useEffect(() => {
+        loadSettings();
+    }, []);
+
+    useEffect(() => {
+        if (!feedback) return;
+        const timer = setTimeout(() => setFeedback(null), 6000);
+        return () => clearTimeout(timer);
+    }, [feedback]);
+
+    const loadSettings = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getPlatformWhatsAppSettingsAPI();
+            setPhoneNumberId(data.phone_number_id || '');
+            setGraphVersion(data.graph_api_version || 'v25.0');
+            setOtpTemplateName(data.otp_template_name || '');
+            setOtpTemplateLang(data.otp_template_lang || 'en');
+            setAdminTemplateName(data.admin_template_name || '');
+            setAdminTemplateLang(data.admin_template_lang || 'en');
+            setAccessToken('');
+        } catch (error) {
+            console.error('Failed to load Platform WhatsApp settings', error);
+            setFeedback({ type: 'error', message: t('settings.platformWhatsapp.loadError') });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            const payload: Record<string, string> = {
+                phone_number_id: phoneNumberId.trim(),
+                graph_api_version: graphVersion.trim(),
+                otp_template_name: otpTemplateName.trim(),
+                otp_template_lang: otpTemplateLang.trim(),
+                admin_template_name: adminTemplateName.trim(),
+                admin_template_lang: adminTemplateLang.trim(),
+            };
+            if (accessToken.trim()) payload.access_token = accessToken.trim();
+            await updatePlatformWhatsAppSettingsAPI(payload);
+            addLog('audit.log.platformWhatsappSaved');
+            setFeedback({ type: 'success', message: t('settings.platformWhatsapp.saveSuccess') });
+            setAccessToken('');
+        } catch (error: any) {
+            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.platformWhatsapp.saveError') });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.platformWhatsapp.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.platformWhatsapp.description')}</p>
+            {feedback && (
+                <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
+                    feedback.type === 'success'
+                        ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
+                        : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
+                }`}>
+                    <Icon name={feedback.type === 'success' ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                    <span>{feedback.message}</span>
+                </div>
+            )}
+            {isLoading ? (
+                <div className="flex justify-center py-8"><LoadingSpinner /></div>
+            ) : (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.phoneNumberId')}</label>
+                        <input type="text" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.accessToken')}</label>
+                        <div className="flex items-center gap-2 max-w-md">
+                            <input
+                                type={showToken ? 'text' : 'password'}
+                                value={accessToken}
+                                onChange={(e) => setAccessToken(e.target.value)}
+                                autoComplete="new-password"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder={t('settings.platformWhatsapp.accessTokenPlaceholder')}
+                            />
+                            <button type="button" onClick={() => setShowToken((v) => !v)} className="p-2 rounded-md border border-gray-300 dark:border-gray-600">
+                                <Icon name={showToken ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.platformWhatsapp.accessTokenHelp')}</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.graphVersion')}</label>
+                        <input type="text" value={graphVersion} onChange={(e) => setGraphVersion(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateName')}</label>
+                        <input type="text" value={otpTemplateName} onChange={(e) => setOtpTemplateName(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateLang')}</label>
+                        <input type="text" value={otpTemplateLang} onChange={(e) => setOtpTemplateLang(e.target.value)} className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.adminTemplateName')}</label>
+                        <input type="text" value={adminTemplateName} onChange={(e) => setAdminTemplateName(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.adminTemplateLang')}</label>
+                        <input type="text" value={adminTemplateLang} onChange={(e) => setAdminTemplateLang(e.target.value)} className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
+                    <div>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                        >
+                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving')}</span></> : (t('settings.general.save') || 'Save Changes')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const RegistrationOtpSettings: React.FC = () => {
     const { t } = useI18n();
     const { addLog } = useAuditLog();
     const [phoneOtpRequired, setPhoneOtpRequired] = useState(false);
+    const [emailVerificationRequired, setEmailVerificationRequired] = useState(false);
+    const [phoneOtpChannel, setPhoneOtpChannel] = useState<PhoneOtpChannel>('whatsapp');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -1050,8 +1194,16 @@ const RegistrationOtpSettings: React.FC = () => {
     const loadSettings = async () => {
         setIsLoading(true);
         try {
-            const data = await getPhoneOtpRequirementAPI();
+            const [data, emailData] = await Promise.all([
+                getPhoneOtpRequirementAPI(),
+                getRegistrationEmailRequirementAPI(),
+            ]);
             setPhoneOtpRequired(!!data.phone_otp_required);
+            setEmailVerificationRequired(!!emailData.email_verification_required);
+            const ch = data.phone_otp_channel;
+            if (ch === 'whatsapp' || ch === 'twilio_sms') {
+                setPhoneOtpChannel(ch);
+            }
         } catch (error: any) {
             setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.registrationOtp.loadError') });
         } finally {
@@ -1073,9 +1225,33 @@ const RegistrationOtpSettings: React.FC = () => {
         setIsSaving(true);
         setFeedback(null);
         try {
-            const data = await updatePhoneOtpRequirementAPI(phoneOtpRequired);
+            const [data, emailData] = await Promise.all([
+                updatePhoneOtpRequirementAPI(
+                    phoneOtpRequired
+                        ? { phone_otp_required: true, phone_otp_channel: phoneOtpChannel }
+                        : { phone_otp_required: false }
+                ),
+                updateRegistrationEmailRequirementAPI({
+                    email_verification_required: emailVerificationRequired,
+                }),
+            ]);
             setPhoneOtpRequired(!!data.phone_otp_required);
-            addLog('audit.log.registrationOtpUpdated', { state: phoneOtpRequired ? t('common.enabled') : t('common.disabled') });
+            setEmailVerificationRequired(!!emailData.email_verification_required);
+            if (data.phone_otp_channel === 'whatsapp' || data.phone_otp_channel === 'twilio_sms') {
+                setPhoneOtpChannel(data.phone_otp_channel);
+            }
+            const chLabel =
+                phoneOtpRequired && phoneOtpChannel === 'whatsapp'
+                    ? t('settings.registrationOtp.channelWhatsapp')
+                    : phoneOtpRequired && phoneOtpChannel === 'twilio_sms'
+                      ? t('settings.registrationOtp.channelTwilio')
+                      : '';
+            addLog('audit.log.registrationOtpUpdated', {
+                state: phoneOtpRequired ? `${t('common.enabled')} (${chLabel})` : t('common.disabled'),
+            });
+            addLog('audit.log.registrationEmailVerificationUpdated', {
+                state: emailVerificationRequired ? t('common.enabled') : t('common.disabled'),
+            });
             setFeedback({ type: 'success', message: t('settings.registrationOtp.saveSuccess') });
         } catch (error: any) {
             setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.registrationOtp.saveError') });
@@ -1121,6 +1297,49 @@ const RegistrationOtpSettings: React.FC = () => {
                             {t('settings.registrationOtp.hint')}
                         </p>
                     </div>
+                    <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="email-verification-required"
+                                checked={emailVerificationRequired}
+                                onChange={(e) => setEmailVerificationRequired(e.target.checked)}
+                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <label htmlFor="email-verification-required" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {t('settings.registrationOtp.requireEmailLabel')}
+                            </label>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t('settings.registrationOtp.emailHint')}
+                        </p>
+                    </div>
+                    {phoneOtpRequired && (
+                        <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('settings.registrationOtp.channelTitle')}</p>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="phone-otp-channel"
+                                    checked={phoneOtpChannel === 'whatsapp'}
+                                    onChange={() => setPhoneOtpChannel('whatsapp')}
+                                    className="text-primary-600 focus:ring-primary-500"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.registrationOtp.channelWhatsapp')}</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="phone-otp-channel"
+                                    checked={phoneOtpChannel === 'twilio_sms'}
+                                    onChange={() => setPhoneOtpChannel('twilio_sms')}
+                                    className="text-primary-600 focus:ring-primary-500"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.registrationOtp.channelTwilio')}</span>
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.registrationOtp.channelHelp')}</p>
+                        </div>
+                    )}
                     <div>
                         <button
                             onClick={handleSave}
@@ -1640,7 +1859,7 @@ const SystemSettings: React.FC = () => {
     const loadSavedTab = (): string => {
         if (typeof window === 'undefined') return 'general';
         const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'integrations', 'security', 'twilio', 'registrationOtp', 'limitedAdmins', 'audit', 'billing'];
+        const validTabs = ['general', 'integrations', 'security', 'twilio', 'platformWhatsapp', 'registrationOtp', 'limitedAdmins', 'audit', 'billing'];
         if (saved && validTabs.includes(saved)) {
             return saved;
         }
@@ -1668,6 +1887,7 @@ const SystemSettings: React.FC = () => {
         { id: 'integrations', label: t('settings.menu.integrations') || 'Integrations' },
         { id: 'security', label: t('settings.menu.security') },
         { id: 'twilio', label: t('settings.menu.twilio') || 'Twilio (SMS)' },
+        { id: 'platformWhatsapp', label: t('settings.menu.platformWhatsapp') || 'Platform WhatsApp' },
         { id: 'registrationOtp', label: t('settings.menu.registrationOtp') || 'Registration OTP' },
         ...(canSeeLimitedAdmins ? [{ id: 'limitedAdmins' as const, label: t('settings.menu.limitedAdmins') || 'Limited Admins' }] : []),
         { id: 'audit', label: t('settings.menu.audit') },
@@ -1683,6 +1903,7 @@ const SystemSettings: React.FC = () => {
             case 'integrations': return <IntegrationsControlSettings />;
             case 'security': return <SecurityBackups />;
             case 'twilio': return <TwilioSmsSettings />;
+            case 'platformWhatsapp': return <PlatformWhatsAppSettingsPanel />;
             case 'registrationOtp': return <RegistrationOtpSettings />;
             case 'limitedAdmins': return <LimitedAdmins />;
             case 'audit': return <AuditLog />;

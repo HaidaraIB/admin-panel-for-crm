@@ -16,6 +16,8 @@ const API_MESSAGE_TO_KEY: Record<string, string> = {
   'You do not have permission to manage limited admins.': 'errors.permissionManageLimitedAdmins',
   'You do not have permission to perform this action.': 'errors.permissionPerformAction',
   'Your subscription is not active or has expired. Please contact support or Complete Your Payment to access the system.': 'errors.subscriptionExpired',
+  'Validation failed.': 'errors.validationFailed',
+  'Selected channel is not configured.': 'errors.selectedChannelNotConfigured',
 };
 
 export function translateApiMessage(
@@ -35,6 +37,10 @@ export function translateAdminApiError(error: unknown, t: (key: string) => strin
   const e = error as Partial<ApiError> & { message?: string };
   const msg = (e.message || '').trim();
   if (msg) return translateApiMessage(msg, t);
+  if (e.code === 'twilio_otp_not_configured') return t('errors.twilioOtpNotConfigured');
+  if (e.code === 'whatsapp_otp_not_configured') return t('errors.whatsappOtpNotConfigured');
+  if (e.code === 'phone_otp_misconfigured') return t('errors.phoneOtpMisconfigured');
+  if (e.code === 'validation_error') return t('errors.validationFailed');
   if (e.code === 'permission_denied') return t('errors.permissionPerformAction');
   if (e.code === 'authentication_failed') return t('login.errorInvalidCredentials') || '';
   return '';

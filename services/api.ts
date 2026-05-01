@@ -873,18 +873,78 @@ export const updatePlatformTwilioSettingsAPI = async (data: {
   });
 };
 
+export type PhoneOtpChannel = 'whatsapp' | 'twilio_sms';
+
 /** GET /auth/register/phone-otp-requirement/ */
 export const getPhoneOtpRequirementAPI = async () => {
-  return apiRequest<{ phone_otp_required: boolean }>(
+  return apiRequest<{ phone_otp_required: boolean; phone_otp_channel: PhoneOtpChannel | null }>(
     '/auth/register/phone-otp-requirement/'
   );
 };
 
 /** POST /auth/register/phone-otp-requirement/ */
-export const updatePhoneOtpRequirementAPI = async (phoneOtpRequired: boolean) => {
-  return apiRequest<{ phone_otp_required: boolean }>('/auth/register/phone-otp-requirement/', {
-    method: 'POST',
-    body: JSON.stringify({ phone_otp_required: phoneOtpRequired }),
+export const updatePhoneOtpRequirementAPI = async (payload: {
+  phone_otp_required: boolean;
+  phone_otp_channel?: PhoneOtpChannel | null;
+}) => {
+  return apiRequest<{ phone_otp_required: boolean; phone_otp_channel: PhoneOtpChannel | null }>(
+    '/auth/register/phone-otp-requirement/',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  );
+};
+
+/** GET /auth/register/email-verification-requirement/ */
+export const getRegistrationEmailRequirementAPI = async () => {
+  return apiRequest<{ email_verification_required: boolean }>(
+    '/auth/register/email-verification-requirement/'
+  );
+};
+
+/** POST /auth/register/email-verification-requirement/ */
+export const updateRegistrationEmailRequirementAPI = async (payload: {
+  email_verification_required: boolean;
+}) => {
+  return apiRequest<{ email_verification_required: boolean }>(
+    '/auth/register/email-verification-requirement/',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  );
+};
+
+/**
+ * Platform WhatsApp Cloud API (registration OTP + admin messaging).
+ * GET/PATCH /api/settings/platform-whatsapp/1/
+ */
+export const getPlatformWhatsAppSettingsAPI = async () => {
+  return apiRequest<{
+    id?: number;
+    phone_number_id?: string;
+    access_token_masked?: string | null;
+    graph_api_version?: string;
+    otp_template_name?: string;
+    otp_template_lang?: string;
+    admin_template_name?: string;
+    admin_template_lang?: string;
+  }>('/settings/platform-whatsapp/1/');
+};
+
+export const updatePlatformWhatsAppSettingsAPI = async (data: {
+  phone_number_id?: string;
+  access_token?: string;
+  graph_api_version?: string;
+  otp_template_name?: string;
+  otp_template_lang?: string;
+  admin_template_name?: string;
+  admin_template_lang?: string;
+}) => {
+  return apiRequest<any>('/settings/platform-whatsapp/1/', {
+    method: 'PUT',
+    body: JSON.stringify(data),
   });
 };
 
