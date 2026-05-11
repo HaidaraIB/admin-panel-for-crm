@@ -68,8 +68,9 @@ export async function refreshTokensViaFetch(): Promise<void> {
     const { message } = parseErrorPayload(raw, res.status);
     throw new Error(message || 'Failed to refresh token');
   }
-  const data = unwrapApiData<{ access?: string }>(raw);
+  const data = unwrapApiData<{ access?: string; refresh?: string }>(raw);
   if (data?.access) localStorage.setItem('accessToken', data.access);
+  if (data?.refresh) localStorage.setItem('refreshToken', data.refresh);
 }
 
 export const adminHttp = axios.create({
