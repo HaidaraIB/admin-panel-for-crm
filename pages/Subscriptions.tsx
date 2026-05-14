@@ -26,6 +26,7 @@ import { getPaymentsAPI } from '../services/api';
 import { useAlert } from '../context/AlertContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import AlertDialog from '../components/AlertDialog';
+import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 
 /** Mirrors API `subscriptions.plan_constraints.classify_plan_kind` for UI typing. */
 function classifyPlanTypeFromApi(plan: {
@@ -956,9 +957,9 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
               onClick={() => setActiveTab(tab.id)}
               className={`${
                 activeTab === tab.id
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                  ? ADMIN_PAGE_TAB_ACTIVE
+                  : ADMIN_PAGE_TAB_INACTIVE
+              } whitespace-nowrap py-4 px-1 text-sm transition-colors`}
             >
               {tab.label}
             </button>

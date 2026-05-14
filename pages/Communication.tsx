@@ -7,6 +7,7 @@ import BroadcastViewModal from '../components/BroadcastViewModal';
 import AlertDialog from '../components/AlertDialog';
 import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getCompaniesAPI, sendSmsBroadcastAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 
 const mapBroadcastFromApi = (broadcast: any): Broadcast => {
     const targets = Array.isArray(broadcast.targets) && broadcast.targets.length > 0
@@ -826,9 +827,9 @@ const Communication: React.FC = () => {
                     onClick={() => setActiveTab(tab.id)}
                     className={`${
                         activeTab === tab.id
-                        ? 'border-primary-500 text-primary-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                        ? ADMIN_PAGE_TAB_ACTIVE
+                        : ADMIN_PAGE_TAB_INACTIVE
+                    } whitespace-nowrap py-4 px-1 text-sm transition-colors`}
                     >
                     {tab.label}
                     </button>
