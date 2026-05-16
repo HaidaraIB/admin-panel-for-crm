@@ -12,6 +12,7 @@ import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
 import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getPlatformWhatsAppSettingsAPI, updatePlatformWhatsAppSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getRegistrationEmailRequirementAPI, updateRegistrationEmailRequirementAPI, type PhoneOtpChannel, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -713,7 +714,7 @@ const SecurityBackups: React.FC = () => {
                  <div>
                         <h4 className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('settings.security.lastBackup')}:</h4>
                         <p className="text-sm text-gray-900 dark:text-gray-100 mt-1 font-mono">
-                        {lastBackupDate ? lastBackupDate.toLocaleString(language) : t('settings.security.noBackup')}
+                        {lastBackupDate ? lastBackupDate.toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' })) : t('settings.security.noBackup')}
                     </p>
                     </div>
                 </div>
@@ -751,7 +752,7 @@ const SecurityBackups: React.FC = () => {
                                     return (
                                         <tr key={backup.id} className="bg-white border-b dark:bg-gray-900/30 dark:border-gray-800 hover:bg-primary-50/50 dark:hover:bg-primary-900/20 transition-colors">
                                             <td className="px-6 py-4 text-center font-mono text-xs whitespace-nowrap max-w-[200px] truncate" title={backup.id}>{backup.id}</td>
-                                            <td className="px-6 py-4 text-center whitespace-nowrap">{new Date(backup.created_at).toLocaleString(language)}</td>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap">{new Date(backup.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))}</td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
                                                 <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColors[statusKey] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'}`}>
                                                     {t(`settings.security.status.${statusKey}`)}
@@ -1395,7 +1396,7 @@ const AuditLog: React.FC = () => {
                         <tr key={log.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                             <td className="px-6 py-4 text-center font-mono">{log.user}</td>
                             <td className="px-6 py-4 text-center">{formatAction(log.action)}</td>
-                            <td className="px-6 py-4 text-center">{new Date(log.timestamp).toLocaleString(language)}</td>
+                            <td className="px-6 py-4 text-center">{new Date(log.timestamp).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))}</td>
                         </tr>
                     ))}
                 </tbody>

@@ -483,7 +483,7 @@ export const checkRegistrationAvailabilityAPI = async (fields: {
  * Body: { company: { name, domain, specialization }, owner: { first_name, last_name, email, username, password, phone }, plan_id?, billing_cycle? }
  */
 export const registerCompanyAPI = async (data: {
-  company: { name: string; domain: string; specialization: 'real_estate' | 'services' | 'products' };
+  company: { name: string; domain: string; specialization: 'real_estate' | 'services' | 'products' | 'medical' };
   owner: { first_name: string; last_name: string; email: string; username: string; password: string; phone: string };
   plan_id?: number | null;
   billing_cycle?: 'monthly' | 'yearly';

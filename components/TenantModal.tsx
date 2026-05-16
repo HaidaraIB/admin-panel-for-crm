@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Tenant, TenantStatus } from '../types';
 import { useI18n } from '../context/i18n';
 import Icon from './Icon';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 interface TenantModalProps {
   tenant: Tenant | null;
@@ -135,6 +136,7 @@ const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose
                     <option value="real_estate">{t('specialization.real_estate')}</option>
                     <option value="services">{t('specialization.services')}</option>
                     <option value="products">{t('specialization.products')}</option>
+                    <option value="medical">{t('specialization.medical')}</option>
                   </select>
                 ) : (
                   <p className={valueClasses}>{t(`specialization.${formData.specialization}`) || formData.specialization}</p>
@@ -144,11 +146,11 @@ const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose
                 <label className={labelClasses}>{t('tenants.modal.createdAt')}</label>
                 <p className={valueClasses}>
                   {tenant.created_at
-                    ? new Date(tenant.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', {
+                    ? new Date(tenant.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
-                      })
+                      }))
                     : '—'}
                 </p>
               </div>

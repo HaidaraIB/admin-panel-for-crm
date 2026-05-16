@@ -6,6 +6,7 @@ import Skeleton from '../components/Skeleton';
 import { useI18n } from '../context/i18n';
 import { useUser } from '../context/UserContext';
 import { getCompaniesAPI, getSubscriptionsAPI, getPaymentsAPI, getPlansAPI } from '../services/api';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 type DateRange = {
   start: string;
@@ -210,11 +211,11 @@ const Dashboard: React.FC = () => {
     }
 
     try {
-      const formatter = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
+      const formatter = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({
         day: '2-digit',
         month: 'short',
         year: 'numeric',
-      });
+      }));
       const startLabel = formatter.format(new Date(dateRange.start));
       const endLabel = formatter.format(new Date(dateRange.end));
       return `${startLabel} - ${endLabel}`;
@@ -363,7 +364,7 @@ const Dashboard: React.FC = () => {
       setKpiData([
         {
           title: t('dashboard.kpi.mrr'),
-          value: `$${mrr.toLocaleString()}`,
+          value: `$${mrr.toLocaleString(undefined, withLatinDigits())}`,
           change: "+0%",
           changeType: "increase" as const,
           icon: "cash",
@@ -498,7 +499,7 @@ const Dashboard: React.FC = () => {
           const amountUsd = payment.amount_usd != null ? parseFloat(payment.amount_usd) : parseFloat(payment.amount || 0);
           return {
             name: payment.subscription_company_name || t('dashboard.unknown'),
-            amount: `$${amountUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            amount: `$${amountUsd.toLocaleString(undefined, withLatinDigits({ minimumFractionDigits: 2, maximumFractionDigits: 2 }))}`,
           };
         });
       setRecentPayments(recentPaymentsList);
@@ -534,7 +535,7 @@ const Dashboard: React.FC = () => {
     return name || user.username || '';
   }, [user]);
   const todayDateStr = useMemo(() => {
-    return new Date().toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    return new Date().toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
   }, [language]);
 
   const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');

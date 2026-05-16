@@ -27,8 +27,7 @@ import { useAlert } from '../context/AlertContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import AlertDialog from '../components/AlertDialog';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
-
-/** Mirrors API `subscriptions.plan_constraints.classify_plan_kind` for UI typing. */
+import { withLatinDigits } from '../utils/latinNumerals';
 function classifyPlanTypeFromApi(plan: {
   price_monthly?: string | number;
   price_yearly?: string | number;
@@ -485,7 +484,7 @@ const PaymentsTab: React.FC = () => {
                             <tr key={p.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                                 <td className="px-6 py-4 text-center font-mono">{p.id}</td>
                                 <td className="px-6 py-4 text-center">{p.companyName}</td>
-                                <td className="px-6 py-4 text-center">${(p.amountUsd != null ? p.amountUsd : p.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td className="px-6 py-4 text-center">${(p.amountUsd != null ? p.amountUsd : p.amount).toLocaleString(undefined, withLatinDigits({ minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</td>
                                 <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
                                 <td className="px-6 py-4 text-center">{p.date}</td>
                             </tr>
@@ -627,7 +626,7 @@ const InvoicesTab: React.FC = () => {
 
     const formatAmount = (amount: number, currency: string) => {
         const c = (currency || 'USD').toUpperCase();
-        const n = amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const n = amount.toLocaleString(undefined, withLatinDigits({ minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         return c === 'USD' ? `$${n}` : `${n} ${c}`;
     };
 

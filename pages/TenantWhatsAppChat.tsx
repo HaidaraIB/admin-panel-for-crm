@@ -7,6 +7,7 @@ import {
 } from '../services/api';
 import type { Tenant } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 type ChatRow = {
   id: number;
@@ -151,7 +152,7 @@ const TenantWhatsAppChat: React.FC = () => {
                   >
                     <div className="whitespace-pre-wrap break-words">{m.body}</div>
                     <div className="text-[10px] opacity-80 mt-1">
-                      {new Date(m.created_at).toLocaleString()}
+                      {new Date(m.created_at).toLocaleString(undefined, withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))}
                     </div>
                   </div>
                 </div>

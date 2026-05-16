@@ -7,6 +7,7 @@ import { getPaymentsAPI, getSubscriptionsAPI, getCompaniesAPI } from '../service
 import Skeleton from '../components/Skeleton';
 import ReportsFilterDrawer, { ReportsFilters, reportsFilterDefaults } from '../components/ReportsFilterDrawer';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 // ألوان متوافقة مع نمط التطبيق (primary من الثيم)
 const CHART_COLORS = {
@@ -70,11 +71,11 @@ const getRangeBounds = (filters: ReportsFilters) => {
 
 const formatRangeLabel = (filters: ReportsFilters, language: string, t: (key: string) => string) => {
     const formatterLocale = language === 'ar' ? 'ar-EG' : 'en-US';
-    const formatter = new Intl.DateTimeFormat(formatterLocale, {
+    const formatter = new Intl.DateTimeFormat(formatterLocale, withLatinDigits({
         day: '2-digit',
         month: 'short',
         year: 'numeric',
-    });
+    }));
 
     const start = parseDateValue(filters.fromDate);
     const end = parseDateValue(filters.toDate);

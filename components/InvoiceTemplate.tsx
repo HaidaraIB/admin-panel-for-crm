@@ -1,5 +1,6 @@
 import React from 'react';
 import type { BillingBranding, Invoice, InvoicePaymentStatus } from '../types';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 interface InvoiceTemplateProps {
   invoice: Invoice;
@@ -34,7 +35,7 @@ const statusColors: Record<InvoicePaymentStatus, string> = {
 
 function formatMoney(amount: number, currency: string): string {
   const c = (currency || 'USD').toUpperCase();
-  const n = amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const n = amount.toLocaleString(undefined, withLatinDigits({ minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   if (c === 'USD') return `$${n}`;
   return `${n} ${c}`;
 }
@@ -84,7 +85,7 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({ invoice, logoUrl, bra
         <div className="text-right">
           <p>
             <span className="font-semibold text-gray-600">{t('invoice.dateIssued')}:</span>{' '}
-            {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
+            {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('en-US', withLatinDigits()) : new Date().toLocaleDateString('en-US', withLatinDigits())}
           </p>
           {invoice.dueDate ? (
             <p>

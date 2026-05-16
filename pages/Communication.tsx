@@ -8,6 +8,7 @@ import AlertDialog from '../components/AlertDialog';
 import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getCompaniesAPI, sendSmsBroadcastAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 const mapBroadcastFromApi = (broadcast: any): Broadcast => {
     const targets = Array.isArray(broadcast.targets) && broadcast.targets.length > 0
@@ -550,10 +551,10 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
             return t('communication.history.datePending');
         }
         try {
-            return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
+            return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({
                 dateStyle: 'medium',
                 timeStyle: 'short',
-            }).format(date);
+            })).format(date);
         } catch {
             return t('communication.history.datePending');
         }
@@ -564,10 +565,10 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
         const date = new Date(lastUpdated);
         if (Number.isNaN(date.getTime())) return null;
         try {
-            return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
+            return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({
                 dateStyle: 'medium',
                 timeStyle: 'short',
-            }).format(date);
+            })).format(date);
         } catch {
             return null;
         }

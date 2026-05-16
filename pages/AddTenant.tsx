@@ -49,7 +49,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
   // Step 1: Company
   const [companyName, setCompanyName] = useState('');
   const [companyDomain, setCompanyDomain] = useState('');
-  const [specialization, setSpecialization] = useState<'real_estate' | 'services' | 'products'>('real_estate');
+  const [specialization, setSpecialization] = useState<'real_estate' | 'services' | 'products' | 'medical'>('real_estate');
 
   // Step 2: Owner
   const [firstName, setFirstName] = useState('');
@@ -325,12 +325,13 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                     id="specialization"
                     className={inputClasses}
                     value={specialization}
-                    onChange={(e) => setSpecialization(e.target.value as 'real_estate' | 'services' | 'products')}
+                    onChange={(e) => setSpecialization(e.target.value as 'real_estate' | 'services' | 'products' | 'medical')}
                     dir={language === 'ar' ? 'rtl' : 'ltr'}
                   >
                     <option value="real_estate">{t('specialization.real_estate')}</option>
                     <option value="services">{t('specialization.services')}</option>
                     <option value="products">{t('specialization.products')}</option>
+                    <option value="medical">{t('specialization.medical')}</option>
                   </select>
                 </div>
               </div>

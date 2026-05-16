@@ -4,6 +4,7 @@ import { Broadcast } from '../types';
 import { useI18n } from '../context/i18n';
 import Icon from './Icon';
 import LoadingSpinner from './LoadingSpinner';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 interface BroadcastViewModalProps {
   broadcast: Broadcast | null;
@@ -49,10 +50,10 @@ const BroadcastViewModal: React.FC<BroadcastViewModalProps> = ({ broadcast, isOp
       return t('communication.history.datePending');
     }
     try {
-      return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', {
+      return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({
         dateStyle: 'medium',
         timeStyle: 'short',
-      }).format(date);
+      })).format(date);
     } catch {
       return t('communication.history.datePending');
     }

@@ -3,6 +3,7 @@ import Icon from '../components/Icon';
 import { useI18n } from '../context/i18n';
 import { getSupportTicketsAPI, updateSupportTicketStatusAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { withLatinDigits } from '../utils/latinNumerals';
 
 const STATUS_OPTIONS = [
   { value: 'open', labelKey: 'tickets.status.open', className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100 border-amber-300 dark:border-amber-700' },
@@ -147,7 +148,7 @@ const SupportTickets: React.FC = () => {
                     </td>
                     <td className="px-6 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                       {ticket.created_at
-                        ? new Date(ticket.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')
+                        ? new Date(ticket.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits())
                         : '—'}
                     </td>
                     <td className="px-6 py-3">
@@ -285,7 +286,7 @@ const SupportTickets: React.FC = () => {
                       <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('tickets.date')}</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {selectedTicket.created_at
-                          ? new Date(selectedTicket.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')
+                          ? new Date(selectedTicket.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))
                           : '—'}
                       </p>
                     </div>
@@ -296,7 +297,7 @@ const SupportTickets: React.FC = () => {
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('tickets.updatedAt') || 'Last updated'}</p>
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {new Date(selectedTicket.updated_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')}
+                          {new Date(selectedTicket.updated_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))}
                         </p>
                       </div>
                     </div>
