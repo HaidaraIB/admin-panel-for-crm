@@ -46,6 +46,7 @@ const CANONICAL_PLAN_FEATURE_KEYS = [
   'integration_tiktok',
   'integration_whatsapp',
   'integration_twilio',
+  'integration_otpiq',
 ] as const;
 
 function sanitizePlanFeatures(raw: unknown): Record<string, boolean> {

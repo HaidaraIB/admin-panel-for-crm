@@ -36,6 +36,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
     integration_tiktok: true,
     integration_whatsapp: true,
     integration_twilio: true,
+    integration_otpiq: true,
   },
   entitlementsLimits: {
     max_employees: 10,
@@ -429,7 +430,13 @@ const PlanModal: React.FC<PlanModalProps> = ({
                       id="feature_integration_twilio"
                       checked={!!(formData.entitlementsFeatures || {}).integration_twilio}
                       onChange={(e) => handleEntFeatureToggle('integration_twilio', e.target.checked)}
-                      label={t('settings.integrations.platform.twilio') || 'Twilio'}
+                      label={t('settings.integrations.platform.twilio') || 'Twilio (SMS)'}
+                    />
+                    <Checkbox
+                      id="feature_integration_otpiq"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_otpiq}
+                      onChange={(e) => handleEntFeatureToggle('integration_otpiq', e.target.checked)}
+                      label={t('settings.integrations.platform.otpiq') || 'OTPIQ (SMS)'}
                     />
                   </div>
                 </div>
@@ -490,3 +497,5 @@ const PlanModal: React.FC<PlanModalProps> = ({
 };
 
 export default PlanModal;
+
+

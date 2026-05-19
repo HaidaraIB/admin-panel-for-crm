@@ -32,7 +32,7 @@ const persistSchedule = (schedule: BackupSchedule) => {
     localStorage.setItem(BACKUP_SCHEDULE_STORAGE_KEY, schedule);
 };
 
-type IntegrationPlatformKey = 'meta' | 'tiktok' | 'whatsapp' | 'twilio';
+type IntegrationPlatformKey = 'meta' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq';
 type IntegrationPolicyState = Record<IntegrationPlatformKey, {
     global_enabled: boolean;
     global_message: string;
@@ -44,6 +44,7 @@ const DEFAULT_INTEGRATION_POLICIES: IntegrationPolicyState = {
     tiktok: { global_enabled: true, global_message: '', company_overrides: {} },
     whatsapp: { global_enabled: true, global_message: '', company_overrides: {} },
     twilio: { global_enabled: true, global_message: '', company_overrides: {} },
+    otpiq: { global_enabled: true, global_message: '', company_overrides: {} },
 };
 
 const GeneralSettings: React.FC = () => {
@@ -286,7 +287,8 @@ const IntegrationsControlSettings: React.FC = () => {
         meta: t('settings.integrations.platform.meta') || 'Meta',
         tiktok: t('settings.integrations.platform.tiktok') || 'TikTok',
         whatsapp: t('settings.integrations.platform.whatsapp') || 'WhatsApp',
-        twilio: t('settings.integrations.platform.twilio') || 'Twilio',
+        twilio: t('settings.integrations.platform.twilio') || 'Twilio (SMS)',
+        otpiq: t('settings.integrations.platform.otpiq') || 'OTPIQ (SMS)',
     };
 
     useEffect(() => {
@@ -300,6 +302,7 @@ const IntegrationsControlSettings: React.FC = () => {
                     tiktok: { ...DEFAULT_INTEGRATION_POLICIES.tiktok, ...(incoming.tiktok || {}), company_overrides: incoming.tiktok?.company_overrides || {} },
                     whatsapp: { ...DEFAULT_INTEGRATION_POLICIES.whatsapp, ...(incoming.whatsapp || {}), company_overrides: incoming.whatsapp?.company_overrides || {} },
                     twilio: { ...DEFAULT_INTEGRATION_POLICIES.twilio, ...(incoming.twilio || {}), company_overrides: incoming.twilio?.company_overrides || {} },
+                    otpiq: { ...DEFAULT_INTEGRATION_POLICIES.otpiq, ...(incoming.otpiq || {}), company_overrides: incoming.otpiq?.company_overrides || {} },
                 });
                 const list = ((companiesResponse?.results || []) as Array<{ id: number; name: string }>).map((c) => ({ id: c.id, name: c.name }));
                 setCompanies(list);
@@ -349,7 +352,7 @@ const IntegrationsControlSettings: React.FC = () => {
                         {t('settings.integrations.help') || 'Configure global and per-company integration activation. Global message has priority when globally disabled.'}
                     </p>
                     <div className="space-y-4">
-                        {(['meta', 'tiktok', 'whatsapp', 'twilio'] as IntegrationPlatformKey[]).map((platform) => {
+                        {(['meta', 'tiktok', 'whatsapp', 'twilio', 'otpiq'] as IntegrationPlatformKey[]).map((platform) => {
                             const policy = integrationPolicies[platform];
                             const companyOverride = selectedCompanyId ? policy.company_overrides[selectedCompanyId] : undefined;
                             return (
