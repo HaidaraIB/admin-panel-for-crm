@@ -37,6 +37,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
     integration_whatsapp: true,
     integration_twilio: true,
     integration_otpiq: true,
+    integration_openai: true,
   },
   entitlementsLimits: {
     max_employees: 10,
@@ -437,6 +438,12 @@ const PlanModal: React.FC<PlanModalProps> = ({
                       checked={!!(formData.entitlementsFeatures || {}).integration_otpiq}
                       onChange={(e) => handleEntFeatureToggle('integration_otpiq', e.target.checked)}
                       label={t('settings.integrations.platform.otpiq') || 'OTPIQ (SMS)'}
+                    />
+                    <Checkbox
+                      id="feature_integration_openai"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_openai}
+                      onChange={(e) => handleEntFeatureToggle('integration_openai', e.target.checked)}
+                      label={t('settings.integrations.platform.openai') || 'OpenAI (ChatGPT)'}
                     />
                   </div>
                 </div>
