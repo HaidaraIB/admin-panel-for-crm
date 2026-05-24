@@ -826,6 +826,11 @@ export const updateSystemSettingsAPI = async (settingsData: {
     global_message?: string;
     company_overrides?: Record<string, { enabled?: boolean; message?: string }>;
   }>;
+  feature_policies?: Record<string, {
+    global_enabled?: boolean;
+    global_message?: string;
+    company_overrides?: Record<string, { enabled?: boolean; message?: string }>;
+  }>;
 }) => {
   return apiRequest<any>('/settings/system/1/', {
     method: 'PATCH',

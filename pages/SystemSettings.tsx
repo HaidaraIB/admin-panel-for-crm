@@ -48,6 +48,17 @@ const DEFAULT_INTEGRATION_POLICIES: IntegrationPolicyState = {
     openai: { global_enabled: true, global_message: '', company_overrides: {} },
 };
 
+type FeaturePolicyKey = 'field_visit';
+type FeaturePolicyState = Record<FeaturePolicyKey, {
+    global_enabled: boolean;
+    global_message: string;
+    company_overrides: Record<string, { enabled: boolean; message: string }>;
+}>;
+
+const DEFAULT_FEATURE_POLICIES: FeaturePolicyState = {
+    field_visit: { global_enabled: true, global_message: '', company_overrides: {} },
+};
+
 const GeneralSettings: React.FC = () => {
     const { t } = useI18n();
     const { addLog } = useAuditLog();
@@ -472,6 +483,205 @@ const IntegrationsControlSettings: React.FC = () => {
                                                 .join(', ')}
                                         </p>
                                     )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                        >
+                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span></> : (t('settings.general.save') || 'Save Changes')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const FeaturesControlSettings: React.FC = () => {
+    const { t } = useI18n();
+    const { addLog } = useAuditLog();
+    const [featurePolicies, setFeaturePolicies] = useState<FeaturePolicyState>(DEFAULT_FEATURE_POLICIES);
+    const [companies, setCompanies] = useState<Array<{ id: number; name: string }>>([]);
+    const [selectedCompanyId, setSelectedCompanyId] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const featureLabels: Record<FeaturePolicyKey, string> = {
+        field_visit: t('settings.features.platform.fieldVisit') || 'Field visit (الزيارة الميدانية)',
+    };
+
+    useEffect(() => {
+        const loadAll = async () => {
+            setIsLoading(true);
+            try {
+                const [settings, companiesResponse] = await Promise.all([getSystemSettingsAPI(), getCompaniesAPI()]);
+                const incoming = (settings?.feature_policies || {}) as Partial<FeaturePolicyState>;
+                setFeaturePolicies({
+                    field_visit: {
+                        ...DEFAULT_FEATURE_POLICIES.field_visit,
+                        ...(incoming.field_visit || {}),
+                        company_overrides: incoming.field_visit?.company_overrides || {},
+                    },
+                });
+                const list = ((companiesResponse?.results || []) as Array<{ id: number; name: string }>).map((c) => ({ id: c.id, name: c.name }));
+                setCompanies(list);
+                if (list.length > 0) setSelectedCompanyId(String(list[0].id));
+            } catch (error) {
+                console.error('Failed to load feature settings', error);
+                setFeedback({ type: 'error', message: t('settings.features.loadError') || 'Failed to load feature settings.' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadAll();
+    }, [t]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            await updateSystemSettingsAPI({ feature_policies: featurePolicies });
+            addLog('audit.log.generalSettingsSaved');
+            setFeedback({ type: 'success', message: t('settings.features.saveSuccess') || 'Feature policies saved.' });
+        } catch (error: any) {
+            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.features.saveError') || 'Failed to save feature policies.' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h3 className="text-xl font-semibold">{t('settings.features.title') || 'Features Access Control'}</h3>
+            {feedback && (
+                <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
+                    feedback.type === 'success'
+                        ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
+                        : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
+                }`}>
+                    <Icon name={feedback.type === 'success' ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                    <span>{feedback.message}</span>
+                </div>
+            )}
+            {isLoading ? (
+                <div className="flex justify-center py-8"><LoadingSpinner /></div>
+            ) : (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.features.help') || 'Configure global and per-company feature activation. When globally disabled, allow exceptions for specific companies.'}
+                    </p>
+                    <div className="space-y-4">
+                        {(['field_visit'] as FeaturePolicyKey[]).map((featureKey) => {
+                            const policy = featurePolicies[featureKey];
+                            const companyOverride = selectedCompanyId ? policy.company_overrides[selectedCompanyId] : undefined;
+                            return (
+                                <div key={featureKey} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h5 className="font-semibold text-gray-900 dark:text-white">{featureLabels[featureKey]}</h5>
+                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                            <input
+                                                type="checkbox"
+                                                checked={policy.global_enabled}
+                                                onChange={(e) => setFeaturePolicies((prev) => ({
+                                                    ...prev,
+                                                    [featureKey]: { ...prev[featureKey], global_enabled: e.target.checked },
+                                                }))}
+                                            />
+                                            {t('settings.features.globalActive') || 'Global Active'}
+                                        </label>
+                                    </div>
+                                    <textarea
+                                        value={policy.global_message}
+                                        onChange={(e) => setFeaturePolicies((prev) => ({
+                                            ...prev,
+                                            [featureKey]: { ...prev[featureKey], global_message: e.target.value },
+                                        }))}
+                                        rows={2}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder={t('settings.features.globalMessagePlaceholder') || 'Global deactivation message'}
+                                    />
+                                    <div className={`grid grid-cols-1 gap-2 items-center ${policy.global_enabled ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+                                        <select
+                                            value={selectedCompanyId}
+                                            onChange={(e) => setSelectedCompanyId(e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600"
+                                        >
+                                            {companies.map((company) => (
+                                                <option key={company.id} value={company.id}>{company.name}</option>
+                                            ))}
+                                        </select>
+                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    policy.global_enabled
+                                                        ? (companyOverride ? companyOverride.enabled : true)
+                                                        : companyOverride?.enabled === true
+                                                }
+                                                onChange={(e) => {
+                                                    if (!selectedCompanyId) return;
+                                                    setFeaturePolicies((prev) => {
+                                                        const featurePolicy = prev[featureKey];
+                                                        const nextOverrides = { ...featurePolicy.company_overrides };
+                                                        if (!featurePolicy.global_enabled) {
+                                                            if (e.target.checked) {
+                                                                nextOverrides[selectedCompanyId] = {
+                                                                    enabled: true,
+                                                                    message: nextOverrides[selectedCompanyId]?.message || '',
+                                                                };
+                                                            } else {
+                                                                delete nextOverrides[selectedCompanyId];
+                                                            }
+                                                        } else {
+                                                            nextOverrides[selectedCompanyId] = {
+                                                                enabled: e.target.checked,
+                                                                message: nextOverrides[selectedCompanyId]?.message || '',
+                                                            };
+                                                        }
+                                                        return {
+                                                            ...prev,
+                                                            [featureKey]: {
+                                                                ...featurePolicy,
+                                                                company_overrides: nextOverrides,
+                                                            },
+                                                        };
+                                                    });
+                                                }}
+                                            />
+                                            {policy.global_enabled
+                                                ? (t('settings.features.companyActive') || 'Selected Company Active')
+                                                : (t('settings.features.companyException') || 'Allow exception for selected company')}
+                                        </label>
+                                        {policy.global_enabled && (
+                                            <input
+                                                type="text"
+                                                value={companyOverride?.message || ''}
+                                                onChange={(e) => {
+                                                    if (!selectedCompanyId) return;
+                                                    setFeaturePolicies((prev) => ({
+                                                        ...prev,
+                                                        [featureKey]: {
+                                                            ...prev[featureKey],
+                                                            company_overrides: {
+                                                                ...prev[featureKey].company_overrides,
+                                                                [selectedCompanyId]: {
+                                                                    enabled: prev[featureKey].company_overrides[selectedCompanyId]?.enabled ?? true,
+                                                                    message: e.target.value,
+                                                                },
+                                                            },
+                                                        },
+                                                    }));
+                                                }}
+                                                className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600"
+                                                placeholder={t('settings.features.companyMessagePlaceholder') || 'Company deactivation message'}
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             );
                         })}
@@ -1898,7 +2108,7 @@ const SystemSettings: React.FC = () => {
     const loadSavedTab = (): string => {
         if (typeof window === 'undefined') return 'general';
         const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'integrations', 'security', 'twilio', 'platformWhatsapp', 'registrationOtp', 'limitedAdmins', 'audit', 'billing'];
+        const validTabs = ['general', 'integrations', 'features', 'security', 'twilio', 'platformWhatsapp', 'registrationOtp', 'limitedAdmins', 'audit', 'billing'];
         if (saved && validTabs.includes(saved)) {
             return saved;
         }
@@ -1924,6 +2134,7 @@ const SystemSettings: React.FC = () => {
     const settingsMenu = [
         { id: 'general', label: t('settings.menu.general') || 'General' },
         { id: 'integrations', label: t('settings.menu.integrations') || 'Integrations' },
+        { id: 'features', label: t('settings.menu.features') || 'Features' },
         { id: 'security', label: t('settings.menu.security') },
         { id: 'twilio', label: t('settings.menu.twilio') || 'Twilio (SMS)' },
         { id: 'platformWhatsapp', label: t('settings.menu.platformWhatsapp') || 'Platform WhatsApp' },
@@ -1940,6 +2151,7 @@ const SystemSettings: React.FC = () => {
         switch (activeSetting) {
             case 'general': return <GeneralSettings />;
             case 'integrations': return <IntegrationsControlSettings />;
+            case 'features': return <FeaturesControlSettings />;
             case 'security': return <SecurityBackups />;
             case 'twilio': return <TwilioSmsSettings />;
             case 'platformWhatsapp': return <PlatformWhatsAppSettingsPanel />;
