@@ -32,7 +32,7 @@ const persistSchedule = (schedule: BackupSchedule) => {
     localStorage.setItem(BACKUP_SCHEDULE_STORAGE_KEY, schedule);
 };
 
-type IntegrationPlatformKey = 'meta' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai';
+type IntegrationPlatformKey = 'meta' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'pbx';
 type IntegrationPolicyState = Record<IntegrationPlatformKey, {
     global_enabled: boolean;
     global_message: string;
@@ -46,6 +46,7 @@ const DEFAULT_INTEGRATION_POLICIES: IntegrationPolicyState = {
     twilio: { global_enabled: true, global_message: '', company_overrides: {} },
     otpiq: { global_enabled: true, global_message: '', company_overrides: {} },
     openai: { global_enabled: true, global_message: '', company_overrides: {} },
+    pbx: { global_enabled: true, global_message: '', company_overrides: {} },
 };
 
 type FeaturePolicyKey = 'field_visit';
@@ -302,6 +303,7 @@ const IntegrationsControlSettings: React.FC = () => {
         twilio: t('settings.integrations.platform.twilio') || 'Twilio (SMS)',
         otpiq: t('settings.integrations.platform.otpiq') || 'OTPIQ (SMS)',
         openai: t('settings.integrations.platform.openai') || 'OpenAI (ChatGPT)',
+        pbx: t('settings.integrations.platform.pbx') || 'PBX / ZYCOO',
     };
 
     useEffect(() => {
@@ -317,6 +319,7 @@ const IntegrationsControlSettings: React.FC = () => {
                     twilio: { ...DEFAULT_INTEGRATION_POLICIES.twilio, ...(incoming.twilio || {}), company_overrides: incoming.twilio?.company_overrides || {} },
                     otpiq: { ...DEFAULT_INTEGRATION_POLICIES.otpiq, ...(incoming.otpiq || {}), company_overrides: incoming.otpiq?.company_overrides || {} },
                     openai: { ...DEFAULT_INTEGRATION_POLICIES.openai, ...(incoming.openai || {}), company_overrides: incoming.openai?.company_overrides || {} },
+                    pbx: { ...DEFAULT_INTEGRATION_POLICIES.pbx, ...(incoming.pbx || {}), company_overrides: incoming.pbx?.company_overrides || {} },
                 });
                 const list = ((companiesResponse?.results || []) as Array<{ id: number; name: string }>).map((c) => ({ id: c.id, name: c.name }));
                 setCompanies(list);
@@ -366,7 +369,7 @@ const IntegrationsControlSettings: React.FC = () => {
                         {t('settings.integrations.help') || 'Configure global and per-company integration activation. When globally disabled, allow exceptions for specific companies.'}
                     </p>
                     <div className="space-y-4">
-                        {(['meta', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai'] as IntegrationPlatformKey[]).map((platform) => {
+                        {(['meta', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'pbx'] as IntegrationPlatformKey[]).map((platform) => {
                             const policy = integrationPolicies[platform];
                             const companyOverride = selectedCompanyId ? policy.company_overrides[selectedCompanyId] : undefined;
                             return (

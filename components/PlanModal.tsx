@@ -38,6 +38,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
     integration_twilio: true,
     integration_otpiq: true,
     integration_openai: true,
+    integration_pbx: true,
   },
   entitlementsLimits: {
     max_employees: 10,
@@ -444,6 +445,12 @@ const PlanModal: React.FC<PlanModalProps> = ({
                       checked={!!(formData.entitlementsFeatures || {}).integration_openai}
                       onChange={(e) => handleEntFeatureToggle('integration_openai', e.target.checked)}
                       label={t('settings.integrations.platform.openai') || 'OpenAI (ChatGPT)'}
+                    />
+                    <Checkbox
+                      id="feature_integration_pbx"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_pbx}
+                      onChange={(e) => handleEntFeatureToggle('integration_pbx', e.target.checked)}
+                      label={t('settings.integrations.platform.pbx') || 'PBX / ZYCOO'}
                     />
                   </div>
                 </div>

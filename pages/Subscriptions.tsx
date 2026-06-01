@@ -48,6 +48,7 @@ const CANONICAL_PLAN_FEATURE_KEYS = [
   'integration_twilio',
   'integration_otpiq',
   'integration_openai',
+  'integration_pbx',
 ] as const;
 
 function sanitizePlanFeatures(raw: unknown): Record<string, boolean> {
