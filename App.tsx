@@ -23,6 +23,10 @@ import { useAlert } from './context/AlertContext';
 import { translateAdminApiError } from './utils/translateApiError';
 import FullPageLoader from './components/FullPageLoader';
 import { getCompaniesAPI, getCompanyAPI, getSubscriptionsAPI, getPlansAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI, invalidateListCache } from './services/api';
+import { fetchMaintenanceStatus } from './services/maintenance';
+import MaintenanceScreen from './components/MaintenanceScreen';
+import { subscribeAdminMaintenanceMode } from './utils/maintenanceMode';
+import type { MaintenanceRetryResult } from './utils/maintenanceDisplay';
 
 /** GET /plans/ row subset used when resolving tenant current plan label */
 type ApiPlanRow = { id: number; name?: string; name_ar?: string };
@@ -47,6 +51,8 @@ const App: React.FC = () => {
   const [isInternetOnline, setIsInternetOnline] = useState<boolean>(() =>
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState('');
   const previousInternetStatusRef = useRef<boolean>(isInternetOnline);
   const probeInFlightRef = useRef(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -77,6 +83,37 @@ const App: React.FC = () => {
   const { addLog } = useAuditLog();
   const [isPageLoading, setIsPageLoading] = useState(false);
   const prevPathnameRef = useRef<string>(location.pathname);
+
+  const checkMaintenanceStatus = React.useCallback(async (): Promise<MaintenanceRetryResult> => {
+    try {
+      const status = await fetchMaintenanceStatus();
+      if (status.maintenance_mode) {
+        setIsMaintenanceMode(true);
+        setMaintenanceMessage(status.message || '');
+        return 'maintenance';
+      }
+      setIsMaintenanceMode(false);
+      setMaintenanceMessage('');
+      return 'online';
+    } catch {
+      return 'error';
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkMaintenanceStatus();
+    const intervalId = window.setInterval(() => {
+      void checkMaintenanceStatus();
+    }, 30000);
+    const unsubscribe = subscribeAdminMaintenanceMode((message) => {
+      setIsMaintenanceMode(true);
+      setMaintenanceMessage(message);
+    });
+    return () => {
+      window.clearInterval(intervalId);
+      unsubscribe();
+    };
+  }, [checkMaintenanceStatus]);
 
   // On any page navigation, clear list cache so the new page always gets fresh API data
   useEffect(() => {
@@ -511,6 +548,15 @@ const App: React.FC = () => {
       </div>
     );
   };
+
+  if (isMaintenanceMode) {
+    return (
+      <MaintenanceScreen
+        message={maintenanceMessage}
+        onRetry={checkMaintenanceStatus}
+      />
+    );
+  }
 
   return (
     <Routes>

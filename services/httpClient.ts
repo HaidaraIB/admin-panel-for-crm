@@ -8,6 +8,7 @@ import {
   throwApiError,
   type ApiError,
 } from './apiEnvelope';
+import { notifyAdminMaintenanceMode } from '../utils/maintenanceMode';
 
 /** Prefer canonical /api/v1/; accepts legacy VITE_API_URL ending in /api. */
 export function normalizeAdminApiBaseUrl(raw: string): string {
@@ -132,6 +133,12 @@ adminHttp.interceptors.response.use(
     const payload = error.response?.data;
     const st = error.response?.status ?? 500;
     if (payload !== undefined) {
+      if (st === 503) {
+        const parsed = parseErrorPayload(payload, st);
+        if (parsed.code === 'maintenance_mode') {
+          notifyAdminMaintenanceMode(parsed.message);
+        }
+      }
       throwApiError(st, payload);
     }
 
