@@ -3,17 +3,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Icon from '../components/Icon';
 import { useI18n } from '../context/i18n';
-import { getPaymentsAPI, getSubscriptionsAPI, getCompaniesAPI } from '../services/api';
+import {
+  getAllPaymentsAPI,
+  getAllSubscriptionsAPI,
+  getAllCompaniesAPI,
+  isSuccessfulPayment,
+} from '../services/api';
 import Skeleton from '../components/Skeleton';
 import ReportsFilterDrawer, { ReportsFilters, reportsFilterDefaults } from '../components/ReportsFilterDrawer';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
-
-// ألوان متوافقة مع نمط التطبيق (primary من الثيم)
-const CHART_COLORS = {
-  primary: 'hsl(var(--color-primary-500))',
-  primaryLight: 'hsl(var(--color-primary-400))',
-};
+import { getChartTheme, renderChartLegend, useIsDarkMode } from '../utils/chartTheme';
 
 const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
@@ -95,19 +95,21 @@ const formatRangeLabel = (filters: ReportsFilters, language: string, t: (key: st
     return t('reports.filters.allTime');
 };
 
+const SummaryCard: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="rounded-xl border border-gray-200/80 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/40 px-4 py-3">
+    <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
+    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{value}</p>
+  </div>
+);
 
 const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
     const { t, language } = useI18n();
+    const isDark = useIsDarkMode();
+    const chartTheme = useMemo(() => getChartTheme(isDark), [isDark]);
     const [mrrData, setMrrData] = useState<Array<{month: string; MRR: number; ARR: number}>>([]);
+    const [summary, setSummary] = useState({ totalMrr: 0, paymentCount: 0 });
     const [isLoading, setIsLoading] = useState(true);
-    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-    const chartGridStroke = isDark ? '#4b5563' : '#e5e7eb';
-    const chartAxisStroke = isDark ? '#9ca3af' : '#6b7280';
-    const tooltipContentStyle = isDark
-        ? { backgroundColor: 'rgba(31, 41, 55, 0.95)', border: 'none', borderRadius: '8px', color: '#f3f4f6' as const }
-        : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#111827' as const, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' };
-    const tooltipLabelStyle = isDark ? { color: '#9ca3af' } : { color: '#6b7280' };
-    const tooltipItemStyle = isDark ? { color: '#f3f4f6' } : { color: '#111827' };
+    const [loadError, setLoadError] = useState(false);
 
     useEffect(() => {
         loadRevenueData();
@@ -115,8 +117,9 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
 
     const loadRevenueData = async () => {
         setIsLoading(true);
+        setLoadError(false);
         try {
-            const paymentsRes = await getPaymentsAPI();
+            const paymentsRes = await getAllPaymentsAPI();
             const payments = paymentsRes.results || [];
 
             const monthSequence = buildMonthSequence(filters);
@@ -150,25 +153,31 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
                 return true;
             };
 
+            let totalMrr = 0;
+            let paymentCount = 0;
+
             payments.forEach((payment: any) => {
-                const isSuccessful = payment.payment_status === 'successful' || payment.payment_status === 'Success';
-                if (!isSuccessful || !isWithinRange(payment.created_at)) {
+                if (!isSuccessfulPayment(payment.payment_status) || !isWithinRange(payment.created_at)) {
                     return;
                 }
 
+                paymentCount += 1;
                 const paymentDate = new Date(payment.created_at);
                 const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth()}`;
                 const monthData = revenueByMonth.find((m) => m.key === key);
+                const amount = payment.amount_usd != null ? parseFloat(String(payment.amount_usd)) : parseFloat(String(payment.amount || 0));
+                totalMrr += amount;
                 if (monthData) {
-                    const amount = payment.amount_usd != null ? parseFloat(payment.amount_usd) : parseFloat(payment.amount || 0);
                     monthData.MRR += amount;
-                    monthData.ARR += amount * 12; // Annualized
+                    monthData.ARR += amount * 12;
                 }
             });
 
+            setSummary({ totalMrr, paymentCount });
             setMrrData(revenueByMonth.map(({ key, ...rest }) => rest));
         } catch (error) {
             console.error('Error loading revenue data:', error);
+            setLoadError(true);
         } finally {
             setIsLoading(false);
         }
@@ -187,11 +196,21 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
         link.click();
     };
 
+    const currencyFormatter = useMemo(
+      () =>
+        new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })),
+      [language],
+    );
+
     return (
     <div className="space-y-6">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
-                <h2 className="text-2xl font-semibold">{t('reports.revenue.title')}</h2>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('reports.revenue.title')}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {formatRangeLabel(filters, language, t)}
                 </p>
@@ -199,46 +218,52 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
             <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button 
                     onClick={handleExport} 
-                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 flex items-center justify-center w-full sm:w-auto"
-                    disabled={isLoading}
+                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center w-full sm:w-auto text-gray-900 dark:text-white"
+                    disabled={isLoading || mrrData.length === 0}
                 >
                     <Icon name="pdf" className="w-5 h-5 mx-2"/> {t('reports.revenue.export')}
                 </button>
             </div>
         </div>
+
+        {!isLoading && !loadError ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SummaryCard label={t('reports.revenue.mrr')} value={currencyFormatter.format(summary.totalMrr)} />
+            <SummaryCard label={t('reports.revenue.successfulPayments')} value={summary.paymentCount.toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits())} />
+          </div>
+        ) : null}
+
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-             <h3 className="text-lg font-semibold mb-4">{t('reports.revenue.chartTitle')}</h3>
+             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('reports.revenue.chartTitle')}</h3>
              {isLoading ? (
                  <Skeleton className="w-full h-[300px]" />
+             ) : loadError ? (
+                 <p className="text-sm text-red-500 dark:text-red-400 py-12 text-center">{t('reports.loadError')}</p>
              ) : (
              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={mrrData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} strokeOpacity={0.3} />
                     <XAxis 
                         dataKey="month" 
                         interval={0}
                         angle={0}
                         textAnchor="middle"
                         height={60}
-                        tick={{ fontSize: 11, fill: chartAxisStroke }}
+                        tick={{ fontSize: 11, fill: chartTheme.axis }}
                         dy={10}
-                        stroke={chartAxisStroke}
-                        axisLine={{ stroke: chartGridStroke }}
+                        stroke={chartTheme.axis}
+                        axisLine={{ stroke: chartTheme.grid }}
                     />
                     <YAxis 
-                        tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartAxisStroke }}
+                        tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartTheme.axis }}
                         width={language === 'ar' ? 60 : 50}
-                        stroke={chartAxisStroke}
-                        axisLine={{ stroke: chartGridStroke }}
+                        stroke={chartTheme.axis}
+                        axisLine={{ stroke: chartTheme.grid }}
                     />
-                    <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
-                        <Legend 
-                            wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
-                            formatter={(value) => ` ${value}`}
-                            iconSize={12}
-                        />
-                        <Bar dataKey="MRR" fill={CHART_COLORS.primary} name={t('reports.revenue.mrr')} />
-                        <Bar dataKey="ARR" fill={CHART_COLORS.primaryLight} name={t('reports.revenue.arr')} />
+                    <Tooltip contentStyle={chartTheme.tooltipContent} labelStyle={chartTheme.tooltipLabel} itemStyle={chartTheme.tooltipItem} />
+                    <Legend content={renderChartLegend(chartTheme, language)} />
+                    <Bar dataKey="MRR" fill={chartTheme.primary} name={t('reports.revenue.mrr')} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="ARR" fill={chartTheme.primaryLight} name={t('reports.revenue.arr')} radius={[4, 4, 0, 0]} />
                 </BarChart>
             </ResponsiveContainer>
              )}
@@ -249,19 +274,13 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
 
 const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
     const { t, language } = useI18n();
+    const isDark = useIsDarkMode();
+    const chartTheme = useMemo(() => getChartTheme(isDark), [isDark]);
     const [subscriberData, setSubscriberData] = useState<Array<{month: string; new: number; churned: number}>>([]);
     const [conversionData, setConversionData] = useState<Array<{name: string; value: number}>>([]);
+    const [summary, setSummary] = useState({ totalNew: 0, totalChurned: 0 });
     const [isLoading, setIsLoading] = useState(true);
-    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-    const chartGridStroke = isDark ? '#4b5563' : '#e5e7eb';
-    const chartAxisStroke = isDark ? '#9ca3af' : '#6b7280';
-    const tooltipContentStyle = isDark
-        ? { backgroundColor: 'rgba(31, 41, 55, 0.95)', border: 'none', borderRadius: '8px', color: '#f3f4f6' as const }
-        : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#111827' as const, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' };
-    const tooltipLabelStyle = isDark ? { color: '#9ca3af' } : { color: '#6b7280' };
-    const tooltipItemStyle = isDark ? { color: '#f3f4f6' } : { color: '#111827' };
-    const chartMuted = isDark ? '#9ca3af' : '#6b7280'; // لون ثانوي يظهر جيداً على الخلفية الفاتحة والداكنة
-    const conversionChartColors = [CHART_COLORS.primary, chartMuted];
+    const [loadError, setLoadError] = useState(false);
 
     useEffect(() => {
         loadSubscriberData();
@@ -269,10 +288,11 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
 
     const loadSubscriberData = async () => {
         setIsLoading(true);
+        setLoadError(false);
         try {
             const [subscriptionsRes, companiesRes] = await Promise.all([
-                getSubscriptionsAPI(),
-                getCompaniesAPI()
+                getAllSubscriptionsAPI(),
+                getAllCompaniesAPI(),
             ]);
 
             const subscriptions = subscriptionsRes.results || [];
@@ -310,6 +330,8 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
             };
 
             const now = new Date();
+            let totalNew = 0;
+            let totalChurned = 0;
 
             subscriptions.forEach((sub: any) => {
                 if (isWithinRange(sub.created_at)) {
@@ -319,6 +341,7 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
                     if (monthData) {
                         monthData.new += 1;
                     }
+                    totalNew += 1;
                 }
 
                 if (!sub.is_active && sub.end_date && isWithinRange(sub.end_date)) {
@@ -329,10 +352,12 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
                         if (endMonthData) {
                             endMonthData.churned += 1;
                         }
+                        totalChurned += 1;
                     }
                 }
             });
 
+            setSummary({ totalNew, totalChurned });
             setSubscriberData(subscriberByMonth.map(({ key, ...rest }) => rest));
 
             const filteredSubscriptions = subscriptions.filter((sub: any) => isWithinRange(sub.created_at));
@@ -350,6 +375,7 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
             ]);
         } catch (error) {
             console.error('Error loading subscriber data:', error);
+            setLoadError(true);
         } finally {
             setIsLoading(false);
         }
@@ -372,7 +398,7 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
      <div className="space-y-6">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
-                <h2 className="text-2xl font-semibold">{t('reports.subscribers.title')}</h2>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('reports.subscribers.title')}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {formatRangeLabel(filters, language, t)}
                 </p>
@@ -380,55 +406,63 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 <button 
                     onClick={handleExport} 
-                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 flex items-center justify-center w-full sm:w-auto"
-                    disabled={isLoading}
+                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center w-full sm:w-auto text-gray-900 dark:text-white"
+                    disabled={isLoading || subscriberData.length === 0}
                 >
                     <Icon name="pdf" className="w-5 h-5 mx-2"/> {t('reports.revenue.export')}
                 </button>
             </div>
         </div>
+
+        {!isLoading && !loadError ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SummaryCard label={t('reports.subscribers.new')} value={summary.totalNew.toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits())} />
+            <SummaryCard label={t('reports.subscribers.churned')} value={summary.totalChurned.toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits())} />
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                 <h3 className="text-lg font-semibold mb-4">{t('reports.subscribers.chart1Title')}</h3>
+                 <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('reports.subscribers.chart1Title')}</h3>
                  {isLoading ? (
                      <Skeleton className="w-full h-[300px]" />
+                 ) : loadError ? (
+                     <p className="text-sm text-red-500 dark:text-red-400 py-12 text-center">{t('reports.loadError')}</p>
                  ) : (
                  <ResponsiveContainer width="100%" height={300}>
                         <LineChart data={subscriberData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
+                            <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} strokeOpacity={0.3} />
                             <XAxis 
                                 dataKey="month" 
                                 interval={0}
                                 angle={0}
                                 textAnchor="middle"
                                 height={60}
-                                tick={{ fontSize: 11, fill: chartAxisStroke }}
+                                tick={{ fontSize: 11, fill: chartTheme.axis }}
                                 dy={10}
-                                stroke={chartAxisStroke}
-                                axisLine={{ stroke: chartGridStroke }}
+                                stroke={chartTheme.axis}
+                                axisLine={{ stroke: chartTheme.grid }}
                             />
                             <YAxis 
-                                tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartAxisStroke }}
+                                tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartTheme.axis }}
                                 width={language === 'ar' ? 60 : 50}
-                                stroke={chartAxisStroke}
-                                axisLine={{ stroke: chartGridStroke }}
+                                stroke={chartTheme.axis}
+                                axisLine={{ stroke: chartTheme.grid }}
                             />
-                            <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
-                            <Legend 
-                                wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
-                                formatter={(value) => ` ${value}`}
-                                iconSize={12}
-                            />
-                            <Line type="monotone" dataKey="new" name={t('reports.subscribers.new')} stroke={CHART_COLORS.primary} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                            <Line type="monotone" dataKey="churned" name={t('reports.subscribers.churned')} stroke={chartMuted} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            <Tooltip contentStyle={chartTheme.tooltipContent} labelStyle={chartTheme.tooltipLabel} itemStyle={chartTheme.tooltipItem} />
+                            <Legend content={renderChartLegend(chartTheme, language)} />
+                            <Line type="monotone" dataKey="new" name={t('reports.subscribers.new')} stroke={chartTheme.primary} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            <Line type="monotone" dataKey="churned" name={t('reports.subscribers.churned')} stroke={chartTheme.muted} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                 </ResponsiveContainer>
                  )}
             </div>
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                 <h3 className="text-lg font-semibold mb-4">{t('reports.subscribers.chart2Title')}</h3>
+                 <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('reports.subscribers.chart2Title')}</h3>
                  {isLoading ? (
                      <Skeleton className="w-full h-[300px]" />
+                 ) : loadError ? (
+                     <p className="text-sm text-red-500 dark:text-red-400 py-12 text-center">{t('reports.loadError')}</p>
                  ) : (
                      <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
@@ -438,20 +472,16 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
                                 cy="50%" 
                                 labelLine={false} 
                                 outerRadius={80} 
-                                fill={CHART_COLORS.primary} 
+                                fill={chartTheme.primary} 
                                 dataKey="value" 
                                 label={false}
                             >
                                 {conversionData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={conversionChartColors[index % conversionChartColors.length]} />
+                                    <Cell key={`cell-${entry.name}`} fill={index === 0 ? chartTheme.primary : chartTheme.muted} />
                                 ))}
                             </Pie>
-                             <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
-                             <Legend 
-                                wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }} 
-                                formatter={(value) => ` ${value}`}
-                                iconSize={12}
-                            />
+                             <Tooltip contentStyle={chartTheme.tooltipContent} labelStyle={chartTheme.tooltipLabel} itemStyle={chartTheme.tooltipItem} />
+                             <Legend content={renderChartLegend(chartTheme, language)} />
                         </PieChart>
                      </ResponsiveContainer>
                  )}
@@ -467,7 +497,6 @@ const Reports: React.FC = () => {
     return localStorage.getItem('reports_activeTab') || 'revenue';
   });
   
-  // Save active tab to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('reports_activeTab', activeTab);
   }, [activeTab]);

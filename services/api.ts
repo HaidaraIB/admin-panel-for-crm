@@ -32,6 +32,63 @@ export interface PaginatedResponse<T> {
   previous?: string | null;
 }
 
+const DEFAULT_FULL_FETCH_PAGE_SIZE = 100;
+
+function isPaginatedResponse<T>(value: unknown): value is PaginatedResponse<T> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as PaginatedResponse<T>).results)
+  );
+}
+
+function toRelativeApiEndpoint(nextUrl: string): string {
+  try {
+    const url = new URL(nextUrl, ADMIN_API_BASE_URL);
+    const match = url.pathname.match(/\/api\/v1(.*)$/);
+    const path = match ? match[1] : url.pathname;
+    return `${path}${url.search}`;
+  } catch {
+    return nextUrl;
+  }
+}
+
+function withPageSizeQuery(endpoint: string, pageSize: number): string {
+  if (endpoint.includes('page_size=')) {
+    return endpoint;
+  }
+  const joiner = endpoint.includes('?') ? '&' : '?';
+  return `${endpoint}${joiner}page_size=${pageSize}`;
+}
+
+async function fetchAllPaginatedPages<T>(initialEndpoint: string): Promise<PaginatedResponse<T>> {
+  let endpoint: string | null = withPageSizeQuery(initialEndpoint, DEFAULT_FULL_FETCH_PAGE_SIZE);
+  let count = 0;
+  const results: T[] = [];
+  let previous: string | null = null;
+  let safetyCounter = 0;
+
+  while (endpoint && safetyCounter < 200) {
+    safetyCounter += 1;
+    const pageData = await apiRequest<PaginatedResponse<T>>(endpoint);
+    if (!isPaginatedResponse<T>(pageData)) {
+      break;
+    }
+
+    count = pageData.count ?? count;
+    previous = previous ?? pageData.previous ?? null;
+    results.push(...(pageData.results || []));
+    endpoint = pageData.next ? toRelativeApiEndpoint(pageData.next) : null;
+  }
+
+  return {
+    count: Math.max(count, results.length),
+    next: null,
+    previous,
+    results,
+  };
+}
+
 // ==================== Helpers ====================
 
 /** Build query string from params; skips null/undefined and empty values. */
@@ -150,6 +207,11 @@ export const getCompaniesAPI = async (params?: { search?: string; ordering?: str
   );
 };
 
+export const getAllCompaniesAPI = async (params?: { search?: string; ordering?: string }) => {
+  const query = buildQueryString(params ?? {});
+  return fetchAllPaginatedPages<Record<string, unknown>>(`/companies/${query}`);
+};
+
 /**
  * Get company by ID
  * GET /api/companies/{id}/
@@ -207,6 +269,11 @@ export const getSubscriptionsAPI = async (params?: { search?: string; ordering?:
   return getCached(cacheKey, () =>
     apiRequest<PaginatedResponse<unknown>>(`/subscriptions/${query}`)
   );
+};
+
+export const getAllSubscriptionsAPI = async (params?: { search?: string; ordering?: string }) => {
+  const query = buildQueryString(params ?? {});
+  return fetchAllPaginatedPages<Record<string, unknown>>(`/subscriptions/${query}`);
 };
 
 /**
@@ -334,7 +401,16 @@ export const getPaymentsAPI = async (params?: { search?: string; ordering?: stri
   return apiRequest<PaginatedResponse<unknown>>(`/payments/${query}`);
 };
 
+export const getAllPaymentsAPI = async (params?: { search?: string; ordering?: string }) => {
+  const query = buildQueryString(params ?? {});
+  return fetchAllPaginatedPages<Record<string, unknown>>(`/payments/${query}`);
+};
+
 const SUCCESSFUL_PAYMENT_STATUSES = ['completed', 'successful', 'success'];
+
+export function isSuccessfulPayment(status?: string | null): boolean {
+  return SUCCESSFUL_PAYMENT_STATUSES.includes((status || '').toLowerCase());
+}
 
 /**
  * Check if a company (tenant) has at least one successful payment.

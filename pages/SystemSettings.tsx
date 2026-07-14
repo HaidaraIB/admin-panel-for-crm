@@ -1528,70 +1528,82 @@ const RegistrationOtpSettings: React.FC = () => {
             {isLoading ? (
                 <div className="flex justify-center py-8"><LoadingSpinner /></div>
             ) : (
-                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-6 bg-white dark:bg-gray-900/40">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                         {t('settings.registrationOtp.description')}
                     </p>
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                id="phone-otp-required"
-                                checked={phoneOtpRequired}
-                                onChange={(e) => setPhoneOtpRequired(e.target.checked)}
-                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            />
-                            <label htmlFor="phone-otp-required" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {t('settings.registrationOtp.requireLabel')}
-                            </label>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t('settings.registrationOtp.hint')}
-                        </p>
-                    </div>
-                    <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                id="email-verification-required"
-                                checked={emailVerificationRequired}
-                                onChange={(e) => setEmailVerificationRequired(e.target.checked)}
-                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            />
-                            <label htmlFor="email-verification-required" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {t('settings.registrationOtp.requireEmailLabel')}
-                            </label>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t('settings.registrationOtp.emailHint')}
-                        </p>
-                    </div>
-                    {phoneOtpRequired && (
-                        <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('settings.registrationOtp.channelTitle')}</p>
-                            <label className="flex items-center gap-2 cursor-pointer">
+
+                    <section className="space-y-3">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {t('settings.registrationOtp.phoneSectionTitle')}
+                        </h4>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
                                 <input
-                                    type="radio"
-                                    name="phone-otp-channel"
-                                    checked={phoneOtpChannel === 'whatsapp'}
-                                    onChange={() => setPhoneOtpChannel('whatsapp')}
-                                    className="text-primary-600 focus:ring-primary-500"
+                                    type="checkbox"
+                                    id="phone-otp-required"
+                                    checked={phoneOtpRequired}
+                                    onChange={(e) => setPhoneOtpRequired(e.target.checked)}
+                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                 />
-                                <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.registrationOtp.channelWhatsapp')}</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="phone-otp-channel"
-                                    checked={phoneOtpChannel === 'twilio_sms'}
-                                    onChange={() => setPhoneOtpChannel('twilio_sms')}
-                                    className="text-primary-600 focus:ring-primary-500"
-                                />
-                                <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.registrationOtp.channelTwilio')}</span>
-                            </label>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.registrationOtp.channelHelp')}</p>
+                                <label htmlFor="phone-otp-required" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {t('settings.registrationOtp.requireLabel')}
+                                </label>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {t('settings.registrationOtp.phoneHint')}
+                            </p>
                         </div>
-                    )}
+                        {phoneOtpRequired && (
+                            <div className="ml-6 pl-4 border-l border-gray-200 dark:border-gray-700 space-y-2">
+                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('settings.registrationOtp.channelTitle')}</p>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="phone-otp-channel"
+                                        checked={phoneOtpChannel === 'whatsapp'}
+                                        onChange={() => setPhoneOtpChannel('whatsapp')}
+                                        className="text-primary-600 focus:ring-primary-500"
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.registrationOtp.channelWhatsapp')}</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="phone-otp-channel"
+                                        checked={phoneOtpChannel === 'twilio_sms'}
+                                        onChange={() => setPhoneOtpChannel('twilio_sms')}
+                                        className="text-primary-600 focus:ring-primary-500"
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.registrationOtp.channelTwilio')}</span>
+                                </label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.registrationOtp.channelHelp')}</p>
+                            </div>
+                        )}
+                    </section>
+
+                    <section className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {t('settings.registrationOtp.emailSectionTitle')}
+                        </h4>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="email-verification-required"
+                                    checked={emailVerificationRequired}
+                                    onChange={(e) => setEmailVerificationRequired(e.target.checked)}
+                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                />
+                                <label htmlFor="email-verification-required" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {t('settings.registrationOtp.requireEmailLabel')}
+                                </label>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {t('settings.registrationOtp.emailHint')}
+                            </p>
+                        </div>
+                    </section>
                     <div>
                         <button
                             onClick={handleSave}
