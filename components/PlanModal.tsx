@@ -38,6 +38,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
     integration_twilio: true,
     integration_otpiq: true,
     integration_openai: true,
+    integration_mujeb: true,
     integration_pbx: true,
   },
   entitlementsLimits: {
@@ -445,6 +446,12 @@ const PlanModal: React.FC<PlanModalProps> = ({
                       checked={!!(formData.entitlementsFeatures || {}).integration_openai}
                       onChange={(e) => handleEntFeatureToggle('integration_openai', e.target.checked)}
                       label={t('settings.integrations.platform.openai') || 'OpenAI (ChatGPT)'}
+                    />
+                    <Checkbox
+                      id="feature_integration_mujeb"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_mujeb}
+                      onChange={(e) => handleEntFeatureToggle('integration_mujeb', e.target.checked)}
+                      label={t('settings.integrations.platform.mujeb') || 'Mujeb'}
                     />
                     <Checkbox
                       id="feature_integration_pbx"

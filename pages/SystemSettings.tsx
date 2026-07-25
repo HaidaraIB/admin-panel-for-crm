@@ -32,7 +32,7 @@ const persistSchedule = (schedule: BackupSchedule) => {
     localStorage.setItem(BACKUP_SCHEDULE_STORAGE_KEY, schedule);
 };
 
-type IntegrationPlatformKey = 'meta' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'pbx';
+type IntegrationPlatformKey = 'meta' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'mujeb' | 'pbx';
 type IntegrationPolicyState = Record<IntegrationPlatformKey, {
     global_enabled: boolean;
     global_message: string;
@@ -46,6 +46,7 @@ const DEFAULT_INTEGRATION_POLICIES: IntegrationPolicyState = {
     twilio: { global_enabled: true, global_message: '', company_overrides: {} },
     otpiq: { global_enabled: true, global_message: '', company_overrides: {} },
     openai: { global_enabled: true, global_message: '', company_overrides: {} },
+    mujeb: { global_enabled: true, global_message: '', company_overrides: {} },
     pbx: { global_enabled: true, global_message: '', company_overrides: {} },
 };
 
@@ -58,6 +59,162 @@ type FeaturePolicyState = Record<FeaturePolicyKey, {
 
 const DEFAULT_FEATURE_POLICIES: FeaturePolicyState = {
     field_visit: { global_enabled: true, global_message: '', company_overrides: {} },
+};
+
+type CompanyOption = { id: number; name: string };
+type CompanyOverrideMap = Record<string, { enabled: boolean; message: string }>;
+
+/** Per-integration/feature company allow/deny list — independent of other cards. */
+const CompanyOverrideEditor: React.FC<{
+    companies: CompanyOption[];
+    globalEnabled: boolean;
+    overrides: CompanyOverrideMap;
+    onChange: (next: CompanyOverrideMap) => void;
+    labels: {
+        allowTitle: string;
+        allowHint: string;
+        denyTitle: string;
+        denyHint: string;
+        addAllow: string;
+        addDeny: string;
+        emptyAllow: string;
+        emptyDeny: string;
+        remove: string;
+        messagePlaceholder: string;
+        noCompanies: string;
+    };
+}> = ({ companies, globalEnabled, overrides, onChange, labels }) => {
+    const [pendingCompanyId, setPendingCompanyId] = useState('');
+
+    const listedIds = useMemo(() => {
+        return Object.entries(overrides)
+            .filter(([, value]) => (globalEnabled ? value.enabled === false : value.enabled === true))
+            .map(([id]) => id);
+    }, [overrides, globalEnabled]);
+
+    const availableCompanies = useMemo(
+        () => companies.filter((c) => !listedIds.includes(String(c.id))),
+        [companies, listedIds],
+    );
+
+    const companyName = (id: string) => companies.find((c) => String(c.id) === id)?.name || id;
+
+    const addCompany = () => {
+        if (!pendingCompanyId) return;
+        const next = { ...overrides };
+        if (globalEnabled) {
+            next[pendingCompanyId] = {
+                enabled: false,
+                message: next[pendingCompanyId]?.message || '',
+            };
+        } else {
+            next[pendingCompanyId] = {
+                enabled: true,
+                message: next[pendingCompanyId]?.message || '',
+            };
+        }
+        onChange(next);
+        setPendingCompanyId('');
+    };
+
+    const removeCompany = (id: string) => {
+        const next = { ...overrides };
+        delete next[id];
+        onChange(next);
+    };
+
+    const updateMessage = (id: string, message: string) => {
+        const current = overrides[id];
+        if (!current) return;
+        onChange({
+            ...overrides,
+            [id]: { ...current, message },
+        });
+    };
+
+    return (
+        <div className="space-y-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/40 p-3">
+            <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                    {globalEnabled ? labels.denyTitle : labels.allowTitle}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {globalEnabled ? labels.denyHint : labels.allowHint}
+                </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                    value={pendingCompanyId}
+                    onChange={(e) => setPendingCompanyId(e.target.value)}
+                    disabled={availableCompanies.length === 0}
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 text-sm"
+                >
+                    <option value="">
+                        {companies.length === 0
+                            ? labels.noCompanies
+                            : availableCompanies.length === 0
+                                ? (globalEnabled ? labels.emptyDeny : labels.emptyAllow)
+                                : (globalEnabled ? labels.addDeny : labels.addAllow)}
+                    </option>
+                    {availableCompanies.map((company) => (
+                        <option key={company.id} value={String(company.id)}>
+                            {company.name}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    type="button"
+                    onClick={addCompany}
+                    disabled={!pendingCompanyId}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                    <Icon name="plus" className="w-4 h-4" />
+                    {globalEnabled ? labels.addDeny : labels.addAllow}
+                </button>
+            </div>
+
+            {listedIds.length === 0 ? (
+                <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                    {globalEnabled ? labels.emptyDeny : labels.emptyAllow}
+                </p>
+            ) : (
+                <ul className="space-y-2">
+                    {listedIds.map((id) => (
+                        <li
+                            key={id}
+                            className="flex flex-col gap-2 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900/60 px-3 py-2"
+                        >
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    {companyName(id)}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => removeCompany(id)}
+                                    title={labels.remove}
+                                    aria-label={labels.remove}
+                                    className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 shrink-0"
+                                >
+                                    <Icon name="x" className="w-4 h-4" />
+                                    {labels.remove}
+                                </button>
+                            </div>
+                            {globalEnabled && (
+                                <input
+                                    type="text"
+                                    value={overrides[id]?.message || ''}
+                                    onChange={(e) => updateMessage(id, e.target.value)}
+                                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 text-sm"
+                                    placeholder={labels.messagePlaceholder}
+                                />
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
 };
 
 const GeneralSettings: React.FC = () => {
@@ -291,8 +448,7 @@ const IntegrationsControlSettings: React.FC = () => {
     const { t } = useI18n();
     const { addLog } = useAuditLog();
     const [integrationPolicies, setIntegrationPolicies] = useState<IntegrationPolicyState>(DEFAULT_INTEGRATION_POLICIES);
-    const [companies, setCompanies] = useState<Array<{ id: number; name: string }>>([]);
-    const [selectedCompanyId, setSelectedCompanyId] = useState('');
+    const [companies, setCompanies] = useState<CompanyOption[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -303,7 +459,21 @@ const IntegrationsControlSettings: React.FC = () => {
         twilio: t('settings.integrations.platform.twilio') || 'Twilio (SMS)',
         otpiq: t('settings.integrations.platform.otpiq') || 'OTPIQ (SMS)',
         openai: t('settings.integrations.platform.openai') || 'OpenAI (ChatGPT)',
+        mujeb: t('settings.integrations.platform.mujeb') || 'Mujeb',
         pbx: t('settings.integrations.platform.pbx') || 'PBX / ZYCOO',
+    };
+    const overrideLabels = {
+        allowTitle: t('settings.integrations.allowTitle') || 'Allowed company exceptions',
+        allowHint: t('settings.integrations.allowHint') || 'Integration is off for everyone. Add companies that should still have access.',
+        denyTitle: t('settings.integrations.denyTitle') || 'Blocked company overrides',
+        denyHint: t('settings.integrations.denyHint') || 'Integration is on for everyone. Add companies that should be blocked.',
+        addAllow: t('settings.integrations.addAllow') || 'Allow company',
+        addDeny: t('settings.integrations.addDeny') || 'Block company',
+        emptyAllow: t('settings.integrations.emptyAllow') || 'No exceptions — all companies are blocked.',
+        emptyDeny: t('settings.integrations.emptyDeny') || 'No blocks — available to all companies.',
+        remove: t('settings.integrations.removeCompany') || 'Remove',
+        messagePlaceholder: t('settings.integrations.companyMessagePlaceholder') || 'Company deactivation message',
+        noCompanies: t('settings.integrations.noCompanies') || 'No companies available',
     };
 
     useEffect(() => {
@@ -319,11 +489,11 @@ const IntegrationsControlSettings: React.FC = () => {
                     twilio: { ...DEFAULT_INTEGRATION_POLICIES.twilio, ...(incoming.twilio || {}), company_overrides: incoming.twilio?.company_overrides || {} },
                     otpiq: { ...DEFAULT_INTEGRATION_POLICIES.otpiq, ...(incoming.otpiq || {}), company_overrides: incoming.otpiq?.company_overrides || {} },
                     openai: { ...DEFAULT_INTEGRATION_POLICIES.openai, ...(incoming.openai || {}), company_overrides: incoming.openai?.company_overrides || {} },
+                    mujeb: { ...DEFAULT_INTEGRATION_POLICIES.mujeb, ...(incoming.mujeb || {}), company_overrides: incoming.mujeb?.company_overrides || {} },
                     pbx: { ...DEFAULT_INTEGRATION_POLICIES.pbx, ...(incoming.pbx || {}), company_overrides: incoming.pbx?.company_overrides || {} },
                 });
                 const list = ((companiesResponse?.results || []) as Array<{ id: number; name: string }>).map((c) => ({ id: c.id, name: c.name }));
                 setCompanies(list);
-                if (list.length > 0) setSelectedCompanyId(String(list[0].id));
             } catch (error) {
                 console.error('Failed to load integration settings', error);
                 setFeedback({ type: 'error', message: t('settings.integrations.loadError') || 'Failed to load integration settings.' });
@@ -366,17 +536,16 @@ const IntegrationsControlSettings: React.FC = () => {
             ) : (
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t('settings.integrations.help') || 'Configure global and per-company integration activation. When globally disabled, allow exceptions for specific companies.'}
+                        {t('settings.integrations.help') || 'Configure global and per-company integration activation. When globally disabled, allow exceptions for specific companies. When globally enabled, block specific companies.'}
                     </p>
                     <div className="space-y-4">
-                        {(['meta', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'pbx'] as IntegrationPlatformKey[]).map((platform) => {
+                        {(['meta', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'mujeb', 'pbx'] as IntegrationPlatformKey[]).map((platform) => {
                             const policy = integrationPolicies[platform];
-                            const companyOverride = selectedCompanyId ? policy.company_overrides[selectedCompanyId] : undefined;
                             return (
                                 <div key={platform} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between gap-3">
                                         <h5 className="font-semibold text-gray-900 dark:text-white">{platformLabels[platform]}</h5>
-                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 shrink-0">
                                             <input
                                                 type="checkbox"
                                                 checked={policy.global_enabled}
@@ -398,94 +567,19 @@ const IntegrationsControlSettings: React.FC = () => {
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                         placeholder={t('settings.integrations.globalMessagePlaceholder') || 'Global deactivation message'}
                                     />
-                                    <div className={`grid grid-cols-1 gap-2 items-center ${policy.global_enabled ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-                                        <select
-                                            value={selectedCompanyId}
-                                            onChange={(e) => setSelectedCompanyId(e.target.value)}
-                                            className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600"
-                                        >
-                                            {companies.map((company) => (
-                                                <option key={company.id} value={company.id}>{company.name}</option>
-                                            ))}
-                                        </select>
-                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                            <input
-                                                type="checkbox"
-                                                checked={
-                                                    policy.global_enabled
-                                                        ? (companyOverride ? companyOverride.enabled : true)
-                                                        : companyOverride?.enabled === true
-                                                }
-                                                onChange={(e) => {
-                                                    if (!selectedCompanyId) return;
-                                                    setIntegrationPolicies((prev) => {
-                                                        const platformPolicy = prev[platform];
-                                                        const nextOverrides = { ...platformPolicy.company_overrides };
-                                                        if (!platformPolicy.global_enabled) {
-                                                            if (e.target.checked) {
-                                                                nextOverrides[selectedCompanyId] = {
-                                                                    enabled: true,
-                                                                    message: nextOverrides[selectedCompanyId]?.message || '',
-                                                                };
-                                                            } else {
-                                                                delete nextOverrides[selectedCompanyId];
-                                                            }
-                                                        } else {
-                                                            nextOverrides[selectedCompanyId] = {
-                                                                enabled: e.target.checked,
-                                                                message: nextOverrides[selectedCompanyId]?.message || '',
-                                                            };
-                                                        }
-                                                        return {
-                                                            ...prev,
-                                                            [platform]: {
-                                                                ...platformPolicy,
-                                                                company_overrides: nextOverrides,
-                                                            },
-                                                        };
-                                                    });
-                                                }}
-                                            />
-                                            {policy.global_enabled
-                                                ? (t('settings.integrations.companyActive') || 'Selected Company Active')
-                                                : (t('settings.integrations.companyException') || 'Allow exception for selected company')}
-                                        </label>
-                                        {policy.global_enabled && (
-                                            <input
-                                                type="text"
-                                                value={companyOverride?.message || ''}
-                                                onChange={(e) => {
-                                                    if (!selectedCompanyId) return;
-                                                    setIntegrationPolicies((prev) => ({
-                                                        ...prev,
-                                                        [platform]: {
-                                                            ...prev[platform],
-                                                            company_overrides: {
-                                                                ...prev[platform].company_overrides,
-                                                                [selectedCompanyId]: {
-                                                                    enabled: prev[platform].company_overrides[selectedCompanyId]?.enabled ?? true,
-                                                                    message: e.target.value,
-                                                                },
-                                                            },
-                                                        },
-                                                    }));
-                                                }}
-                                                className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600"
-                                                placeholder={t('settings.integrations.companyMessagePlaceholder') || 'Company deactivation message'}
-                                            />
-                                        )}
-                                    </div>
-                                    {!policy.global_enabled && Object.keys(policy.company_overrides).some(
-                                        (id) => policy.company_overrides[id]?.enabled === true,
-                                    ) && (
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            {(t('settings.integrations.exceptionsSummary') || 'Exceptions')}:{' '}
-                                            {Object.entries(policy.company_overrides)
-                                                .filter(([, value]) => value.enabled === true)
-                                                .map(([id]) => companies.find((c) => String(c.id) === id)?.name || id)
-                                                .join(', ')}
-                                        </p>
-                                    )}
+                                    <CompanyOverrideEditor
+                                        companies={companies}
+                                        globalEnabled={policy.global_enabled}
+                                        overrides={policy.company_overrides}
+                                        onChange={(nextOverrides) => setIntegrationPolicies((prev) => ({
+                                            ...prev,
+                                            [platform]: {
+                                                ...prev[platform],
+                                                company_overrides: nextOverrides,
+                                            },
+                                        }))}
+                                        labels={overrideLabels}
+                                    />
                                 </div>
                             );
                         })}
@@ -509,13 +603,25 @@ const FeaturesControlSettings: React.FC = () => {
     const { t } = useI18n();
     const { addLog } = useAuditLog();
     const [featurePolicies, setFeaturePolicies] = useState<FeaturePolicyState>(DEFAULT_FEATURE_POLICIES);
-    const [companies, setCompanies] = useState<Array<{ id: number; name: string }>>([]);
-    const [selectedCompanyId, setSelectedCompanyId] = useState('');
+    const [companies, setCompanies] = useState<CompanyOption[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const featureLabels: Record<FeaturePolicyKey, string> = {
         field_visit: t('settings.features.platform.fieldVisit') || 'Field visit (الزيارة الميدانية)',
+    };
+    const overrideLabels = {
+        allowTitle: t('settings.features.allowTitle') || 'Allowed company exceptions',
+        allowHint: t('settings.features.allowHint') || 'Feature is off for everyone. Add companies that should still have access.',
+        denyTitle: t('settings.features.denyTitle') || 'Blocked company overrides',
+        denyHint: t('settings.features.denyHint') || 'Feature is on for everyone. Add companies that should be blocked.',
+        addAllow: t('settings.features.addAllow') || 'Allow company',
+        addDeny: t('settings.features.addDeny') || 'Block company',
+        emptyAllow: t('settings.features.emptyAllow') || 'No exceptions — all companies are blocked.',
+        emptyDeny: t('settings.features.emptyDeny') || 'No blocks — available to all companies.',
+        remove: t('settings.features.removeCompany') || 'Remove',
+        messagePlaceholder: t('settings.features.companyMessagePlaceholder') || 'Company deactivation message',
+        noCompanies: t('settings.features.noCompanies') || 'No companies available',
     };
 
     useEffect(() => {
@@ -533,7 +639,6 @@ const FeaturesControlSettings: React.FC = () => {
                 });
                 const list = ((companiesResponse?.results || []) as Array<{ id: number; name: string }>).map((c) => ({ id: c.id, name: c.name }));
                 setCompanies(list);
-                if (list.length > 0) setSelectedCompanyId(String(list[0].id));
             } catch (error) {
                 console.error('Failed to load feature settings', error);
                 setFeedback({ type: 'error', message: t('settings.features.loadError') || 'Failed to load feature settings.' });
@@ -576,17 +681,16 @@ const FeaturesControlSettings: React.FC = () => {
             ) : (
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t('settings.features.help') || 'Configure global and per-company feature activation. When globally disabled, allow exceptions for specific companies.'}
+                        {t('settings.features.help') || 'Configure global and per-company feature activation. When globally disabled, allow exceptions for specific companies. When globally enabled, block specific companies.'}
                     </p>
                     <div className="space-y-4">
                         {(['field_visit'] as FeaturePolicyKey[]).map((featureKey) => {
                             const policy = featurePolicies[featureKey];
-                            const companyOverride = selectedCompanyId ? policy.company_overrides[selectedCompanyId] : undefined;
                             return (
                                 <div key={featureKey} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between gap-3">
                                         <h5 className="font-semibold text-gray-900 dark:text-white">{featureLabels[featureKey]}</h5>
-                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 shrink-0">
                                             <input
                                                 type="checkbox"
                                                 checked={policy.global_enabled}
@@ -608,83 +712,19 @@ const FeaturesControlSettings: React.FC = () => {
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                         placeholder={t('settings.features.globalMessagePlaceholder') || 'Global deactivation message'}
                                     />
-                                    <div className={`grid grid-cols-1 gap-2 items-center ${policy.global_enabled ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-                                        <select
-                                            value={selectedCompanyId}
-                                            onChange={(e) => setSelectedCompanyId(e.target.value)}
-                                            className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600"
-                                        >
-                                            {companies.map((company) => (
-                                                <option key={company.id} value={company.id}>{company.name}</option>
-                                            ))}
-                                        </select>
-                                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                            <input
-                                                type="checkbox"
-                                                checked={
-                                                    policy.global_enabled
-                                                        ? (companyOverride ? companyOverride.enabled : true)
-                                                        : companyOverride?.enabled === true
-                                                }
-                                                onChange={(e) => {
-                                                    if (!selectedCompanyId) return;
-                                                    setFeaturePolicies((prev) => {
-                                                        const featurePolicy = prev[featureKey];
-                                                        const nextOverrides = { ...featurePolicy.company_overrides };
-                                                        if (!featurePolicy.global_enabled) {
-                                                            if (e.target.checked) {
-                                                                nextOverrides[selectedCompanyId] = {
-                                                                    enabled: true,
-                                                                    message: nextOverrides[selectedCompanyId]?.message || '',
-                                                                };
-                                                            } else {
-                                                                delete nextOverrides[selectedCompanyId];
-                                                            }
-                                                        } else {
-                                                            nextOverrides[selectedCompanyId] = {
-                                                                enabled: e.target.checked,
-                                                                message: nextOverrides[selectedCompanyId]?.message || '',
-                                                            };
-                                                        }
-                                                        return {
-                                                            ...prev,
-                                                            [featureKey]: {
-                                                                ...featurePolicy,
-                                                                company_overrides: nextOverrides,
-                                                            },
-                                                        };
-                                                    });
-                                                }}
-                                            />
-                                            {policy.global_enabled
-                                                ? (t('settings.features.companyActive') || 'Selected Company Active')
-                                                : (t('settings.features.companyException') || 'Allow exception for selected company')}
-                                        </label>
-                                        {policy.global_enabled && (
-                                            <input
-                                                type="text"
-                                                value={companyOverride?.message || ''}
-                                                onChange={(e) => {
-                                                    if (!selectedCompanyId) return;
-                                                    setFeaturePolicies((prev) => ({
-                                                        ...prev,
-                                                        [featureKey]: {
-                                                            ...prev[featureKey],
-                                                            company_overrides: {
-                                                                ...prev[featureKey].company_overrides,
-                                                                [selectedCompanyId]: {
-                                                                    enabled: prev[featureKey].company_overrides[selectedCompanyId]?.enabled ?? true,
-                                                                    message: e.target.value,
-                                                                },
-                                                            },
-                                                        },
-                                                    }));
-                                                }}
-                                                className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600"
-                                                placeholder={t('settings.features.companyMessagePlaceholder') || 'Company deactivation message'}
-                                            />
-                                        )}
-                                    </div>
+                                    <CompanyOverrideEditor
+                                        companies={companies}
+                                        globalEnabled={policy.global_enabled}
+                                        overrides={policy.company_overrides}
+                                        onChange={(nextOverrides) => setFeaturePolicies((prev) => ({
+                                            ...prev,
+                                            [featureKey]: {
+                                                ...prev[featureKey],
+                                                company_overrides: nextOverrides,
+                                            },
+                                        }))}
+                                        labels={overrideLabels}
+                                    />
                                 </div>
                             );
                         })}

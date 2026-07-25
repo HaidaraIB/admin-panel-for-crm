@@ -60,7 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
   // Get logo path based on theme
   const logoPath = isDarkMode ? '/logo_dark.png' : '/logo.png';
 
-  const sidebarBaseClasses = "flex-shrink-0 w-64 bg-white dark:bg-gray-900 flex flex-col fixed md:relative inset-y-0 z-40 transform transition-transform duration-300 ease-in-out";
+  const sidebarBaseClasses = "flex-shrink-0 w-72 bg-white dark:bg-gray-900 flex flex-col fixed md:relative inset-y-0 z-40 transform transition-transform duration-300 ease-in-out";
   const languageSpecificClasses = language === 'ar' 
     ? 'border-l border-gray-200 dark:border-gray-800 right-0' 
     : 'border-r border-gray-200 dark:border-gray-800 left-0';
@@ -68,6 +68,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
   const mobileTransformClass = language === 'ar'
     ? (isSidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0')
     : (isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0');
+
+  const navLinkBase =
+    'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors duration-150 whitespace-nowrap';
 
   return (
     <>
@@ -94,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
             <Icon name="x" className="w-6 h-6" />
           </button>
         </div>
-        <nav className="flex-1 px-4 py-6 space-y-2">
+        <nav className="flex-1 px-3 py-6 space-y-2 overflow-x-hidden">
           {menuItems.map((item) => {
             return (
               <NavLink
@@ -102,34 +105,34 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
                 to={item.path}
                 onClick={() => setIsSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 ${
+                  `${navLinkBase} ${
                     isActive
                       ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`
                 }
               >
-                <Icon name={item.icon} className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
-                {t(item.labelKey)}
+                <Icon name={item.icon} className="w-5 h-5 flex-shrink-0" />
+                <span>{t(item.labelKey)}</span>
               </NavLink>
             );
           })}
         </nav>
         {canAccessSettings && (
-          <div className="px-4 py-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
+          <div className="px-3 py-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
             <NavLink
               to="/settings"
               onClick={() => setIsSidebarOpen(false)}
               className={({ isActive }) =>
-                `flex items-center px-4 py-2 font-medium rounded-md transition-colors duration-150 ${
+                `${navLinkBase} ${
                   isActive
                     ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }
             >
-              <Icon name="settings" className={`w-5 h-5 ${language === 'ar' ? 'ml-3' : 'mr-3'}`} />
-              {t('sidebar.settings')}
+              <Icon name="settings" className="w-5 h-5 flex-shrink-0" />
+              <span>{t('sidebar.settings')}</span>
             </NavLink>
           </div>
         )}

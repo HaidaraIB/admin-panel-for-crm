@@ -15,14 +15,29 @@ interface InvoiceModalProps {
 const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onClose, logoUrl, branding }) => {
   const { t } = useI18n();
   if (!isOpen || !invoice) return null;
-  
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-gray-100 dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-4xl transform transition-all relative" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full text-gray-500 bg-white/50 dark:bg-black/50 hover:bg-gray-200 dark:hover:bg-gray-700 z-10">
-            <Icon name="x" className="w-6 h-6" />
+    <div
+      className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="bg-gray-100 dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-4xl max-h-[calc(100vh-2rem)] flex flex-col relative"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('invoice.title')}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 p-2 rounded-full text-gray-500 bg-white/80 dark:bg-black/60 hover:bg-gray-200 dark:hover:bg-gray-700 z-10 shadow-sm"
+          aria-label={t('common.close') || 'Close'}
+        >
+          <Icon name="x" className="w-6 h-6" />
         </button>
-        <div className="p-4 sm:p-6">
+        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 p-4 sm:p-6">
           <InvoiceTemplate invoice={invoice} logoUrl={logoUrl} branding={branding} t={t} />
         </div>
       </div>

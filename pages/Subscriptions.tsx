@@ -8,6 +8,7 @@ import InvoiceModal from '../components/InvoiceModal';
 import { useTheme } from '../context/ThemeContext';
 import { useAuditLog } from '../context/AuditLogContext';
 import PlanCardSkeleton from '../components/PlanCardSkeleton';
+import LoadingSpinner from '../components/LoadingSpinner';
 import {
   getPlansAPI,
   createPlanAPI,
@@ -48,6 +49,8 @@ const CANONICAL_PLAN_FEATURE_KEYS = [
   'integration_twilio',
   'integration_otpiq',
   'integration_openai',
+  'integration_api',
+  'integration_mujeb',
   'integration_pbx',
 ] as const;
 
@@ -302,18 +305,18 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                             )}
                             <ul className="space-y-2 text-gray-600 dark:text-gray-300 flex-grow mb-6">
                                 <li className="flex items-center">
-                                    <Icon name="users" className="w-4 h-4 mr-2 text-primary-600" />
+                                    <Icon name="users" className="w-4 h-4 mr-2 text-primary-600 dark:text-primary-400" />
                                     <span className="font-semibold">{plan.users === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.users}</span>
                                     <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.users')}</span>
                                 </li>
                                 <li className="flex items-center">
-                                    <Icon name="users" className="w-4 h-4 mr-2 text-primary-600" />
+                                    <Icon name="users" className="w-4 h-4 mr-2 text-primary-600 dark:text-primary-400" />
                                     <span className="font-semibold">{plan.clients === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.clients}</span>
                                     <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.clients')}</span>
                                 </li>
                                 {plan.trialDays > 0 && (
                                     <li className="flex items-center">
-                                        <Icon name="clock" className="w-4 h-4 mr-2 text-primary-600" />
+                                        <Icon name="clock" className="w-4 h-4 mr-2 text-primary-600 dark:text-primary-400" />
                                         <span className="font-semibold">{plan.trialDays}</span>
                                         <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.trialDays') || 'Trial Days'}</span>
                                     </li>
@@ -671,16 +674,17 @@ const InvoicesTab: React.FC = () => {
                                     <td className="px-6 py-4 text-center">{i.dueDate || '—'}</td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-2">
-                                            <button type="button" onClick={() => handleViewInvoice(i)} className="p-1 text-blue-600 hover:text-blue-800" title={t('subscriptions.invoices.viewInvoice')}><Icon name="view" className="w-5 h-5"/></button>
+                                            <button type="button" onClick={() => handleViewInvoice(i)} className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title={t('subscriptions.invoices.viewInvoice')}><Icon name="view" className="w-5 h-5"/></button>
                                             <button
                                                 type="button"
                                                 onClick={() => handleDownloadPdf(i)}
                                                 disabled={downloadingId != null}
-                                                className="w-8 h-8 p-1 flex items-center justify-center text-green-600 hover:text-green-800 disabled:opacity-50 disabled:cursor-wait"
+                                                className="w-8 h-8 p-1 flex items-center justify-center text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-60 disabled:cursor-wait"
                                                 title={t('subscriptions.invoices.downloadPdf')}
+                                                aria-busy={downloadingId === i.numericId}
                                             >
                                                 {downloadingId === i.numericId ? (
-                                                    <Icon name="refresh" className="w-5 h-5 animate-spin" />
+                                                    <LoadingSpinner size="sm" tone="muted" label={t('common.loading') || 'Loading'} />
                                                 ) : (
                                                     <Icon name="download" className="w-5 h-5" />
                                                 )}
@@ -689,11 +693,12 @@ const InvoicesTab: React.FC = () => {
                                                 type="button"
                                                 onClick={() => handleSendEmail(i)}
                                                 disabled={sendingId != null}
-                                                className="w-8 h-8 p-1 flex items-center justify-center text-purple-600 hover:text-purple-800 disabled:opacity-50 disabled:cursor-wait"
+                                                className="w-8 h-8 p-1 flex items-center justify-center text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 disabled:opacity-60 disabled:cursor-wait"
                                                 title={t('subscriptions.invoices.sendEmail')}
+                                                aria-busy={sendingId === i.numericId}
                                             >
                                                 {sendingId === i.numericId ? (
-                                                    <Icon name="refresh" className="w-5 h-5 animate-spin" />
+                                                    <LoadingSpinner size="sm" tone="muted" label={t('common.loading') || 'Loading'} />
                                                 ) : (
                                                     <Icon name="mail" className="w-5 h-5" />
                                                 )}
