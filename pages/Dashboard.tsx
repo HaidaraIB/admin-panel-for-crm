@@ -7,6 +7,7 @@ import { useI18n } from '../context/i18n';
 import { useUser } from '../context/UserContext';
 import { getCompaniesAPI, getSubscriptionsAPI, getPaymentsAPI, getPlansAPI } from '../services/api';
 import { withLatinDigits } from '../utils/latinNumerals';
+import { getChartTheme, renderChartLegend, useIsDarkMode } from '../utils/chartTheme';
 
 type DateRange = {
   start: string;
@@ -538,14 +539,17 @@ const Dashboard: React.FC = () => {
     return new Date().toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
   }, [language]);
 
-  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-  const chartGridStroke = isDark ? '#4b5563' : '#e5e7eb';
-  const chartAxisStroke = isDark ? '#9ca3af' : '#6b7280';
-  const tooltipContentStyle = isDark
-    ? { backgroundColor: 'rgba(31, 41, 55, 0.95)', border: 'none', borderRadius: '8px', color: '#f3f4f6' as const }
-    : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#111827' as const, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' };
-  const tooltipLabelStyle = isDark ? { color: '#9ca3af' } : { color: '#6b7280' };
-  const tooltipItemStyle = isDark ? { color: '#f3f4f6' } : { color: '#111827' };
+  const isDark = useIsDarkMode();
+  const chartTheme = useMemo(() => getChartTheme(isDark), [isDark]);
+  const revenueTickFormatter = useCallback(
+    (value: number) => {
+      if (value >= 1000) {
+        return `$${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k`;
+      }
+      return `$${value}`;
+    },
+    [],
+  );
 
   return (
     <div>
@@ -697,35 +701,46 @@ const Dashboard: React.FC = () => {
       {(canViewPayments || canViewSubscriptions) && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
           <div className="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-4">{t('dashboard.revenueGrowth.title')}</h3>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('dashboard.revenueGrowth.title')}</h3>
           {loading ? <Skeleton className="w-full h-[350px]" /> : (
             <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
+              <LineChart data={revenueData} margin={{ top: 12, right: 16, left: 4, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} strokeOpacity={isDark ? 0.55 : 0.4} />
                 <XAxis
                   dataKey="name"
                   interval={0}
                   angle={0}
                   textAnchor="middle"
                   height={60}
-                  tick={{ fontSize: 11, fill: chartAxisStroke }}
+                  tick={{ fontSize: 11, fill: chartTheme.axis }}
                   dy={10}
-                  stroke={chartAxisStroke}
-                  axisLine={{ stroke: chartGridStroke }}
+                  stroke={chartTheme.axis}
+                  axisLine={{ stroke: chartTheme.grid }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartAxisStroke }}
-                  width={language === 'ar' ? 60 : 50}
-                  stroke={chartAxisStroke}
-                  axisLine={{ stroke: chartGridStroke }}
+                  tick={{ fontSize: 11, dx: language === 'ar' ? -5 : 0, fill: chartTheme.axis }}
+                  tickFormatter={revenueTickFormatter}
+                  width={language === 'ar' ? 64 : 56}
+                  stroke={chartTheme.axis}
+                  axisLine={{ stroke: chartTheme.grid }}
                 />
-                <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
-                <Legend
-                  wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }}
-                  formatter={(value) => ` ${value}`}
-                  iconSize={12}
+                <Tooltip
+                  contentStyle={chartTheme.tooltipContent}
+                  labelStyle={chartTheme.tooltipLabel}
+                  itemStyle={chartTheme.tooltipItem}
+                  formatter={(value: number) => [`$${Number(value).toLocaleString()}`, t('dashboard.revenueGrowth.revenue')]}
                 />
-                <Line type="monotone" dataKey="revenue" name={t('dashboard.revenueGrowth.revenue')} stroke="hsl(var(--color-primary-500))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} isAnimationActive />
+                <Legend content={renderChartLegend(chartTheme, language)} />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  name={t('dashboard.revenueGrowth.revenue')}
+                  stroke={chartTheme.primary}
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: chartTheme.primary, stroke: isDark ? '#1f2937' : '#fff', strokeWidth: 2 }}
+                  activeDot={{ r: 6 }}
+                  isAnimationActive
+                />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -733,7 +748,7 @@ const Dashboard: React.FC = () => {
           {canViewPlans && (
             <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
               <div className="p-6 pb-4">
-                <h3 className="text-lg font-semibold">{t('dashboard.planDistribution.title')}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('dashboard.planDistribution.title')}</h3>
               </div>
           <div className="px-6 pb-6">
             {loading ? (
@@ -741,34 +756,42 @@ const Dashboard: React.FC = () => {
             ) : (
               <div className="w-full min-h-[350px]">
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={planData} barCategoryGap={16}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} strokeOpacity={0.3} />
+                  <BarChart data={planData} barCategoryGap={16} margin={{ top: 16, right: 12, left: 4, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} strokeOpacity={isDark ? 0.55 : 0.4} />
                     <XAxis
                       type="category"
                       dataKey="name"
-                      textAnchor={language === 'ar' ? 'middle' : 'end'}
+                      textAnchor="middle"
                       height={60}
-                      tick={{ fontSize: 12, fill: chartAxisStroke }}
+                      tick={{ fontSize: 12, fill: chartTheme.axis }}
                       interval={0}
                       dy={10}
-                      dx={language === 'ar' ? 0 : 12}
-                      stroke={chartAxisStroke}
-                      axisLine={{ stroke: chartGridStroke }}
+                      stroke={chartTheme.axis}
+                      axisLine={{ stroke: chartTheme.grid }}
                     />
                     <YAxis
                       type="number"
-                      tick={{ fontSize: 12, dx: language === 'ar' ? -25 : 0, fill: chartAxisStroke }}
-                      width={language === 'ar' ? 50 : 50}
-                      stroke={chartAxisStroke}
-                      axisLine={{ stroke: chartGridStroke }}
+                      allowDecimals={false}
+                      tick={{ fontSize: 12, dx: language === 'ar' ? -8 : 0, fill: chartTheme.axis }}
+                      width={language === 'ar' ? 40 : 36}
+                      stroke={chartTheme.axis}
+                      axisLine={{ stroke: chartTheme.grid }}
                     />
-                    <Tooltip cursor={{ fill: isDark ? 'rgba(107, 114, 128, 0.2)' : 'rgba(107, 114, 128, 0.08)' }} contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
-                    <Legend
-                      wrapperStyle={{ [language === 'ar' ? 'paddingRight' : 'paddingLeft']: '10px' }}
-                      formatter={(value) => ` ${value}`}
-                      iconSize={12}
+                    <Tooltip
+                      cursor={{ fill: isDark ? 'rgba(107, 114, 128, 0.2)' : 'rgba(107, 114, 128, 0.08)' }}
+                      contentStyle={chartTheme.tooltipContent}
+                      labelStyle={chartTheme.tooltipLabel}
+                      itemStyle={chartTheme.tooltipItem}
                     />
-                    <Bar dataKey="count" name={t('dashboard.planDistribution.tenants')} fill="hsl(var(--color-primary-500))" barSize={56} isAnimationActive />
+                    <Legend content={renderChartLegend(chartTheme, language)} />
+                    <Bar
+                      dataKey="count"
+                      name={t('dashboard.planDistribution.tenants')}
+                      fill={chartTheme.primary}
+                      radius={[4, 4, 0, 0]}
+                      barSize={48}
+                      isAnimationActive
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

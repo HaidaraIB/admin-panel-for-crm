@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../components/Icon';
+import FilterButton from '../components/FilterButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Tenant, TenantStatus, Page } from '../types';
 import { useI18n } from '../context/i18n';
@@ -222,28 +223,21 @@ const Tenants: React.FC<TenantsProps> = ({
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('tenants.title')}</h1>
-                <div className="flex gap-2 self-start md:self-auto">
+                <div className="flex items-center gap-2 self-start md:self-auto">
                     <button
                         onClick={() => navigate('/tenants/add')}
-                        className="flex items-center space-x-2 rtl:space-x-reverse px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium transition-colors"
+                        className="inline-flex h-9 items-center gap-1.5 px-3 text-sm font-semibold bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
                         type="button"
                     >
-                        <Icon name="plus" className="w-5 h-5" />
+                        <Icon name="plus" className="w-4 h-4" />
                         <span>{t('tenants.add.button')}</span>
                     </button>
-                    <button
+                    <FilterButton
                         onClick={() => setIsFilterDrawerOpen(true)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:border-primary-400 dark:hover:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition"
-                        type="button"
+                        hasActiveFilters={hasActiveFilters}
                     >
-                        <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-300">
-                            <Icon name="filter" className="w-4 h-4" />
-                        </span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {t('tenants.filters.open')}
-                        </span>
-                        {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary-500" />}
-                    </button>
+                        {t('tenants.filters.open')}
+                    </FilterButton>
                 </div>
             </div>
 

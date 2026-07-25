@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Icon from '../components/Icon';
 import { useI18n } from '../context/i18n';
-import { getSupportTicketsAPI, updateSupportTicketStatusAPI } from '../services/api';
+import {
+  getSupportTicketsAPI,
+  updateSupportTicketStatusAPI,
+  deleteSupportTicketAPI,
+} from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { withLatinDigits } from '../utils/latinNumerals';
 
@@ -16,6 +20,8 @@ const SupportTickets: React.FC = () => {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [ticketToDelete, setTicketToDelete] = useState<any | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
   const [openStatusDropdownId, setOpenStatusDropdownId] = useState<number | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
@@ -56,6 +62,20 @@ const SupportTickets: React.FC = () => {
       await loadTickets();
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!ticketToDelete) return;
+    const id = ticketToDelete.id as number;
+    setDeletingId(id);
+    try {
+      await deleteSupportTicketAPI(id);
+      if (selectedTicket?.id === id) setSelectedTicket(null);
+      setTicketToDelete(null);
+      await loadTickets();
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -186,15 +206,27 @@ const SupportTickets: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedTicket(ticket)}
-                        className="inline-flex items-center justify-center p-1.5 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none"
-                        title={t('tickets.viewDetails') || 'View details'}
-                        aria-label={t('tickets.viewDetails') || 'View details'}
-                      >
-                        <Icon name="eye" className="w-5 h-5" />
-                      </button>
+                      <div className={`inline-flex items-center gap-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTicket(ticket)}
+                          className="inline-flex items-center justify-center p-1.5 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none"
+                          title={t('tickets.viewDetails') || 'View details'}
+                          aria-label={t('tickets.viewDetails') || 'View details'}
+                        >
+                          <Icon name="eye" className="w-5 h-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTicketToDelete(ticket)}
+                          disabled={deletingId === ticket.id}
+                          className="inline-flex items-center justify-center p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 focus:outline-none disabled:opacity-50"
+                          title={t('tickets.delete') || 'Delete'}
+                          aria-label={t('tickets.delete') || 'Delete'}
+                        >
+                          <Icon name="trash" className="w-5 h-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -328,6 +360,59 @@ const SupportTickets: React.FC = () => {
                   </div>
                 </section>
               )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setTicketToDelete(selectedTicket)}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 ${isRtl ? 'flex-row-reverse' : ''}`}
+              >
+                <Icon name="trash" className="w-4 h-4" />
+                {t('tickets.delete') || 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {ticketToDelete && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[60] flex justify-center items-center p-4"
+          onClick={() => !deletingId && setTicketToDelete(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ticket-delete-title"
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="ticket-delete-title" className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              {t('tickets.delete.confirmTitle')}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {t('tickets.delete.confirmMessage')}
+            </p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4 truncate">
+              #{ticketToDelete.id} — {ticketToDelete.title}
+            </p>
+            <div className={`flex gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <button
+                type="button"
+                onClick={() => setTicketToDelete(null)}
+                disabled={!!deletingId}
+                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={!!deletingId}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50"
+              >
+                {deletingId ? '...' : t('common.delete')}
+              </button>
             </div>
           </div>
         </div>

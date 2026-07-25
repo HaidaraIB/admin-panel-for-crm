@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Icon from '../components/Icon';
+import FilterButton from '../components/FilterButton';
 import { useI18n } from '../context/i18n';
 import {
   getAllPaymentsAPI,
@@ -534,20 +535,13 @@ const Reports: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('reports.title')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{rangeLabel}</p>
         </div>
-        <div className="flex gap-2 self-start md:self-auto">
-          <button
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <FilterButton
             onClick={() => setIsFilterDrawerOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:border-primary-400 dark:hover:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition"
-            type="button"
+            hasActiveFilters={hasActiveFilters}
           >
-            <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-300">
-              <Icon name="filter" className="w-4 h-4" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">
-              {t('reports.filters.open')}
-            </span>
-            {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary-500" />}
-          </button>
+            {t('reports.filters.open')}
+          </FilterButton>
         </div>
       </div>
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">

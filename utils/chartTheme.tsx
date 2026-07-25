@@ -93,8 +93,24 @@ export function renderChartLegend(theme: ChartTheme, language: string) {
 }
 
 export function useIsDarkMode(): boolean {
-  if (typeof document === 'undefined') {
-    return false;
-  }
-  return document.documentElement.classList.contains('dark');
+  const [isDark, setIsDark] = React.useState(() => {
+    if (typeof document === 'undefined') {
+      return false;
+    }
+    return document.documentElement.classList.contains('dark');
+  });
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const root = document.documentElement;
+    const sync = () => setIsDark(root.classList.contains('dark'));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  return isDark;
 }

@@ -1124,3 +1124,10 @@ export const updateSupportTicketStatusAPI = async (id: number, data: { status: s
   });
 };
 
+/** DELETE /api/support-tickets/{id}/ - delete a support ticket (super admin) */
+export const deleteSupportTicketAPI = async (id: number) => {
+  await apiRequest<void>(`/support-tickets/${id}/`, {
+    method: 'DELETE',
+  });
+};
+
