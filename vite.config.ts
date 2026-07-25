@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => {
         rollupOptions: {
           output: {
             manualChunks: {
-              'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+              'vendor-react': ['react', 'react-dom', 'react-router'],
               'vendor-ui': ['recharts'],
             },
             chunkFileNames: 'assets/[name]-[hash].js',

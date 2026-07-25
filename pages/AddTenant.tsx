@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
 import { translateAdminApiError } from '../utils/translateApiError';

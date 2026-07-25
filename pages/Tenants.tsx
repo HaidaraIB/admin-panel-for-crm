@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import Icon from '../components/Icon';
 import FilterButton from '../components/FilterButton';
 import LoadingSpinner from '../components/LoadingSpinner';

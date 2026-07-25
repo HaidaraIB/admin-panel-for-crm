@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router';
 import Icon from './Icon';
 import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';

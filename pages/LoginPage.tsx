@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';
 import LoadingSpinner from '../components/LoadingSpinner';
