@@ -217,6 +217,7 @@ export interface PaymentGateway {
     // Generic fields (for Stripe, etc.)
     publishableKey?: string;
     secretKey?: string;
+    webhookSecret?: string;
     environment?: 'test' | 'live';
     // Paytabs specific fields
     profileId?: string;

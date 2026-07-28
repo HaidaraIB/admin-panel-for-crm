@@ -38,6 +38,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         clientKey: config.clientKey || '',
         publishableKey: config.publishableKey || '',
         secretKey: config.secretKey || '',
+        webhookSecret: config.webhookSecret || '',
         terminalId: config.terminalId || '',
         username: config.username || '',
         password: config.password || '',
@@ -68,7 +69,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     }
     setTestStatus('idle'); // Reset test status on any input change
     // Only reset testPassed if a credential field changed
-    const credentialFields = ['merchantId', 'merchantSecret', 'profileId', 'serverKey', 'clientKey', 'publishableKey', 'secretKey', 'terminalId', 'username', 'password', 'clientId', 'clientSecret'];
+    const credentialFields = ['merchantId', 'merchantSecret', 'profileId', 'serverKey', 'clientKey', 'publishableKey', 'secretKey', 'webhookSecret', 'terminalId', 'username', 'password', 'clientId', 'clientSecret'];
     if (credentialFields.includes(name)) {
       setTestPassed(false); // Reset test passed flag when credentials change
     }
@@ -520,6 +521,26 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                 </button>
                             </div>
                         </div>
+                        {isStripe && (
+                        <div>
+                            <label htmlFor="webhookSecret" className={labelClasses}>
+                                {t('paymentGateways.modal.webhookSecret')}
+                            </label>
+                            <input
+                                id="webhookSecret"
+                                name="webhookSecret"
+                                type="password"
+                                value={formData.webhookSecret || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                autoComplete="new-password"
+                                placeholder="whsec_..."
+                            />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                {t('paymentGateways.modal.webhookSecretHint')}
+                            </p>
+                        </div>
+                        )}
                     </>
                 )}
                 {!isFib && (
@@ -553,7 +574,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                 )}
                 
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                     <button type="button" onClick={handleTestConnection} disabled={testStatus === 'testing'} className="w-full flex justify-center items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-70 disabled:cursor-wait">
+                     <button type="button" onClick={handleTestConnection} disabled={testStatus === 'testing'} className="w-full flex justify-center items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:cursor-wait">
                         {testStatus === 'testing' ? <LoadingSpinner /> : t('paymentGateways.modal.testConnection')}
                      </button>
                      {testStatus === 'success' && (
