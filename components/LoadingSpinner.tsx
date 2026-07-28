@@ -17,10 +17,10 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   const barClass = size === 'sm' ? 'w-1' : size === 'lg' ? 'w-2' : 'w-1.5';
   const colorClass =
     tone === 'light'
-      ? 'text-white/90'
+      ? 'text-white'
       : tone === 'muted'
-        ? 'text-gray-400 dark:text-gray-500'
-        : 'text-primary-500';
+        ? 'text-gray-500 dark:text-gray-300'
+        : 'text-primary-600 dark:text-primary-300';
 
   return (
     <div
