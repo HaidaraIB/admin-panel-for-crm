@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Icon from '../components/Icon';
+import FilterButton from '../components/FilterButton';
 import { Plan, Payment, Invoice, PaymentStatus, Tenant, type InvoicePaymentStatus, type BillingBranding } from '../types';
 import { useI18n } from '../context/i18n';
 import PlanModal from '../components/PlanModal';
@@ -29,6 +30,20 @@ import { translateAdminApiError } from '../utils/translateApiError';
 import AlertDialog from '../components/AlertDialog';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
+import SubscriptionsFilterDrawer, {
+  SubscriptionsFilters,
+  subscriptionsFilterDefaults,
+} from '../components/SubscriptionsFilterDrawer';
+import { hasActiveFilters as filtersAreActive } from '../components/filters';
+
+const dateInRange = (dateStr: string | undefined | null, fromDate: string, toDate: string): boolean => {
+  if (!fromDate && !toDate) return true;
+  if (!dateStr) return false;
+  const d = String(dateStr).slice(0, 10);
+  if (fromDate && d < fromDate) return false;
+  if (toDate && d > toDate) return false;
+  return true;
+};
 function classifyPlanTypeFromApi(plan: {
   price_monthly?: string | number;
   price_yearly?: string | number;
@@ -393,10 +408,19 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     </div>
 )};
 
+const PAYMENT_STATUS_OPTIONS = [
+    PaymentStatus.Successful,
+    PaymentStatus.Pending,
+    PaymentStatus.Failed,
+    PaymentStatus.Canceled,
+];
+
 const PaymentsTab: React.FC = () => {
     const { t, language } = useI18n();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [filters, setFilters] = useState<SubscriptionsFilters>(subscriptionsFilterDefaults);
+    const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
     useEffect(() => {
         loadPayments();
@@ -459,46 +483,99 @@ const PaymentsTab: React.FC = () => {
         [PaymentStatus.Canceled]: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
     };
 
+    const filteredPayments = useMemo(() => {
+        return payments.filter((p) => {
+            const searchTerm = filters.search.trim().toLowerCase();
+            if (searchTerm) {
+                const haystack = `${p.id} ${p.companyName} ${p.plan}`.toLowerCase();
+                if (!haystack.includes(searchTerm)) return false;
+            }
+            if (filters.status && p.status !== filters.status) return false;
+            if (!dateInRange(p.date, filters.fromDate, filters.toDate)) return false;
+            return true;
+        });
+    }, [payments, filters]);
+
+    const filtersActive = useMemo(
+        () => filtersAreActive(filters, subscriptionsFilterDefaults),
+        [filters],
+    );
+
+    const handleApplyFilters = (next: SubscriptionsFilters) => {
+        setFilters(next);
+        setIsFilterDrawerOpen(false);
+    };
+
+    const handleResetFilters = () => {
+        setFilters(subscriptionsFilterDefaults);
+    };
+
     return (
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-            <div className="overflow-x-auto">
-                <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
-                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                        <tr>
-                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.transactionId')}</th>
-                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.companyName')}</th>
-                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.amount')}</th>
-                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.status')}</th>
-                            <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.date')}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {isLoading ? (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    {t('subscriptions.payments.loading')}
-                                </td>
-                            </tr>
-                        ) : payments.length === 0 ? (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    {t('subscriptions.payments.noPayments')}
-                                </td>
-                            </tr>
-                        ) : (
-                            payments.map(p => (
-                            <tr key={p.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                <td className="px-6 py-4 text-center font-mono">{p.id}</td>
-                                <td className="px-6 py-4 text-center">{p.companyName}</td>
-                                <td className="px-6 py-4 text-center">${(p.amountUsd != null ? p.amountUsd : p.amount).toLocaleString(undefined, withLatinDigits({ minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</td>
-                                <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
-                                <td className="px-6 py-4 text-center">{p.date}</td>
-                            </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+        <div className="space-y-4">
+            <div className="flex justify-end">
+                <FilterButton
+                    onClick={() => setIsFilterDrawerOpen(true)}
+                    hasActiveFilters={filtersActive}
+                >
+                    {t('subscriptions.filters.open')}
+                </FilterButton>
             </div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+                <div className="overflow-x-auto">
+                    <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
+                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                            <tr>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.transactionId')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.companyName')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.amount')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.status')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.date')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                        {t('subscriptions.payments.loading')}
+                                    </td>
+                                </tr>
+                            ) : payments.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                        {t('subscriptions.payments.noPayments')}
+                                    </td>
+                                </tr>
+                            ) : filteredPayments.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                        {t('filters.noResults')}
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredPayments.map(p => (
+                                <tr key={p.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                    <td className="px-6 py-4 text-center font-mono">{p.id}</td>
+                                    <td className="px-6 py-4 text-center">{p.companyName}</td>
+                                    <td className="px-6 py-4 text-center">${(p.amountUsd != null ? p.amountUsd : p.amount).toLocaleString(undefined, withLatinDigits({ minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</td>
+                                    <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
+                                    <td className="px-6 py-4 text-center">{p.date}</td>
+                                </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <SubscriptionsFilterDrawer
+                isOpen={isFilterDrawerOpen}
+                onClose={() => setIsFilterDrawerOpen(false)}
+                filters={filters}
+                onApply={handleApplyFilters}
+                onReset={handleResetFilters}
+                statusOptions={PAYMENT_STATUS_OPTIONS}
+                showStatus
+                showDates
+            />
         </div>
     )
 };
@@ -534,6 +611,8 @@ const invoicePaymentStatusColors: Record<InvoicePaymentStatus, string> = {
     canceled: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
 };
 
+const INVOICE_STATUS_OPTIONS: InvoicePaymentStatus[] = ['completed', 'pending', 'failed', 'canceled'];
+
 const InvoicesTab: React.FC = () => {
     const { t, language } = useI18n();
     const { logoUrl } = useTheme();
@@ -545,6 +624,8 @@ const InvoicesTab: React.FC = () => {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [branding, setBranding] = useState<Partial<BillingBranding> | null>(null);
+    const [filters, setFilters] = useState<SubscriptionsFilters>(subscriptionsFilterDefaults);
+    const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
     useEffect(() => {
         loadInvoices();
@@ -636,80 +717,124 @@ const InvoicesTab: React.FC = () => {
         return c === 'USD' ? `$${n}` : `${n} ${c}`;
     };
 
+    const filteredInvoices = useMemo(() => {
+        return invoices.filter((inv) => {
+            const searchTerm = filters.search.trim().toLowerCase();
+            if (searchTerm) {
+                const haystack = `${inv.id} ${inv.companyName} ${inv.planName} ${inv.lineDescription}`.toLowerCase();
+                if (!haystack.includes(searchTerm)) return false;
+            }
+            if (filters.status && inv.paymentStatus !== filters.status) return false;
+            const dateValue = inv.dueDate || (inv.createdAt ? String(inv.createdAt).slice(0, 10) : '');
+            if (!dateInRange(dateValue, filters.fromDate, filters.toDate)) return false;
+            return true;
+        });
+    }, [invoices, filters]);
+
+    const filtersActive = useMemo(
+        () => filtersAreActive(filters, subscriptionsFilterDefaults),
+        [filters],
+    );
+
+    const handleApplyFilters = (next: SubscriptionsFilters) => {
+        setFilters(next);
+        setIsFilterDrawerOpen(false);
+    };
+
+    const handleResetFilters = () => {
+        setFilters(subscriptionsFilterDefaults);
+    };
+
     return (
         <>
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-                 <div className="overflow-x-auto">
-                     <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
-                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                            <tr>
-                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.invoiceNo')}</th>
-                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.companyName')}</th>
-                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.amount')}</th>
-                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.status')}</th>
-                                <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.dueDate')}</th>
-                                <th className="px-6 py-3 text-center">{t('tenants.table.actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {isLoading ? (
+            <div className="space-y-4">
+                <div className="flex justify-end">
+                    <FilterButton
+                        onClick={() => setIsFilterDrawerOpen(true)}
+                        hasActiveFilters={filtersActive}
+                    >
+                        {t('subscriptions.filters.open')}
+                    </FilterButton>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+                     <div className="overflow-x-auto">
+                         <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
+                             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                        {t('subscriptions.invoices.loading')}
-                                    </td>
+                                    <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.invoiceNo')}</th>
+                                    <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.companyName')}</th>
+                                    <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.amount')}</th>
+                                    <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.status')}</th>
+                                    <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.dueDate')}</th>
+                                    <th className="px-6 py-3 text-center">{t('tenants.table.actions')}</th>
                                 </tr>
-                            ) : invoices.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                        {t('subscriptions.invoices.noInvoices')}
-                                    </td>
-                                </tr>
-                            ) : (
-                                invoices.map(i => (
-                                <tr key={i.numericId} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                    <td className="px-6 py-4 text-center font-mono">{i.id}</td>
-                                    <td className="px-6 py-4 text-center">{i.companyName}</td>
-                                    <td className="px-6 py-4 text-center">{formatAmount(i.amount, i.currency)}</td>
-                                    <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${invoicePaymentStatusColors[i.paymentStatus]}`}>{t(`status.${invoiceStatusLabelKey(i.paymentStatus)}`)}</span></td>
-                                    <td className="px-6 py-4 text-center">{i.dueDate || '—'}</td>
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button type="button" onClick={() => handleViewInvoice(i)} className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title={t('subscriptions.invoices.viewInvoice')}><Icon name="view" className="w-5 h-5"/></button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDownloadPdf(i)}
-                                                disabled={downloadingId != null}
-                                                className="w-8 h-8 p-1 flex items-center justify-center text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-60 disabled:cursor-wait"
-                                                title={t('subscriptions.invoices.downloadPdf')}
-                                                aria-busy={downloadingId === i.numericId}
-                                            >
-                                                {downloadingId === i.numericId ? (
-                                                    <LoadingSpinner size="sm" tone="muted" label={t('common.loading') || 'Loading'} />
-                                                ) : (
-                                                    <Icon name="download" className="w-5 h-5" />
-                                                )}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSendEmail(i)}
-                                                disabled={sendingId != null}
-                                                className="w-8 h-8 p-1 flex items-center justify-center text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 disabled:opacity-60 disabled:cursor-wait"
-                                                title={t('subscriptions.invoices.sendEmail')}
-                                                aria-busy={sendingId === i.numericId}
-                                            >
-                                                {sendingId === i.numericId ? (
-                                                    <LoadingSpinner size="sm" tone="muted" label={t('common.loading') || 'Loading'} />
-                                                ) : (
-                                                    <Icon name="mail" className="w-5 h-5" />
-                                                )}
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                            {t('subscriptions.invoices.loading')}
+                                        </td>
+                                    </tr>
+                                ) : invoices.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                            {t('subscriptions.invoices.noInvoices')}
+                                        </td>
+                                    </tr>
+                                ) : filteredInvoices.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                            {t('filters.noResults')}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredInvoices.map(i => (
+                                    <tr key={i.numericId} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                        <td className="px-6 py-4 text-center font-mono">{i.id}</td>
+                                        <td className="px-6 py-4 text-center">{i.companyName}</td>
+                                        <td className="px-6 py-4 text-center">{formatAmount(i.amount, i.currency)}</td>
+                                        <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${invoicePaymentStatusColors[i.paymentStatus]}`}>{t(`status.${invoiceStatusLabelKey(i.paymentStatus)}`)}</span></td>
+                                        <td className="px-6 py-4 text-center">{i.dueDate || '—'}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button type="button" onClick={() => handleViewInvoice(i)} className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title={t('subscriptions.invoices.viewInvoice')}><Icon name="view" className="w-5 h-5"/></button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDownloadPdf(i)}
+                                                    disabled={downloadingId != null}
+                                                    className="w-8 h-8 p-1 flex items-center justify-center text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-60 disabled:cursor-wait"
+                                                    title={t('subscriptions.invoices.downloadPdf')}
+                                                    aria-busy={downloadingId === i.numericId}
+                                                >
+                                                    {downloadingId === i.numericId ? (
+                                                        <LoadingSpinner size="sm" tone="muted" label={t('common.loading') || 'Loading'} />
+                                                    ) : (
+                                                        <Icon name="download" className="w-5 h-5" />
+                                                    )}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSendEmail(i)}
+                                                    disabled={sendingId != null}
+                                                    className="w-8 h-8 p-1 flex items-center justify-center text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 disabled:opacity-60 disabled:cursor-wait"
+                                                    title={t('subscriptions.invoices.sendEmail')}
+                                                    aria-busy={sendingId === i.numericId}
+                                                >
+                                                    {sendingId === i.numericId ? (
+                                                        <LoadingSpinner size="sm" tone="muted" label={t('common.loading') || 'Loading'} />
+                                                    ) : (
+                                                        <Icon name="mail" className="w-5 h-5" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             <InvoiceModal 
@@ -719,9 +844,22 @@ const InvoicesTab: React.FC = () => {
                 logoUrl={logoUrl}
                 branding={branding}
             />
+            <SubscriptionsFilterDrawer
+                isOpen={isFilterDrawerOpen}
+                onClose={() => setIsFilterDrawerOpen(false)}
+                filters={filters}
+                onApply={handleApplyFilters}
+                onReset={handleResetFilters}
+                statusOptions={INVOICE_STATUS_OPTIONS}
+                showStatus
+                showDates
+                getStatusLabel={(status) => t(`status.${invoiceStatusLabelKey(status as InvoicePaymentStatus)}`)}
+            />
         </>
     )
 };
+
+const SUBSCRIPTION_STATUS_OPTIONS = ['Active', 'Inactive'];
 
 const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const { t, language } = useI18n();
@@ -732,6 +870,8 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const [showNoPaymentConfirm, setShowNoPaymentConfirm] = useState(false);
   const [pendingActivateSub, setPendingActivateSub] = useState<any | null>(null);
   const [isTogglingSub, setIsTogglingSub] = useState(false);
+  const [filters, setFilters] = useState<SubscriptionsFilters>(subscriptionsFilterDefaults);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   useEffect(() => {
     loadSubscriptions();
@@ -833,103 +973,156 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     }
   };
 
+  const filteredSubscriptions = useMemo(() => {
+    return subscriptions.filter((sub: any) => {
+      const searchTerm = filters.search.trim().toLowerCase();
+      if (searchTerm) {
+        const planName = language === 'ar' && sub.plan_name_ar?.trim()?.length
+          ? sub.plan_name_ar
+          : sub.plan_name;
+        const haystack = `${sub.company_name || ''} ${planName || ''} ${sub.id || ''}`.toLowerCase();
+        if (!haystack.includes(searchTerm)) return false;
+      }
+      if (filters.status === 'Active' && !sub.is_active) return false;
+      if (filters.status === 'Inactive' && sub.is_active) return false;
+      return true;
+    });
+  }, [subscriptions, filters, language]);
+
+  const filtersActive = useMemo(
+    () => filtersAreActive(filters, subscriptionsFilterDefaults),
+    [filters],
+  );
+
+  const handleApplyFilters = (next: SubscriptionsFilters) => {
+    setFilters(next);
+    setIsFilterDrawerOpen(false);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(subscriptionsFilterDefaults);
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-            <tr>
-              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.companyName')}</th>
-              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.plan')}</th>
-              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.startDate')}</th>
-              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.endDate')}</th>
-              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.status')}</th>
-              <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <FilterButton
+          onClick={() => setIsFilterDrawerOpen(true)}
+          hasActiveFilters={filtersActive}
+        >
+          {t('subscriptions.filters.open')}
+        </FilterButton>
+      </div>
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+            <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                  {t('subscriptions.subscriptions.loading')}
-                </td>
+                <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.companyName')}</th>
+                <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.plan')}</th>
+                <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.startDate')}</th>
+                <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.endDate')}</th>
+                <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.status')}</th>
+                <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.actions')}</th>
               </tr>
-            ) : subscriptions.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                  {t('subscriptions.subscriptions.noSubscriptions') || 'No subscriptions found'}
-                </td>
-              </tr>
-            ) : (
-              subscriptions.map((sub: any) => {
-                const statusColor = sub.is_active 
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-                const planNameForDisplay = language === 'ar' && (sub.plan_name_ar?.trim()?.length)
-                  ? sub.plan_name_ar
-                  : sub.plan_name;
-                return (
-                <tr key={sub.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                  <td className="px-6 py-4 text-center font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                    {sub.company_name}
-                  </td>
-                  <td className="px-6 py-4 text-center">{planNameForDisplay}</td>
-                  <td className="px-6 py-4 text-center">
-                    {sub.start_date ? new Date(sub.start_date).toISOString().split('T')[0] : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    {sub.end_date ? new Date(sub.end_date).toISOString().split('T')[0] : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      sub.is_active 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                    }`}>
-                      {sub.is_active ? t('status.Active') : t('status.Inactive')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={sub.is_active} 
-                          onChange={() => handleToggleActive(sub)} 
-                          className="sr-only peer" 
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
-                      </label>
-                    </div>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    {t('subscriptions.subscriptions.loading')}
                   </td>
                 </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+              ) : subscriptions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    {t('subscriptions.subscriptions.noSubscriptions') || 'No subscriptions found'}
+                  </td>
+                </tr>
+              ) : filteredSubscriptions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    {t('filters.noResults')}
+                  </td>
+                </tr>
+              ) : (
+                filteredSubscriptions.map((sub: any) => {
+                  const planNameForDisplay = language === 'ar' && (sub.plan_name_ar?.trim()?.length)
+                    ? sub.plan_name_ar
+                    : sub.plan_name;
+                  return (
+                  <tr key={sub.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                    <td className="px-6 py-4 text-center font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                      {sub.company_name}
+                    </td>
+                    <td className="px-6 py-4 text-center">{planNameForDisplay}</td>
+                    <td className="px-6 py-4 text-center">
+                      {sub.start_date ? new Date(sub.start_date).toISOString().split('T')[0] : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {sub.end_date ? new Date(sub.end_date).toISOString().split('T')[0] : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        sub.is_active 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {sub.is_active ? t('status.Active') : t('status.Inactive')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={sub.is_active} 
+                            onChange={() => handleToggleActive(sub)} 
+                            className="sr-only peer" 
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
+                        </label>
+                      </div>
+                    </td>
+                  </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <AlertDialog
+          isOpen={showFirstConfirm}
+          onClose={() => { setShowFirstConfirm(false); setPendingActivateSub(null); }}
+          title={t('subscriptions.activation.confirmTitle')}
+          message={t('subscriptions.activation.confirmMessage')}
+          type="info"
+          showCancel
+          confirmText={t('subscriptions.activation.confirmActivate')}
+          onConfirm={handleFirstConfirmActivate}
+          disabled={isTogglingSub}
+        />
+        <AlertDialog
+          isOpen={showNoPaymentConfirm}
+          onClose={() => { setShowNoPaymentConfirm(false); setPendingActivateSub(null); }}
+          title={t('subscriptions.activation.noPaymentWarningTitle')}
+          message={t('subscriptions.activation.noPaymentWarningMessage')}
+          type="warning"
+          showCancel
+          confirmText={t('subscriptions.activation.confirmActivate')}
+          onConfirm={handleNoPaymentConfirmActivate}
+          disabled={isTogglingSub}
+        />
       </div>
-      <AlertDialog
-        isOpen={showFirstConfirm}
-        onClose={() => { setShowFirstConfirm(false); setPendingActivateSub(null); }}
-        title={t('subscriptions.activation.confirmTitle')}
-        message={t('subscriptions.activation.confirmMessage')}
-        type="info"
-        showCancel
-        confirmText={t('subscriptions.activation.confirmActivate')}
-        onConfirm={handleFirstConfirmActivate}
-        disabled={isTogglingSub}
-      />
-      <AlertDialog
-        isOpen={showNoPaymentConfirm}
-        onClose={() => { setShowNoPaymentConfirm(false); setPendingActivateSub(null); }}
-        title={t('subscriptions.activation.noPaymentWarningTitle')}
-        message={t('subscriptions.activation.noPaymentWarningMessage')}
-        type="warning"
-        showCancel
-        confirmText={t('subscriptions.activation.confirmActivate')}
-        onConfirm={handleNoPaymentConfirmActivate}
-        disabled={isTogglingSub}
+      <SubscriptionsFilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        filters={filters}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+        statusOptions={SUBSCRIPTION_STATUS_OPTIONS}
+        showStatus
+        showDates={false}
       />
     </div>
   );

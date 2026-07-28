@@ -12,6 +12,7 @@ import TenantActivationModal from '../components/TenantActivationModal';
 import { useAuditLog } from '../context/AuditLogContext';
 import { useAlert } from '../context/AlertContext';
 import TenantsFilterDrawer, { TenantFilters, tenantFilterDefaults } from '../components/TenantsFilterDrawer';
+import { hasActiveFilters as filtersAreActive } from '../components/filters';
 import { impersonateAPI } from '../services/api';
 
 const statusColors: { [key in TenantStatus]: string } = {
@@ -148,17 +149,10 @@ const Tenants: React.FC<TenantsProps> = ({
         });
     }, [tenants, filters]);
 
-    const hasActiveFilters = useMemo(() => {
-        return (
-            filters.search.trim() !== '' ||
-            filters.plan !== '' ||
-            filters.statuses.length > 0 ||
-            filters.startDateFrom !== '' ||
-            filters.startDateTo !== '' ||
-            filters.endDateFrom !== '' ||
-            filters.endDateTo !== ''
-        );
-    }, [filters]);
+    const filtersActive = useMemo(
+        () => filtersAreActive(filters, tenantFilterDefaults),
+        [filters],
+    );
 
     const handleApplyFilters = (nextFilters: TenantFilters) => {
         setFilters(nextFilters);
@@ -234,7 +228,7 @@ const Tenants: React.FC<TenantsProps> = ({
                     </button>
                     <FilterButton
                         onClick={() => setIsFilterDrawerOpen(true)}
-                        hasActiveFilters={hasActiveFilters}
+                        hasActiveFilters={filtersActive}
                     >
                         {t('tenants.filters.open')}
                     </FilterButton>

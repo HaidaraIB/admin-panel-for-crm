@@ -12,6 +12,7 @@ import {
 } from '../services/api';
 import Skeleton from '../components/Skeleton';
 import ReportsFilterDrawer, { ReportsFilters, reportsFilterDefaults } from '../components/ReportsFilterDrawer';
+import { hasActiveFilters as filtersAreActive } from '../components/filters';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
 import { getChartTheme, renderChartLegend, useIsDarkMode } from '../utils/chartTheme';
@@ -509,8 +510,8 @@ const Reports: React.FC = () => {
     { id: 'subscribers', label: t('reports.tabs.subscribers') },
   ];
 
-  const hasActiveFilters = useMemo(
-    () => filters.fromDate !== '' || filters.toDate !== '',
+  const filtersActive = useMemo(
+    () => filtersAreActive(filters, reportsFilterDefaults),
     [filters]
   );
 
@@ -538,7 +539,7 @@ const Reports: React.FC = () => {
         <div className="flex items-center gap-2 self-start md:self-auto">
           <FilterButton
             onClick={() => setIsFilterDrawerOpen(true)}
-            hasActiveFilters={hasActiveFilters}
+            hasActiveFilters={filtersActive}
           >
             {t('reports.filters.open')}
           </FilterButton>

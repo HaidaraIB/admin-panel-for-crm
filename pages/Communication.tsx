@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Icon from '../components/Icon';
+import FilterButton from '../components/FilterButton';
 import { Broadcast } from '../types';
 import { useI18n } from '../context/i18n';
 import BroadcastViewModal from '../components/BroadcastViewModal';
@@ -9,6 +10,20 @@ import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcast
 import LoadingSpinner from '../components/LoadingSpinner';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
+import CommunicationFilterDrawer, {
+  CommunicationFilters,
+  communicationFilterDefaults,
+} from '../components/CommunicationFilterDrawer';
+import { hasActiveFilters as filtersAreActive } from '../components/filters';
+
+const dateInRange = (dateStr: string | undefined | null, fromDate: string, toDate: string): boolean => {
+    if (!fromDate && !toDate) return true;
+    if (!dateStr) return false;
+    const d = String(dateStr).slice(0, 10);
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
+    return true;
+};
 
 const mapBroadcastFromApi = (broadcast: any): Broadcast => {
     const targets = Array.isArray(broadcast.targets) && broadcast.targets.length > 0
@@ -524,6 +539,8 @@ interface HistoryProps {
 
 const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh, isLoading = false, lastUpdated, plans, companies }) => {
     const { t, language } = useI18n();
+    const [filters, setFilters] = useState<CommunicationFilters>(communicationFilterDefaults);
+    const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
     const statusLabels: Record<Broadcast['status'], string> = {
         sent: t('communication.history.status.sent'),
@@ -540,6 +557,17 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
         failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
         draft: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
     };
+
+    const statusFilterOptions = useMemo(
+        () => [
+            { value: 'sent', label: t('communication.history.status.sent') },
+            { value: 'scheduled', label: t('communication.history.status.scheduled') },
+            { value: 'pending', label: t('communication.history.status.pending') },
+            { value: 'failed', label: t('communication.history.status.failed') },
+            { value: 'draft', label: t('communication.history.status.draft') },
+        ],
+        [t],
+    );
 
     const getDisplayDate = (record: Broadcast) => {
         const value = record.sentAt || record.scheduledAt || record.createdAt;
@@ -574,6 +602,40 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
         }
     })();
 
+    const filteredHistory = useMemo(() => {
+        return history.filter((item) => {
+            const searchTerm = filters.search.trim().toLowerCase();
+            if (searchTerm && !(item.subject || '').toLowerCase().includes(searchTerm)) {
+                return false;
+            }
+            if (filters.status && getDisplayStatus(item) !== filters.status) {
+                return false;
+            }
+            if (filters.type && item.broadcast_type !== filters.type) {
+                return false;
+            }
+            const dateValue = item.sentAt || item.scheduledAt || item.createdAt;
+            if (!dateInRange(dateValue, filters.fromDate, filters.toDate)) {
+                return false;
+            }
+            return true;
+        });
+    }, [history, filters]);
+
+    const filtersActive = useMemo(
+        () => filtersAreActive(filters, communicationFilterDefaults),
+        [filters],
+    );
+
+    const handleApplyFilters = (next: CommunicationFilters) => {
+        setFilters(next);
+        setIsFilterDrawerOpen(false);
+    };
+
+    const handleResetFilters = () => {
+        setFilters(communicationFilterDefaults);
+    };
+
     return (
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md space-y-4">
             <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
@@ -585,17 +647,25 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                         </p>
                     )}
                 </div>
-                {onRefresh && (
-                    <button
-                        type="button"
-                        onClick={onRefresh}
-                        disabled={isLoading}
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                <div className="flex items-center gap-2">
+                    <FilterButton
+                        onClick={() => setIsFilterDrawerOpen(true)}
+                        hasActiveFilters={filtersActive}
                     >
-                        {isLoading ? <LoadingSpinner size="sm" label={t('common.loading') || 'Loading'} /> : <Icon name="refresh" className="w-4 h-4" />}
-                        <span>{t('common.refresh')}</span>
-                    </button>
-                )}
+                        {t('communication.filters.open')}
+                    </FilterButton>
+                    {onRefresh && (
+                        <button
+                            type="button"
+                            onClick={onRefresh}
+                            disabled={isLoading}
+                            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                        >
+                            {isLoading ? <LoadingSpinner size="sm" label={t('common.loading') || 'Loading'} /> : <Icon name="refresh" className="w-4 h-4" />}
+                            <span>{t('common.refresh')}</span>
+                        </button>
+                    )}
+                </div>
             </div>
             <div className="overflow-x-auto">
                 <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
@@ -624,8 +694,14 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                                     {t('communication.history.empty')}
                                 </td>
                             </tr>
+                        ) : filteredHistory.length === 0 ? (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                    {t('filters.noResults')}
+                                </td>
+                            </tr>
                         ) : (
-                            history.map(item => (
+                            filteredHistory.map(item => (
                                 <tr key={item.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                                     <td className="px-6 py-4 text-center">{item.subject}</td>
                                     <td className="px-6 py-4 text-center">
@@ -665,6 +741,14 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                     </tbody>
                 </table>
             </div>
+            <CommunicationFilterDrawer
+                isOpen={isFilterDrawerOpen}
+                onClose={() => setIsFilterDrawerOpen(false)}
+                filters={filters}
+                onApply={handleApplyFilters}
+                onReset={handleResetFilters}
+                statusOptions={statusFilterOptions}
+            />
         </div>
     );
 };

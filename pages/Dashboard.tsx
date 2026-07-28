@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import Icon from '../components/Icon';
 import Skeleton from '../components/Skeleton';
+import { FilterInput } from '../components/filters';
 import { useI18n } from '../context/i18n';
 import { useUser } from '../context/UserContext';
 import { getCompaniesAPI, getSubscriptionsAPI, getPaymentsAPI, getPlansAPI } from '../services/api';
@@ -591,21 +592,25 @@ const Dashboard: React.FC = () => {
             {isDatePickerOpen && (
               <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-4 space-y-4 z-50">
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400">{t('dashboard.filters.from')}</label>
-                  <input
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400" htmlFor="dashboard-filter-from">
+                    {t('dashboard.filters.from')}
+                  </label>
+                  <FilterInput
+                    id="dashboard-filter-from"
                     type="date"
                     value={tempRange.start}
                     onChange={(event) => handleTempRangeChange('start', event.target.value)}
-                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400">{t('dashboard.filters.to')}</label>
-                  <input
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400" htmlFor="dashboard-filter-to">
+                    {t('dashboard.filters.to')}
+                  </label>
+                  <FilterInput
+                    id="dashboard-filter-to"
                     type="date"
                     value={tempRange.end}
                     onChange={(event) => handleTempRangeChange('end', event.target.value)}
-                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                   />
                 </div>
                 {dateError && <p className="text-xs text-red-500">{dateError}</p>}

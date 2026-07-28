@@ -1,6 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import Icon from './Icon';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useI18n } from '../context/i18n';
+import {
+  FilterDrawerShell,
+  FilterSection,
+  FilterLabel,
+  FilterInput,
+} from './filters';
 
 export interface ReportsFilters {
   fromDate: string;
@@ -27,18 +32,12 @@ const ReportsFilterDrawer: React.FC<ReportsFilterDrawerProps> = ({
   onApply,
   onReset,
 }) => {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [localFilters, setLocalFilters] = useState<ReportsFilters>(filters);
 
-  useEffect(() => {
-    if (isOpen) {
-      setLocalFilters(filters);
-    }
-  }, [isOpen, filters]);
-
-  if (!isOpen) {
-    return null;
-  }
+  const syncDraft = useCallback(() => {
+    setLocalFilters(filters);
+  }, [filters]);
 
   const handleClose = () => {
     setLocalFilters(filters);
@@ -52,7 +51,13 @@ const ReportsFilterDrawer: React.FC<ReportsFilterDrawerProps> = ({
     }));
   };
 
+  const isInvalidRange = useMemo(() => {
+    if (!localFilters.fromDate || !localFilters.toDate) return false;
+    return localFilters.fromDate > localFilters.toDate;
+  }, [localFilters.fromDate, localFilters.toDate]);
+
   const handleApply = () => {
+    if (isInvalidRange) return;
     onApply(localFilters);
   };
 
@@ -61,90 +66,49 @@ const ReportsFilterDrawer: React.FC<ReportsFilterDrawerProps> = ({
     onReset();
   };
 
-  const drawerPositionClasses = language === 'ar' ? 'justify-start' : 'justify-end';
-  const drawerBorderClasses = language === 'ar'
-    ? 'border-r border-gray-100 dark:border-gray-800'
-    : 'border-l border-gray-100 dark:border-gray-800';
-
   return (
-    <div className={`fixed inset-0 z-50 flex ${drawerPositionClasses}`}>
-      <div className="flex-1 bg-black/40" onClick={handleClose} />
-      <aside
-        className={`relative w-full max-w-md h-full bg-white dark:bg-gray-900 shadow-2xl ${drawerBorderClasses} flex flex-col`}
-      >
-        <div className="flex items-start justify-between p-6 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 gap-4">
+    <FilterDrawerShell
+      isOpen={isOpen}
+      onClose={handleClose}
+      onOpen={syncDraft}
+      subtitle={t('reports.filters.title')}
+      title={t('reports.title')}
+      onReset={handleReset}
+      onApply={handleApply}
+      applyDisabled={isInvalidRange}
+    >
+      <FilterSection title={t('reports.filters.dateRange')}>
+        <div className="space-y-4 pt-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {t('reports.filters.description')}
+          </p>
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-400">
-              {t('reports.filters.title')}
-            </p>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('reports.title')}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              {t('reports.filters.description')}
-            </p>
+            <FilterLabel htmlFor="reports-filter-from">{t('reports.filters.from')}</FilterLabel>
+            <FilterInput
+              id="reports-filter-from"
+              type="date"
+              value={localFilters.fromDate}
+              onChange={(event) => updateField('fromDate', event.target.value)}
+            />
           </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
-            aria-label="Close filters"
-          >
-            <Icon name="x" className="w-5 h-5" />
-          </button>
+          <div>
+            <FilterLabel htmlFor="reports-filter-to">{t('reports.filters.to')}</FilterLabel>
+            <FilterInput
+              id="reports-filter-to"
+              type="date"
+              value={localFilters.toDate}
+              onChange={(event) => updateField('toDate', event.target.value)}
+            />
+          </div>
+          {isInvalidRange && (
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+              {t('reports.filters.invalidRange')}
+            </p>
+          )}
         </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 pb-28">
-          <section>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-              {t('reports.filters.dateRange')}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  {t('reports.filter.from')}
-                </label>
-                <input
-                  type="date"
-                  value={localFilters.fromDate}
-                  onChange={(event) => updateField('fromDate', event.target.value)}
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  {t('reports.filter.to')}
-                </label>
-                <input
-                  type="date"
-                  value={localFilters.toDate}
-                  onChange={(event) => updateField('toDate', event.target.value)}
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30"
-                />
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div className="border-t border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-4 flex flex-col gap-3 sm:flex-row flex-shrink-0">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="w-full rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-          >
-            {t('reports.filters.reset')}
-          </button>
-          <button
-            type="button"
-            onClick={handleApply}
-            className="w-full rounded-lg bg-primary-600 text-white px-4 py-2 text-sm font-semibold hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition"
-          >
-            {t('reports.filters.apply')}
-          </button>
-        </div>
-      </aside>
-    </div>
+      </FilterSection>
+    </FilterDrawerShell>
   );
 };
 
 export default ReportsFilterDrawer;
-
-

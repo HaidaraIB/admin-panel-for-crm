@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Icon from '../components/Icon';
+import FilterButton from '../components/FilterButton';
 import { useI18n } from '../context/i18n';
 import {
   getSupportTicketsAPI,
@@ -8,12 +9,26 @@ import {
 } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { withLatinDigits } from '../utils/latinNumerals';
+import SupportTicketsFilterDrawer, {
+  SupportTicketsFilters,
+  supportTicketsFilterDefaults,
+} from '../components/SupportTicketsFilterDrawer';
+import { hasActiveFilters as filtersAreActive } from '../components/filters';
 
 const STATUS_OPTIONS = [
   { value: 'open', labelKey: 'tickets.status.open', className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100 border-amber-300 dark:border-amber-700' },
   { value: 'in_progress', labelKey: 'tickets.status.in_progress', className: 'bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100 border-blue-300 dark:border-blue-700' },
   { value: 'closed', labelKey: 'tickets.status.closed', className: 'bg-green-100 text-green-900 dark:bg-green-900/50 dark:text-green-100 border-green-300 dark:border-green-700' },
 ] as const;
+
+const dateInRange = (dateStr: string | undefined | null, fromDate: string, toDate: string): boolean => {
+  if (!fromDate && !toDate) return true;
+  if (!dateStr) return false;
+  const d = String(dateStr).slice(0, 10);
+  if (fromDate && d < fromDate) return false;
+  if (toDate && d > toDate) return false;
+  return true;
+};
 
 const SupportTickets: React.FC = () => {
   const { t, language } = useI18n();
@@ -25,6 +40,8 @@ const SupportTickets: React.FC = () => {
   const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
   const [openStatusDropdownId, setOpenStatusDropdownId] = useState<number | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const [filters, setFilters] = useState<SupportTicketsFilters>(supportTicketsFilterDefaults);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -90,6 +107,39 @@ const SupportTickets: React.FC = () => {
     return t('tickets.status.open');
   };
 
+  const filteredTickets = useMemo(() => {
+    return tickets.filter((ticket) => {
+      const searchTerm = filters.search.trim().toLowerCase();
+      if (searchTerm) {
+        const haystack = `${ticket.title || ''} ${ticket.company_name || ''} ${ticket.description || ''}`.toLowerCase();
+        if (!haystack.includes(searchTerm)) return false;
+      }
+      if (filters.status && (ticket.status || 'open') !== filters.status) return false;
+      const dateValue = ticket.created_at || ticket.updated_at;
+      if (!dateInRange(dateValue, filters.fromDate, filters.toDate)) return false;
+      return true;
+    });
+  }, [tickets, filters]);
+
+  const filtersActive = useMemo(
+    () => filtersAreActive(filters, supportTicketsFilterDefaults),
+    [filters],
+  );
+
+  const statusFilterOptions = useMemo(
+    () => STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.labelKey) })),
+    [t],
+  );
+
+  const handleApplyFilters = (next: SupportTicketsFilters) => {
+    setFilters(next);
+    setIsFilterDrawerOpen(false);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(supportTicketsFilterDefaults);
+  };
+
   const isRtl = language === 'ar';
 
   return (
@@ -98,17 +148,25 @@ const SupportTickets: React.FC = () => {
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
           {t('tickets.title')}
         </h1>
-        <button
-          type="button"
-          onClick={loadTickets}
-          disabled={loading}
-          className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-            isRtl ? 'flex-row-reverse' : ''
-          } bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50`}
-        >
-          <Icon name="refresh" className="w-4 h-4" />
-          {t('common.refresh') || 'Refresh'}
-        </button>
+        <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+          <FilterButton
+            onClick={() => setIsFilterDrawerOpen(true)}
+            hasActiveFilters={filtersActive}
+          >
+            {t('tickets.filters.open')}
+          </FilterButton>
+          <button
+            type="button"
+            onClick={loadTickets}
+            disabled={loading}
+            className={`inline-flex h-9 items-center gap-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              isRtl ? 'flex-row-reverse' : ''
+            } bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50`}
+          >
+            <Icon name="refresh" className="w-4 h-4" />
+            {t('common.refresh') || 'Refresh'}
+          </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
@@ -119,6 +177,10 @@ const SupportTickets: React.FC = () => {
         ) : tickets.length === 0 ? (
           <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
             {t('tickets.noTickets')}
+          </div>
+        ) : filteredTickets.length === 0 ? (
+          <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+            {t('filters.noResults')}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -146,7 +208,7 @@ const SupportTickets: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {tickets.map((ticket) => (
+                {filteredTickets.map((ticket) => (
                   <tr
                     key={ticket.id}
                     className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -235,6 +297,15 @@ const SupportTickets: React.FC = () => {
           </div>
         )}
       </div>
+
+      <SupportTicketsFilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        filters={filters}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+        statusOptions={statusFilterOptions}
+      />
 
       {selectedTicket && (
         <div

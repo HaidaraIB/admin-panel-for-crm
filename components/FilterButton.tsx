@@ -6,6 +6,8 @@ type FilterButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'ch
   children: React.ReactNode;
   /** Shows a primary dot when filters are applied. */
   hasActiveFilters?: boolean;
+  /** Hide the text label below the `sm` breakpoint (icon stays visible). */
+  hideLabelOnMobile?: boolean;
 };
 
 /**
@@ -14,6 +16,7 @@ type FilterButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'ch
 const FilterButton: React.FC<FilterButtonProps> = ({
   children,
   hasActiveFilters = false,
+  hideLabelOnMobile = true,
   className = '',
   type = 'button',
   ...props
@@ -27,7 +30,7 @@ const FilterButton: React.FC<FilterButtonProps> = ({
       <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-50 dark:bg-primary-900/40 text-primary-600 dark:text-primary-300">
         <Icon name="filter" className="w-3 h-3" />
       </span>
-      <span>{children}</span>
+      <span className={hideLabelOnMobile ? 'hidden sm:inline' : undefined}>{children}</span>
       {hasActiveFilters && (
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500" aria-hidden />
       )}
