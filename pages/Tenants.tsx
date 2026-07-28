@@ -169,19 +169,41 @@ const Tenants: React.FC<TenantsProps> = ({
     };
 
     const handleImpersonateConfirm = async () => {
-        if (!tenantToImpersonate) return;
+        if (!tenantToImpersonate || isImpersonating) return;
         setIsImpersonating(true);
         try {
             const data = await impersonateAPI({ company_id: tenantToImpersonate.id });
             if (data.impersonation_code && CRM_APP_URL) {
                 const url = `${CRM_APP_URL.replace(/\/$/, '')}/impersonate?code=${encodeURIComponent(data.impersonation_code)}`;
-                const w = window.open(url, '_blank', 'noopener,noreferrer');
-                if (w) w.focus();
-                showAlert(t('tenants.impersonate.success'), { variant: 'success' });
+                // Do not pass noopener in features: browsers then return null even when the tab
+                // opens successfully, which falsely triggers the "pop-up blocked" + clipboard path.
+                const w = window.open(url, '_blank');
+                if (w) {
+                    try {
+                        w.opener = null;
+                    } catch {
+                        // ignore
+                    }
+                    w.focus();
+                    showAlert(t('tenants.impersonate.success'), { variant: 'success' });
+                } else {
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        showAlert(
+                            `${t('tenants.impersonate.popupBlocked')} ${t('tenants.impersonate.urlCopied')}`,
+                            { variant: 'warning' }
+                        );
+                    } catch {
+                        showAlert(
+                            `${t('tenants.impersonate.popupBlocked')} ${url}`,
+                            { variant: 'warning' }
+                        );
+                    }
+                }
             } else if (!CRM_APP_URL) {
                 showAlert(t('tenants.impersonate.noCrmUrl'), { variant: 'warning' });
             } else {
-                showAlert(t('tenants.impersonate.success'), { variant: 'success' });
+                showAlert(t('tenants.impersonate.error'), { variant: 'error' });
             }
             setIsImpersonateConfirmOpen(false);
             setTenantToImpersonate(null);
