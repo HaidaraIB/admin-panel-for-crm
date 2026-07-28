@@ -1416,48 +1416,85 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
             {isLoading ? (
                 <div className="flex justify-center py-8"><LoadingSpinner /></div>
             ) : (
-                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.phoneNumberId')}</label>
-                        <input type="text" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.accessToken')}</label>
-                        <div className="flex items-center gap-2 max-w-md">
-                            <input
-                                type={showToken ? 'text' : 'password'}
-                                value={accessToken}
-                                onChange={(e) => setAccessToken(e.target.value)}
-                                autoComplete="new-password"
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                placeholder={t('settings.platformWhatsapp.accessTokenPlaceholder')}
-                            />
-                            <button type="button" onClick={() => setShowToken((v) => !v)} className="p-2 rounded-md border border-gray-300 dark:border-gray-600">
-                                <Icon name={showToken ? 'eye-off' : 'eye'} className="w-5 h-5" />
-                            </button>
+                <div className="space-y-4">
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {t('settings.platformWhatsapp.sectionConnection') || 'Connection'}
+                            </h4>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                {t('settings.platformWhatsapp.sectionConnectionHelp') || 'Meta Cloud API credentials for the platform WhatsApp number.'}
+                            </p>
                         </div>
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.platformWhatsapp.accessTokenHelp')}</p>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.phoneNumberId')}</label>
+                            <input type="text" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.accessToken')}</label>
+                            <div className="flex items-center gap-2 max-w-md">
+                                <input
+                                    type={showToken ? 'text' : 'password'}
+                                    value={accessToken}
+                                    onChange={(e) => setAccessToken(e.target.value)}
+                                    autoComplete="new-password"
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    placeholder={t('settings.platformWhatsapp.accessTokenPlaceholder')}
+                                />
+                                <button type="button" onClick={() => setShowToken((v) => !v)} className="p-2 rounded-md border border-gray-300 dark:border-gray-600">
+                                    <Icon name={showToken ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.platformWhatsapp.accessTokenHelp')}</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.graphVersion')}</label>
+                            <input type="text" value={graphVersion} onChange={(e) => setGraphVersion(e.target.value)} className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.graphVersion')}</label>
-                        <input type="text" value={graphVersion} onChange={(e) => setGraphVersion(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {t('settings.platformWhatsapp.sectionAdmin') || 'Company WhatsApp (admin messages)'}
+                            </h4>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                {t('settings.platformWhatsapp.adminTemplateHelp')}
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.adminTemplateName')}</label>
+                                <input type="text" value={adminTemplateName} onChange={(e) => setAdminTemplateName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="admin_notify_1" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.adminTemplateLang')}</label>
+                                <input type="text" value={adminTemplateLang} onChange={(e) => setAdminTemplateLang(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateName')}</label>
-                        <input type="text" value={otpTemplateName} onChange={(e) => setOtpTemplateName(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {t('settings.platformWhatsapp.sectionOtp') || 'Registration OTP'}
+                            </h4>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                {t('settings.platformWhatsapp.sectionOtpHelp') || 'Authentication template used when sending signup / login OTP codes.'}
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateName')}</label>
+                                <input type="text" value={otpTemplateName} onChange={(e) => setOtpTemplateName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateLang')}</label>
+                                <input type="text" value={otpTemplateLang} onChange={(e) => setOtpTemplateLang(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateLang')}</label>
-                        <input type="text" value={otpTemplateLang} onChange={(e) => setOtpTemplateLang(e.target.value)} className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.adminTemplateName')}</label>
-                        <input type="text" value={adminTemplateName} onChange={(e) => setAdminTemplateName(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.adminTemplateLang')}</label>
-                        <input type="text" value={adminTemplateLang} onChange={(e) => setAdminTemplateLang(e.target.value)} className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                    </div>
+
                     <div>
                         <button
                             onClick={handleSave}
