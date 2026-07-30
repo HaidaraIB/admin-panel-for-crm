@@ -11,6 +11,7 @@ import type { Tenant } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Icon from '../components/Icon';
 import { withLatinDigits } from '../utils/latinNumerals';
+import { WhatsAppFormattedText } from '../utils/whatsappFormatting';
 
 type ChatRow = {
   id: number;
@@ -242,7 +243,11 @@ const TenantWhatsAppChat: React.FC = () => {
                         : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-100 dark:border-gray-600 rounded-bl-md'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                    <WhatsAppFormattedText
+                      text={m.body}
+                      as="div"
+                      className="whitespace-pre-wrap break-words"
+                    />
                     <div className="text-[10px] opacity-80 mt-1.5">
                       {new Date(m.created_at).toLocaleString(
                         undefined,
