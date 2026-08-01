@@ -21,6 +21,7 @@ import { useI18n } from './context/i18n';
 import { useUser } from './context/UserContext';
 import { useAlert } from './context/AlertContext';
 import { translateAdminApiError } from './utils/translateApiError';
+import { buildUpdateDiff } from './utils/buildUpdateDiff';
 import FullPageLoader from './components/FullPageLoader';
 import { getCompaniesAPI, getCompanyAPI, getSubscriptionsAPI, getPlansAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI, invalidateListCache } from './services/api';
 import { fetchMaintenanceStatus } from './services/maintenance';
@@ -368,15 +369,26 @@ const App: React.FC = () => {
   
   const handleUpdateTenant = async (updatedTenant: Tenant) => {
     try {
-      // Use API field names: name, domain, specialization
+      const previousTenant = tenants.find((t) => t.id === updatedTenant.id);
       const companyData = {
         name: updatedTenant.name,
-        domain: updatedTenant.domain.replace('.platform.com', ''), // Remove domain suffix if present
+        domain: updatedTenant.domain.replace('.platform.com', ''),
         specialization: updatedTenant.specialization || 'real_estate',
         free_trial_consumed: updatedTenant.freeTrialConsumed ?? false,
       };
 
-      await updateCompanyAPI(updatedTenant.id, companyData);
+      const initial = previousTenant
+        ? {
+            name: previousTenant.name,
+            domain: previousTenant.domain.replace('.platform.com', ''),
+            specialization: previousTenant.specialization || 'real_estate',
+            free_trial_consumed: previousTenant.freeTrialConsumed ?? false,
+          }
+        : {};
+      const diff = buildUpdateDiff(initial, companyData);
+      if (Object.keys(diff).length === 0) return;
+
+      await updateCompanyAPI(updatedTenant.id, diff);
       addLog('audit.log.tenantUpdated', { companyName: updatedTenant.name });
       
       // Reload tenants to get updated list
@@ -423,11 +435,8 @@ const App: React.FC = () => {
       };
 
       if (existingSubscription) {
-        // Update existing subscription - backend will deactivate other subs for this company
-        await updateSubscriptionAPI(existingSubscription.id, {
-          ...existingSubscription,
-          ...subscriptionData,
-        });
+        const diff = buildUpdateDiff(existingSubscription, subscriptionData);
+        await updateSubscriptionAPI(existingSubscription.id, diff);
         addLog('audit.log.tenantActivated', { companyName: company.name });
       } else {
         // Create new subscription - backend will ensure only one active per company
@@ -464,10 +473,7 @@ const App: React.FC = () => {
       const activeSubscription = deactivateRows.find((sub) => sub.company === tenantId && sub.is_active);
 
       if (activeSubscription) {
-        await updateSubscriptionAPI(activeSubscription.id, {
-          ...activeSubscription,
-          is_active: false,
-        });
+        await updateSubscriptionAPI(activeSubscription.id, { is_active: false });
         addLog('audit.log.tenantDeactivated', { companyName: company.name });
       }
 

@@ -9,6 +9,23 @@ import AlertDialog from '../components/AlertDialog';
 import { useAuditLog } from '../context/AuditLogContext';
 import GatewayCardSkeleton from '../components/GatewayCardSkeleton';
 import { getPaymentGatewaysAPI, getPaymentGatewayAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI, createPaymentGatewayAPI } from '../services/api';
+import { buildUpdateDiff } from '../utils/buildUpdateDiff';
+
+function gatewayStatusToApi(status: PaymentGatewayStatus | string): string {
+    if (status === PaymentGatewayStatus.Active || status === 'active') return 'active';
+    if (status === PaymentGatewayStatus.Disabled || status === 'disabled') return 'disabled';
+    return 'setup_required';
+}
+
+function gatewayToApiPayload(gateway: PaymentGateway): Record<string, unknown> {
+    return {
+        name: gateway.name,
+        description: gateway.description,
+        status: gatewayStatusToApi(gateway.status),
+        enabled: gateway.enabled,
+        config: gateway.config || {},
+    };
+}
 
 const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onToggle: (enabled: boolean) => void }> = ({ gateway, onManage, onToggle }) => {
     const { t } = useI18n();
@@ -176,16 +193,7 @@ const PaymentGateways: React.FC = () => {
                 });
 
                 if (otherGateway) {
-                    // Disable the other gateway first
-                    await updatePaymentGatewayAPI(parseInt(otherGateway.id), {
-                        name: otherGateway.name,
-                        description: otherGateway.description,
-                        status: otherGateway.status === PaymentGatewayStatus.Active ? 'active'
-                            : otherGateway.status === PaymentGatewayStatus.Disabled ? 'disabled'
-                            : 'setup_required',
-                        enabled: false,
-                        config: otherGateway.config,
-                    });
+                    await updatePaymentGatewayAPI(parseInt(otherGateway.id), { enabled: false });
                 }
             }
 
@@ -223,56 +231,20 @@ const PaymentGateways: React.FC = () => {
                 });
 
                 if (otherGateway) {
-                    // IMPORTANT: Reload the other gateway from API to get the latest config
-                    // This ensures we have all the current configuration values before disabling
-                    try {
-                        const freshOtherGateway = await getPaymentGatewayAPI(parseInt(otherGateway.id));
-                        const otherGatewayConfig = freshOtherGateway.config || {};
-                        
-                        // Log the config before disabling to debug
-                        console.log(`Disabling ${otherGatewayType} gateway. Current config:`, JSON.stringify(otherGatewayConfig, null, 2));
-                        
-                        // Disable the other gateway - only send enabled: false, let backend merge config
-                        // The backend serializer will merge the config, so we only need to send enabled: false
-                        // But to be safe, we'll send the full config to ensure nothing is lost
-                        await updatePaymentGatewayAPI(parseInt(otherGateway.id), {
-                            name: freshOtherGateway.name,
-                            description: freshOtherGateway.description || '',
-                            status: freshOtherGateway.status === 'active' ? 'active'
-                                : freshOtherGateway.status === 'disabled' ? 'disabled'
-                                : 'setup_required',
-                            enabled: false,
-                            config: otherGatewayConfig, // Send complete config to ensure nothing is lost
-                        });
-                        console.log(`Successfully disabled ${otherGatewayType} gateway with preserved config`);
-                    } catch (error) {
-                        console.error(`Error loading ${otherGatewayType} gateway before disabling:`, error);
-                        // Fallback: use the gateway from the list (may be outdated)
-                        const fallbackConfig = otherGateway.config || {};
-                        console.log(`Using fallback config for ${otherGatewayType}:`, JSON.stringify(fallbackConfig, null, 2));
-                        await updatePaymentGatewayAPI(parseInt(otherGateway.id), {
-                            name: otherGateway.name,
-                            description: otherGateway.description,
-                            status: otherGateway.status === PaymentGatewayStatus.Active ? 'active'
-                                : otherGateway.status === PaymentGatewayStatus.Disabled ? 'disabled'
-                                : 'setup_required',
-                            enabled: false,
-                            config: fallbackConfig, // Fallback to list config
-                        });
-                    }
+                    await updatePaymentGatewayAPI(parseInt(otherGateway.id), { enabled: false });
                 }
             }
 
-            // Use API field names: name, description, status, enabled, config
-            await updatePaymentGatewayAPI(parseInt(updatedGateway.id), {
-                name: updatedGateway.name, // API field: name
-                description: updatedGateway.description, // API field: description
-                status: updatedGateway.status === PaymentGatewayStatus.Active ? 'active'
-                    : updatedGateway.status === PaymentGatewayStatus.Disabled ? 'disabled'
-                    : 'setup_required', // API field: status
-                enabled: updatedGateway.enabled, // API field: enabled
-                config: updatedGateway.config, // API field: config
-            });
+            const initialGateway = selectedGateway ?? updatedGateway;
+            const nextPayload = gatewayToApiPayload(updatedGateway);
+            const initialPayload = gatewayToApiPayload(initialGateway);
+            const diff = buildUpdateDiff(initialPayload, nextPayload);
+            if (Object.keys(diff).length === 0) {
+                setIsSettingsModalOpen(false);
+                setSelectedGateway(null);
+                return;
+            }
+            await updatePaymentGatewayAPI(parseInt(updatedGateway.id), diff);
             await loadGateways();
             addLog('audit.log.gatewaySettingsUpdated', { gatewayName: updatedGateway.name });
             setIsSettingsModalOpen(false);

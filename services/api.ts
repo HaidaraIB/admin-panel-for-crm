@@ -234,12 +234,12 @@ export const createCompanyAPI = async (companyData: any) => {
 };
 
 /**
- * Update company
- * PUT /api/companies/{id}/
+ * Update company (partial)
+ * PATCH /api/companies/{id}/
  */
 export const updateCompanyAPI = async (id: number, companyData: any) => {
   const result = await apiRequest<any>(`/companies/${id}/`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(companyData),
   });
   invalidateListCache('companies');
@@ -298,12 +298,12 @@ export const createSubscriptionAPI = async (subscriptionData: any) => {
 };
 
 /**
- * Update subscription
- * PUT /api/subscriptions/{id}/
+ * Update subscription (partial)
+ * PATCH /api/subscriptions/{id}/
  */
 export const updateSubscriptionAPI = async (id: number, subscriptionData: any) => {
   const result = await apiRequest<any>(`/subscriptions/${id}/`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(subscriptionData),
   });
   invalidateListCache('subscriptions');
@@ -362,18 +362,13 @@ export const createPlanAPI = async (planData: any) => {
 };
 
 /**
- * Update plan
- * PUT /api/plans/{id}/
+ * Update plan (partial)
+ * PATCH /api/plans/{id}/
  */
 export const updatePlanAPI = async (id: number, planData: any) => {
-  const payload = {
-    ...planData,
-    description_ar: planData.description_ar ?? planData.description ?? '',
-    name_ar: planData.name_ar ?? planData.name ?? '',
-  };
   const result = await apiRequest<any>(`/plans/${id}/`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
+    method: 'PATCH',
+    body: JSON.stringify(planData),
   });
   invalidateListCache('plans');
   return result;
@@ -761,12 +756,12 @@ export const createPaymentGatewayAPI = async (gatewayData: any) => {
 };
 
 /**
- * Update payment gateway
- * PUT /api/payment-gateways/{id}/
+ * Update payment gateway (partial)
+ * PATCH /api/payment-gateways/{id}/
  */
 export const updatePaymentGatewayAPI = async (id: number, gatewayData: any) => {
   return apiRequest<any>(`/payment-gateways/${id}/`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(gatewayData),
   });
 };
@@ -938,8 +933,8 @@ export const getPlatformTwilioSettingsAPI = async () => {
 };
 
 /**
- * Update platform Twilio settings.
- * PUT /api/settings/platform-twilio/1/
+ * Update platform Twilio settings (partial).
+ * PATCH /api/settings/platform-twilio/1/
  */
 export const updatePlatformTwilioSettingsAPI = async (data: {
   account_sid?: string;
@@ -949,7 +944,7 @@ export const updatePlatformTwilioSettingsAPI = async (data: {
   is_enabled?: boolean;
 }) => {
   return apiRequest<any>('/settings/platform-twilio/1/', {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(data),
   });
 };
@@ -1024,7 +1019,7 @@ export const updatePlatformWhatsAppSettingsAPI = async (data: {
   admin_template_lang?: string;
 }) => {
   return apiRequest<any>('/settings/platform-whatsapp/1/', {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(data),
   });
 };
@@ -1075,12 +1070,12 @@ export const createLimitedAdminAPI = async (adminData: {
 };
 
 /**
- * Update limited admin
- * PUT /api/limited-admins/{id}/
+ * Update limited admin (partial)
+ * PATCH /api/limited-admins/{id}/
  */
 export const updateLimitedAdminAPI = async (id: number, adminData: any) => {
   return apiRequest<any>(`/limited-admins/${id}/`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(adminData),
   });
 };

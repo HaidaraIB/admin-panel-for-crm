@@ -27,6 +27,7 @@ import {
 import { getPaymentsAPI } from '../services/api';
 import { useAlert } from '../context/AlertContext';
 import { translateAdminApiError } from '../utils/translateApiError';
+import { buildUpdateDiff } from '../utils/buildUpdateDiff';
 import AlertDialog from '../components/AlertDialog';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
@@ -74,6 +75,27 @@ function sanitizePlanFeatures(raw: unknown): Record<string, boolean> {
   return Object.fromEntries(
     CANONICAL_PLAN_FEATURE_KEYS.map((key) => [key, source[key] === undefined ? true : !!source[key]])
   ) as Record<string, boolean>;
+}
+
+function planToApiPayload(plan: Omit<Plan, 'id'> & { id?: number }): Record<string, unknown> {
+  const maxEmployees = plan.entitlementsLimits?.max_employees ?? plan.users ?? 'unlimited';
+  const maxClients = plan.entitlementsLimits?.max_clients ?? plan.clients ?? 'unlimited';
+  return {
+    name: plan.name,
+    name_ar: plan.nameAr || plan.name,
+    description: plan.features,
+    description_ar: plan.featuresAr || plan.features,
+    price_monthly: plan.priceMonthly,
+    price_yearly: plan.priceYearly,
+    trial_days: plan.trialDays,
+    users: maxEmployees,
+    clients: maxClients,
+    features: sanitizePlanFeatures(plan.entitlementsFeatures),
+    limits: plan.entitlementsLimits || {},
+    usage_limits_monthly: plan.entitlementsUsageLimitsMonthly || {},
+    visible: plan.visible,
+    tier: plan.tier ?? 0,
+  };
 }
 
 interface SubscriptionsProps {
@@ -150,25 +172,14 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         setIsSavingPlan(true);
         try {
         if (planToSave.id) {
-                // Use API field names
-                const maxEmployees = planToSave.entitlementsLimits?.max_employees ?? planToSave.users ?? 'unlimited';
-                const maxClients = planToSave.entitlementsLimits?.max_clients ?? planToSave.clients ?? 'unlimited';
-                await updatePlanAPI(planToSave.id, {
-                    name: planToSave.name, // API field: name
-                    name_ar: planToSave.nameAr || planToSave.name, // API field: name_ar
-                    description: planToSave.features, // API field: description
-                    description_ar: planToSave.featuresAr || planToSave.features, // API field: description_ar
-                    price_monthly: planToSave.priceMonthly, // API field: price_monthly
-                    price_yearly: planToSave.priceYearly, // API field: price_yearly
-                    trial_days: planToSave.trialDays, // API field: trial_days
-                    users: maxEmployees, // legacy compatibility field
-                    clients: maxClients, // legacy compatibility field
-                    features: sanitizePlanFeatures(planToSave.entitlementsFeatures), // API field: features (JSON)
-                    limits: planToSave.entitlementsLimits || {}, // API field: limits (JSON)
-                    usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
-                    visible: planToSave.visible, // API field: visible
-                    tier: planToSave.tier ?? 0,
-                });
+                const nextPayload = planToApiPayload(planToSave);
+                const initialPayload = editingPlan ? planToApiPayload(editingPlan) : {};
+                const diff = buildUpdateDiff(initialPayload, nextPayload);
+                if (Object.keys(diff).length === 0) {
+                    handleCloseModal();
+                    return;
+                }
+                await updatePlanAPI(planToSave.id, diff);
             addLog('audit.log.planUpdated', { planName: planToSave.name });
         } else {
                 // Use API field names
@@ -244,20 +255,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         if (!planToToggleVisibility) return;
         setIsTogglingVisibility(true);
         try {
-            // Send all required fields to avoid validation errors
             await updatePlanAPI(planToToggleVisibility.id, {
-                name: planToToggleVisibility.name,
-                name_ar: planToToggleVisibility.nameAr || planToToggleVisibility.name,
-                description: planToToggleVisibility.features,
-                description_ar: planToToggleVisibility.featuresAr || planToToggleVisibility.features,
-                price_monthly: planToToggleVisibility.priceMonthly,
-                price_yearly: planToToggleVisibility.priceYearly,
-                trial_days: planToToggleVisibility.trialDays,
-                users: planToToggleVisibility.entitlementsLimits?.max_employees ?? planToToggleVisibility.users,
-                clients: planToToggleVisibility.entitlementsLimits?.max_clients ?? planToToggleVisibility.clients,
-                features: sanitizePlanFeatures(planToToggleVisibility.entitlementsFeatures),
-                limits: planToToggleVisibility.entitlementsLimits || {},
-                usage_limits_monthly: planToToggleVisibility.entitlementsUsageLimitsMonthly || {},
                 visible: !planToToggleVisibility.visible,
             });
             await loadPlans();
@@ -918,10 +916,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       return;
     }
     try {
-      await updateSubscriptionAPI(subscription.id, {
-        ...subscription,
-        is_active: false
-      });
+      await updateSubscriptionAPI(subscription.id, { is_active: false });
       await loadSubscriptions();
     } catch (error: any) {
       console.error('Error updating subscription:', error);
@@ -942,7 +937,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
 
     setIsTogglingSub(true);
     try {
-      await updateSubscriptionAPI(sub.id, { ...sub, is_active: true });
+      await updateSubscriptionAPI(sub.id, { is_active: true });
       setPendingActivateSub(null);
       await loadSubscriptions();
     } catch (error: any) {
@@ -960,10 +955,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     setPendingActivateSub(null);
     setIsTogglingSub(true);
     try {
-      await updateSubscriptionAPI(sub.id, {
-        ...sub,
-        is_active: true
-      });
+      await updateSubscriptionAPI(sub.id, { is_active: true });
       await loadSubscriptions();
     } catch (error: any) {
       console.error('Error updating subscription:', error);

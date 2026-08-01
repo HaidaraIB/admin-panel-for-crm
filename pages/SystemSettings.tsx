@@ -8,6 +8,7 @@ import { useAuditLog } from '../context/AuditLogContext';
 import { useAlert } from '../context/AlertContext';
 import { useUser } from '../context/UserContext';
 import { translateAdminApiError } from '../utils/translateApiError';
+import { buildUpdateDiff } from '../utils/buildUpdateDiff';
 import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
@@ -1160,6 +1161,7 @@ const TwilioSmsSettings: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
 
     useEffect(() => {
         loadSettings();
@@ -1181,6 +1183,12 @@ const TwilioSmsSettings: React.FC = () => {
                 setSenderId(data.sender_id || '');
                 setIsEnabled(!!data.is_enabled);
                 setAuthToken('');
+                setLoadedSettings({
+                    account_sid: data.account_sid || '',
+                    twilio_number: data.twilio_number || '',
+                    sender_id: data.sender_id || '',
+                    is_enabled: !!data.is_enabled,
+                });
             }
         } catch (error) {
             console.error('Failed to load Twilio settings', error);
@@ -1194,23 +1202,28 @@ const TwilioSmsSettings: React.FC = () => {
         setIsSaving(true);
         setFeedback(null);
         try {
-            const payload: {
-                account_sid: string;
-                twilio_number: string;
-                sender_id: string;
-                is_enabled: boolean;
-                auth_token?: string;
-            } = {
+            const next: Record<string, unknown> = {
                 account_sid: accountSid.trim(),
                 twilio_number: twilioNumber.trim(),
                 sender_id: senderId.trim(),
                 is_enabled: isEnabled,
             };
-            if (authToken.trim()) payload.auth_token = authToken.trim();
-            await updatePlatformTwilioSettingsAPI(payload);
+            if (authToken.trim()) next.auth_token = authToken.trim();
+            const diff = buildUpdateDiff(loadedSettings ?? {}, next);
+            if (Object.keys(diff).length === 0) {
+                setFeedback({ type: 'success', message: t('settings.twilio.saveSuccess') || 'Twilio settings saved.' });
+                return;
+            }
+            await updatePlatformTwilioSettingsAPI(diff);
             addLog('audit.log.twilioSettingsSaved');
             setFeedback({ type: 'success', message: t('settings.twilio.saveSuccess') || 'Twilio settings saved.' });
             setAuthToken('');
+            setLoadedSettings({
+                account_sid: accountSid.trim(),
+                twilio_number: twilioNumber.trim(),
+                sender_id: senderId.trim(),
+                is_enabled: isEnabled,
+            });
         } catch (error: any) {
             console.error('Failed to save Twilio settings', error);
             setFeedback({ type: 'error', message: error?.message || t('settings.twilio.saveError') || 'Failed to save Twilio settings' });
@@ -1345,6 +1358,7 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
 
     useEffect(() => {
         loadSettings();
@@ -1367,6 +1381,14 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
             setAdminTemplateName(data.admin_template_name || '');
             setAdminTemplateLang(data.admin_template_lang || 'en');
             setAccessToken('');
+            setLoadedSettings({
+                phone_number_id: data.phone_number_id || '',
+                graph_api_version: data.graph_api_version || 'v25.0',
+                otp_template_name: data.otp_template_name || '',
+                otp_template_lang: data.otp_template_lang || 'en',
+                admin_template_name: data.admin_template_name || '',
+                admin_template_lang: data.admin_template_lang || 'en',
+            });
         } catch (error) {
             console.error('Failed to load Platform WhatsApp settings', error);
             setFeedback({ type: 'error', message: t('settings.platformWhatsapp.loadError') });
@@ -1379,7 +1401,7 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
         setIsSaving(true);
         setFeedback(null);
         try {
-            const payload: Record<string, string> = {
+            const next: Record<string, unknown> = {
                 phone_number_id: phoneNumberId.trim(),
                 graph_api_version: graphVersion.trim(),
                 otp_template_name: otpTemplateName.trim(),
@@ -1387,11 +1409,24 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                 admin_template_name: adminTemplateName.trim(),
                 admin_template_lang: adminTemplateLang.trim(),
             };
-            if (accessToken.trim()) payload.access_token = accessToken.trim();
-            await updatePlatformWhatsAppSettingsAPI(payload);
+            if (accessToken.trim()) next.access_token = accessToken.trim();
+            const diff = buildUpdateDiff(loadedSettings ?? {}, next);
+            if (Object.keys(diff).length === 0) {
+                setFeedback({ type: 'success', message: t('settings.platformWhatsapp.saveSuccess') });
+                return;
+            }
+            await updatePlatformWhatsAppSettingsAPI(diff);
             addLog('audit.log.platformWhatsappSaved');
             setFeedback({ type: 'success', message: t('settings.platformWhatsapp.saveSuccess') });
             setAccessToken('');
+            setLoadedSettings({
+                phone_number_id: phoneNumberId.trim(),
+                graph_api_version: graphVersion.trim(),
+                otp_template_name: otpTemplateName.trim(),
+                otp_template_lang: otpTemplateLang.trim(),
+                admin_template_name: adminTemplateName.trim(),
+                admin_template_lang: adminTemplateLang.trim(),
+            });
         } catch (error: any) {
             setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.platformWhatsapp.saveError') });
         } finally {
@@ -1801,8 +1836,41 @@ const LimitedAdmins: React.FC = () => {
         setIsSaving(true);
         try {
             if (editingAdmin) {
-                const updatePayload = { ...adminData, user_id: editingAdmin.user.id };
-                await updateLimitedAdminAPI(editingAdmin.id, updatePayload);
+                const initial: Record<string, unknown> = {
+                    first_name: editingAdmin.user.first_name,
+                    last_name: editingAdmin.user.last_name,
+                    is_active: editingAdmin.is_active,
+                    can_view_dashboard: editingAdmin.can_view_dashboard,
+                    can_manage_tenants: editingAdmin.can_manage_tenants,
+                    can_manage_subscriptions: editingAdmin.can_manage_subscriptions,
+                    can_manage_payment_gateways: editingAdmin.can_manage_payment_gateways,
+                    can_view_reports: editingAdmin.can_view_reports,
+                    can_manage_communication: editingAdmin.can_manage_communication,
+                    can_manage_settings: editingAdmin.can_manage_settings,
+                    can_manage_limited_admins: editingAdmin.can_manage_limited_admins,
+                };
+                const next: Record<string, unknown> = {
+                    first_name: adminData.first_name,
+                    last_name: adminData.last_name,
+                    is_active: adminData.is_active,
+                    can_view_dashboard: adminData.can_view_dashboard,
+                    can_manage_tenants: adminData.can_manage_tenants,
+                    can_manage_subscriptions: adminData.can_manage_subscriptions,
+                    can_manage_payment_gateways: adminData.can_manage_payment_gateways,
+                    can_view_reports: adminData.can_view_reports,
+                    can_manage_communication: adminData.can_manage_communication,
+                    can_manage_settings: adminData.can_manage_settings,
+                    can_manage_limited_admins: adminData.can_manage_limited_admins,
+                };
+                if (adminData.password?.trim()) {
+                    next.password = adminData.password.trim();
+                }
+                const diff = buildUpdateDiff(initial, next);
+                if (Object.keys(diff).length === 0) {
+                    handleCloseModal();
+                    return;
+                }
+                await updateLimitedAdminAPI(editingAdmin.id, diff);
                 addLog('audit.log.limitedAdminUpdated', { adminName: `${adminData.first_name} ${adminData.last_name}` });
             } else {
                 await createLimitedAdminAPI(adminData);
