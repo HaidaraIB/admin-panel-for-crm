@@ -212,6 +212,46 @@ export const getAllCompaniesAPI = async (params?: { search?: string; ordering?: 
   return fetchAllPaginatedPages<Record<string, unknown>>(`/companies/${query}`);
 };
 
+export type AdminDashboardSummary = {
+  mrr: number;
+  active_tenants: number;
+  new_subscriptions: number;
+  expiring_subscriptions: number;
+  revenue_by_month: Array<{ year: number; month: number; revenue: number }>;
+  plan_distribution: Array<{
+    plan_id: number;
+    name: string;
+    name_ar: string;
+    count: number;
+  }>;
+  recent_companies: Array<{
+    name: string;
+    plan_name: string | null;
+    plan_name_ar: string;
+  }>;
+  recent_payments: Array<{
+    company_name: string;
+    amount_usd: number;
+  }>;
+  start: string;
+  end: string;
+};
+
+/**
+ * Platform admin dashboard aggregates (full-dataset KPIs; not page-truncated lists).
+ * GET /api/companies/dashboard-summary/?start=&end=
+ */
+export const getAdminDashboardSummaryAPI = async (params?: {
+  start?: string;
+  end?: string;
+}) => {
+  const query = buildQueryString({
+    start: params?.start,
+    end: params?.end,
+  });
+  return apiRequest<AdminDashboardSummary>(`/companies/dashboard-summary/${query}`);
+};
+
 /**
  * Get company by ID
  * GET /api/companies/{id}/

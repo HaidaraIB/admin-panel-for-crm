@@ -7,7 +7,7 @@ import Skeleton from '../components/Skeleton';
 import { FilterInput } from '../components/filters';
 import { useI18n } from '../context/i18n';
 import { useUser } from '../context/UserContext';
-import { getCompaniesAPI, getSubscriptionsAPI, getPaymentsAPI, getPlansAPI } from '../services/api';
+import { getAdminDashboardSummaryAPI } from '../services/api';
 import { withLatinDigits } from '../utils/latinNumerals';
 import { getChartTheme, renderChartLegend, useIsDarkMode } from '../utils/chartTheme';
 
@@ -25,45 +25,6 @@ const getDefaultDateRange = (): DateRange => {
     start: formatDateInput(start),
     end: formatDateInput(end),
   };
-};
-
-const buildMonthSequence = (range: DateRange): Date[] => {
-  const fallbackSequence = () => {
-    const fallbackEnd = new Date();
-    const fallbackStart = new Date(fallbackEnd.getFullYear(), fallbackEnd.getMonth() - 11, 1);
-    const seq: Date[] = [];
-    const cursor = new Date(fallbackStart);
-    while (cursor <= fallbackEnd) {
-      seq.push(new Date(cursor));
-      cursor.setMonth(cursor.getMonth() + 1);
-    }
-    return seq;
-  };
-
-  const start = new Date(range.start);
-  const end = new Date(range.end);
-
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
-    return fallbackSequence();
-  }
-
-  const normalizedStart = new Date(start.getFullYear(), start.getMonth(), 1);
-  const normalizedEnd = new Date(end.getFullYear(), end.getMonth(), 1);
-  const sequence: Date[] = [];
-  const cursor = new Date(normalizedStart);
-  let guard = 0;
-
-  while (cursor <= normalizedEnd && guard < 60) {
-    sequence.push(new Date(cursor));
-    cursor.setMonth(cursor.getMonth() + 1);
-    guard += 1;
-  }
-
-  if (sequence.length === 0) {
-    return fallbackSequence();
-  }
-
-  return sequence.length > 12 ? sequence.slice(sequence.length - 12) : sequence;
 };
 
 interface KpiCardProps {
@@ -274,96 +235,21 @@ const Dashboard: React.FC = () => {
   };
 
   const loadDashboardData = useCallback(async () => {
+    if (!canViewDashboard) {
+      return;
+    }
     setLoading(true);
     try {
-      // Only fetch data if user has permission
-      const promises: Promise<any>[] = [];
-      if (canViewTenants) promises.push(getCompaniesAPI());
-      else promises.push(Promise.resolve({ results: [] }));
-      
-      if (canViewSubscriptions) promises.push(getSubscriptionsAPI());
-      else promises.push(Promise.resolve({ results: [] }));
-      
-      if (canViewPayments) promises.push(getPaymentsAPI());
-      else promises.push(Promise.resolve({ results: [] }));
-      
-      if (canViewPlans) promises.push(getPlansAPI());
-      else promises.push(Promise.resolve({ results: [] }));
+      const data = await getAdminDashboardSummaryAPI({
+        start: dateRange.start,
+        end: dateRange.end,
+      });
 
-      const [companiesRes, subscriptionsRes, paymentsRes, plansRes] = await Promise.all(promises);
+      const mrr = Number(data.mrr) || 0;
+      const activeTenants = Number(data.active_tenants) || 0;
+      const newSubscriptions = Number(data.new_subscriptions) || 0;
+      const expiringSubscriptions = Number(data.expiring_subscriptions) || 0;
 
-      const companies = companiesRes.results || [];
-      const subscriptions = subscriptionsRes.results || [];
-      const payments = paymentsRes.results || [];
-      const plans = plansRes.results || [];
-
-      const rangeStart = new Date(dateRange.start);
-      rangeStart.setHours(0, 0, 0, 0);
-      const rangeEnd = new Date(dateRange.end);
-      rangeEnd.setHours(23, 59, 59, 999);
-
-      const isWithinSelectedRange = (value?: string | null) => {
-        if (!value) return false;
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return false;
-        return date >= rangeStart && date <= rangeEnd;
-      };
-
-      // Filter data based on date range
-      const filteredCompanies = companies.filter((company: any) => isWithinSelectedRange(company.created_at));
-      const filteredSubscriptions = subscriptions.filter((sub: any) => isWithinSelectedRange(sub.created_at));
-      const filteredPayments = payments.filter((payment: any) => isWithinSelectedRange(payment.created_at));
-      
-      // Get ALL currently active subscriptions (not filtered by date range for MRR and active tenants)
-      // MRR and Active Tenants should reflect current state, not historical state
-      const allActiveSubscriptions = subscriptions.filter((sub: any) => sub.is_active);
-
-      // MRR = sum of successful payment amounts in the last 30 days (pending/failed not counted)
-      const todayForMrr = new Date();
-      todayForMrr.setHours(23, 59, 59, 999);
-      const thirtyDaysAgoForMrr = new Date(todayForMrr);
-      thirtyDaysAgoForMrr.setDate(thirtyDaysAgoForMrr.getDate() - 30);
-      thirtyDaysAgoForMrr.setHours(0, 0, 0, 0);
-      const isSuccessfulPayment = (p: any) => {
-        const status = (p.payment_status || '').toLowerCase();
-        return status === 'completed' || status === 'successful' || status === 'success';
-      };
-      const mrr = payments
-        .filter((p: any) => {
-          if (!isSuccessfulPayment(p) || !p.created_at) return false;
-          const d = new Date(p.created_at);
-          return d >= thirtyDaysAgoForMrr && d <= todayForMrr;
-        })
-        .reduce((sum: number, p: any) => sum + (p.amount_usd != null ? parseFloat(p.amount_usd) : parseFloat(p.amount || 0)), 0);
-
-      // Count ALL active tenants (current state)
-      const activeTenants = allActiveSubscriptions.length;
-
-      // New subscriptions created within the selected range (last 30 days from end date)
-      const endDate = new Date(dateRange.end);
-      const thirtyDaysAgo = new Date(endDate);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const newSubscriptions = subscriptions.filter((sub: any) => {
-        if (!sub.created_at) return false;
-        const createdDate = new Date(sub.created_at);
-        return createdDate >= thirtyDaysAgo && createdDate <= endDate;
-      }).length;
-
-      // Expiring subscriptions - subscriptions that will expire within the next 7 days from today
-      // (not based on date range, but based on current date)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const sevenDaysFromNow = new Date(today);
-      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-      
-      const expiringSubscriptions = subscriptions.filter((sub: any) => {
-        if (!sub.is_active || !sub.end_date) return false;
-        const endDate = new Date(sub.end_date);
-        endDate.setHours(0, 0, 0, 0);
-        return endDate >= today && endDate <= sevenDaysFromNow;
-      }).length;
-
-      // Update KPIs
       setKpiData([
         {
           title: t('dashboard.kpi.mrr'),
@@ -415,103 +301,51 @@ const Dashboard: React.FC = () => {
         },
       ]);
 
-      // Calculate revenue data for the selected range
       const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-      const monthSequence = buildMonthSequence(dateRange);
-      const revenueByMonth = monthSequence.map(date => {
-        const monthIndex = date.getMonth();
-        const monthKey = monthKeys[monthIndex];
-        return {
-          name: t(`dashboard.months.${monthKey}`),
-          key: `${date.getFullYear()}-${monthIndex}`,
-          revenue: 0,
-        };
-      });
+      setRevenueData(
+        (data.revenue_by_month || []).map((row) => ({
+          name: t(`dashboard.months.${monthKeys[row.month] ?? 'jan'}`),
+          revenue: Number(row.revenue) || 0,
+        }))
+      );
 
-      filteredPayments.forEach((payment: any) => {
-        // Backend PaymentStatus enum values: 'completed', 'pending', 'failed', 'canceled'
-        const paymentStatus = payment.payment_status?.toLowerCase() || '';
-        if (paymentStatus === 'completed' || paymentStatus === 'successful' || paymentStatus === 'success') {
-          const paymentDate = new Date(payment.created_at);
-          const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth()}`;
-          const monthData = revenueByMonth.find(m => m.key === key);
-          if (monthData) {
-            const amount = payment.amount_usd != null ? parseFloat(payment.amount_usd) : parseFloat(payment.amount || 0);
-            monthData.revenue += amount;
-          }
-        }
-      });
+      setPlanData(
+        (data.plan_distribution || []).map((plan) => ({
+          name: language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name,
+          count: Number(plan.count) || 0,
+        }))
+      );
 
-      setRevenueData(revenueByMonth.map(({ key, ...rest }) => rest));
-
-      // Plan distribution - count companies (not subscriptions) by their active plan
-      // Each company should be counted only once, based on their current active subscription
-      const planCounts: { [key: string]: number } = {};
-      const companyPlanMap: { [companyId: number]: string } = {};
-      
-      // First, initialize all plans with 0
-      plans.forEach((plan: any) => {
-        const planName = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
-        planCounts[planName] = 0;
-      });
-      
-      // Map each company to its active plan
-      allActiveSubscriptions.forEach((sub: any) => {
-        if (sub.company && !companyPlanMap[sub.company]) {
-          const plan = plans.find((p: any) => p.id === sub.plan);
-          if (plan) {
-            const planName = language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name;
-            companyPlanMap[sub.company] = planName;
-          }
-        }
-      });
-      
-      // Count companies by plan
-      Object.values(companyPlanMap).forEach((planName) => {
-        if (planCounts.hasOwnProperty(planName)) {
-          planCounts[planName] = (planCounts[planName] || 0) + 1;
-        }
-      });
-      
-      setPlanData(Object.entries(planCounts).map(([name, count]) => ({ name, count })));
-
-      // Recent companies (last 5) - show ALL companies, not filtered by date range
-      const recent = companies
-        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5)
-        .map((company: any) => {
-          const sub = subscriptions.find((s: any) => s.company === company.id && s.is_active);
-          const plan = sub ? plans.find((p: any) => p.id === sub.plan) : null;
-          const planName = plan ? (language === 'ar' && plan.name_ar?.trim() ? plan.name_ar : plan.name) : null;
+      setRecentCompanies(
+        (data.recent_companies || []).map((company) => {
+          const planName =
+            company.plan_name == null
+              ? null
+              : language === 'ar' && company.plan_name_ar?.trim()
+                ? company.plan_name_ar
+                : company.plan_name;
           return {
             name: company.name,
-            plan: planName || t('dashboard.noPlan')
+            plan: planName || t('dashboard.noPlan'),
           };
-        });
-      setRecentCompanies(recent);
-
-      // Recent payments (last 5) - show ALL completed payments in USD (amount_usd)
-      const recentPaymentsList = payments
-        .filter((payment: any) => {
-          const paymentStatus = payment.payment_status?.toLowerCase() || '';
-          return paymentStatus === 'completed' || paymentStatus === 'successful' || paymentStatus === 'success';
         })
-        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5)
-        .map((payment: any) => {
-          const amountUsd = payment.amount_usd != null ? parseFloat(payment.amount_usd) : parseFloat(payment.amount || 0);
+      );
+
+      setRecentPayments(
+        (data.recent_payments || []).map((payment) => {
+          const amountUsd = Number(payment.amount_usd) || 0;
           return {
-            name: payment.subscription_company_name || t('dashboard.unknown'),
+            name: payment.company_name || t('dashboard.unknown'),
             amount: `$${amountUsd.toLocaleString(undefined, withLatinDigits({ minimumFractionDigits: 2, maximumFractionDigits: 2 }))}`,
           };
-        });
-      setRecentPayments(recentPaymentsList);
+        })
+      );
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       setLoading(false);
     }
-  }, [dateRange, t, language, hasPermission, isSuperAdmin]);
+  }, [canViewDashboard, dateRange, t, language]);
 
   useEffect(() => {
     loadDashboardData();
