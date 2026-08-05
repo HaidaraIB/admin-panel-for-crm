@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Icon from '../components/Icon';
 import FilterButton from '../components/FilterButton';
+import RefreshButton from '../components/RefreshButton';
 import { useI18n } from '../context/i18n';
 import {
   getAllPaymentsAPI,
@@ -104,7 +105,11 @@ const SummaryCard: React.FC<{ label: string; value: string }> = ({ label, value 
   </div>
 );
 
-const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
+const RevenueReports: React.FC<{
+  filters: ReportsFilters;
+  refreshNonce?: number;
+  onLoadingChange?: (loading: boolean) => void;
+}> = ({ filters, refreshNonce = 0, onLoadingChange }) => {
     const { t, language } = useI18n();
     const isDark = useIsDarkMode();
     const chartTheme = useMemo(() => getChartTheme(isDark), [isDark]);
@@ -115,7 +120,11 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
 
     useEffect(() => {
         loadRevenueData();
-    }, [language, t, filters]);
+    }, [language, t, filters, refreshNonce]);
+
+    useEffect(() => {
+        onLoadingChange?.(isLoading);
+    }, [isLoading, onLoadingChange]);
 
     const loadRevenueData = async () => {
         setIsLoading(true);
@@ -274,7 +283,11 @@ const RevenueReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
 )};
 
 
-const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) => {
+const SubscriberReports: React.FC<{
+  filters: ReportsFilters;
+  refreshNonce?: number;
+  onLoadingChange?: (loading: boolean) => void;
+}> = ({ filters, refreshNonce = 0, onLoadingChange }) => {
     const { t, language } = useI18n();
     const isDark = useIsDarkMode();
     const chartTheme = useMemo(() => getChartTheme(isDark), [isDark]);
@@ -286,7 +299,11 @@ const SubscriberReports: React.FC<{ filters: ReportsFilters }> = ({ filters }) =
 
     useEffect(() => {
         loadSubscriberData();
-    }, [language, t, filters]);
+    }, [language, t, filters, refreshNonce]);
+
+    useEffect(() => {
+        onLoadingChange?.(isLoading);
+    }, [isLoading, onLoadingChange]);
 
     const loadSubscriberData = async () => {
         setIsLoading(true);
@@ -504,6 +521,8 @@ const Reports: React.FC = () => {
   }, [activeTab]);
   const [filters, setFilters] = useState<ReportsFilters>(reportsFilterDefaults);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [tabLoading, setTabLoading] = useState(false);
 
   const tabs = [
     { id: 'revenue', label: t('reports.tabs.revenue') },
@@ -543,6 +562,10 @@ const Reports: React.FC = () => {
           >
             {t('reports.filters.open')}
           </FilterButton>
+          <RefreshButton
+            onClick={() => setRefreshNonce((n) => n + 1)}
+            loading={tabLoading}
+          />
         </div>
       </div>
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
@@ -563,8 +586,20 @@ const Reports: React.FC = () => {
         </nav>
       </div>
       
-      {activeTab === 'revenue' && <RevenueReports filters={filters} />}
-      {activeTab === 'subscribers' && <SubscriberReports filters={filters} />}
+      {activeTab === 'revenue' && (
+        <RevenueReports
+          filters={filters}
+          refreshNonce={refreshNonce}
+          onLoadingChange={setTabLoading}
+        />
+      )}
+      {activeTab === 'subscribers' && (
+        <SubscriberReports
+          filters={filters}
+          refreshNonce={refreshNonce}
+          onLoadingChange={setTabLoading}
+        />
+      )}
 
       <ReportsFilterDrawer
         isOpen={isFilterDrawerOpen}

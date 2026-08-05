@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import Icon from '../components/Icon';
+import RefreshButton from '../components/RefreshButton';
 import Skeleton from '../components/Skeleton';
 import { FilterInput } from '../components/filters';
 import { useI18n } from '../context/i18n';
@@ -633,6 +634,7 @@ const Dashboard: React.FC = () => {
               </div>
             )}
           </div>
+          <RefreshButton onClick={() => void loadDashboardData()} loading={loading} />
         </div>
       </div>
 

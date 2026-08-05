@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Icon from '../components/Icon';
+import RefreshButton from '../components/RefreshButton';
 import { SystemBackup, LimitedAdmin } from '../types';
 import { useI18n } from '../context/i18n';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -1731,6 +1732,143 @@ const RegistrationOtpSettings: React.FC = () => {
     );
 };
 
+const LoginLockoutSettings: React.FC = () => {
+    const { t } = useI18n();
+    const { addLog } = useAuditLog();
+    const [enabled, setEnabled] = useState(true);
+    const [maxAttempts, setMaxAttempts] = useState(5);
+    const [durationMinutes, setDurationMinutes] = useState(15);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    const loadSettings = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getSystemSettingsAPI();
+            setEnabled(data.login_lockout_enabled !== false);
+            setMaxAttempts(Math.max(1, Number(data.login_max_failed_attempts) || 5));
+            setDurationMinutes(Math.max(1, Number(data.login_lockout_duration_minutes) || 15));
+        } catch (error: any) {
+            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.loginLockout.loadError') });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadSettings();
+    }, []);
+
+    useEffect(() => {
+        if (!feedback) return;
+        const timer = setTimeout(() => setFeedback(null), 6000);
+        return () => clearTimeout(timer);
+    }, [feedback]);
+
+    const handleSave = async () => {
+        const attempts = Math.max(1, Math.floor(Number(maxAttempts) || 1));
+        const minutes = Math.max(1, Math.floor(Number(durationMinutes) || 1));
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            const data = await updateSystemSettingsAPI({
+                login_lockout_enabled: enabled,
+                login_max_failed_attempts: attempts,
+                login_lockout_duration_minutes: minutes,
+            });
+            setEnabled(data.login_lockout_enabled !== false);
+            setMaxAttempts(Math.max(1, Number(data.login_max_failed_attempts) || attempts));
+            setDurationMinutes(Math.max(1, Number(data.login_lockout_duration_minutes) || minutes));
+            addLog('audit.log.loginLockoutUpdated', {
+                state: enabled ? t('common.enabled') : t('common.disabled'),
+                attempts: String(attempts),
+                minutes: String(minutes),
+            });
+            setFeedback({ type: 'success', message: t('settings.loginLockout.saveSuccess') });
+        } catch (error: any) {
+            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.loginLockout.saveError') });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.loginLockout.title')}</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('settings.loginLockout.description')}</p>
+            </div>
+            {feedback && (
+                <div className={`p-3 rounded-md text-sm ${feedback.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'}`}>
+                    {feedback.message}
+                </div>
+            )}
+            {isLoading ? (
+                <div className="flex items-center gap-2 text-gray-500"><LoadingSpinner /><span>{t('common.loading') || 'Loading...'}</span></div>
+            ) : (
+                <div className="space-y-6 max-w-xl">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="login-lockout-enabled"
+                                checked={enabled}
+                                onChange={(e) => setEnabled(e.target.checked)}
+                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <label htmlFor="login-lockout-enabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {t('settings.loginLockout.enabledLabel')}
+                            </label>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.loginLockout.enabledHint')}</p>
+                    </div>
+                    <div className={`space-y-4 ${enabled ? '' : 'opacity-60'}`}>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300" htmlFor="login-max-attempts">
+                                {t('settings.loginLockout.maxAttempts')}
+                            </label>
+                            <input
+                                id="login-max-attempts"
+                                type="number"
+                                min={1}
+                                disabled={!enabled}
+                                value={maxAttempts}
+                                onChange={(e) => setMaxAttempts(Number(e.target.value))}
+                                className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300" htmlFor="login-lockout-minutes">
+                                {t('settings.loginLockout.durationMinutes')}
+                            </label>
+                            <input
+                                id="login-lockout-minutes"
+                                type="number"
+                                min={1}
+                                disabled={!enabled}
+                                value={durationMinutes}
+                                onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                                className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.loginLockout.durationHint')}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                        >
+                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span></> : (t('settings.general.save') || 'Save Changes')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const AuditLog: React.FC = () => {
     const { t, language } = useI18n();
     const { logs } = useAuditLog();
@@ -1920,13 +2058,16 @@ const LimitedAdmins: React.FC = () => {
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                     {t('limitedAdmins.title') || 'Limited Admins'}
                 </h3>
-                <button
-                    onClick={() => handleOpenModal()}
-                    className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center gap-2"
-                >
-                    <Icon name="plus" className="w-5 h-5" />
-                    {t('limitedAdmins.add') || 'Add Limited Admin'}
-                </button>
+                <div className="flex items-center gap-2">
+                    <RefreshButton onClick={() => void loadLimitedAdmins()} loading={isLoading} />
+                    <button
+                        onClick={() => handleOpenModal()}
+                        className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center gap-2"
+                    >
+                        <Icon name="plus" className="w-5 h-5" />
+                        {t('limitedAdmins.add') || 'Add Limited Admin'}
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
@@ -2299,6 +2440,7 @@ const SystemSettings: React.FC = () => {
         { id: 'twilio', label: t('settings.menu.twilio') || 'Twilio (SMS)' },
         { id: 'platformWhatsapp', label: t('settings.menu.platformWhatsapp') || 'Platform WhatsApp' },
         { id: 'registrationOtp', label: t('settings.menu.registrationOtp') || 'Registration OTP' },
+        { id: 'loginLockout', label: t('settings.menu.loginLockout') || 'Login Lockout' },
         ...(canSeeLimitedAdmins ? [{ id: 'limitedAdmins' as const, label: t('settings.menu.limitedAdmins') || 'Limited Admins' }] : []),
         { id: 'audit', label: t('settings.menu.audit') },
         { id: 'billing', label: t('settings.menu.billing') || 'Billing' },
@@ -2316,6 +2458,7 @@ const SystemSettings: React.FC = () => {
             case 'twilio': return <TwilioSmsSettings />;
             case 'platformWhatsapp': return <PlatformWhatsAppSettingsPanel />;
             case 'registrationOtp': return <RegistrationOtpSettings />;
+            case 'loginLockout': return <LoginLockoutSettings />;
             case 'limitedAdmins': return <LimitedAdmins />;
             case 'audit': return <AuditLog />;
             case 'billing': return <BillingInvoiceSettings />;

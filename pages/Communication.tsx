@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Icon from '../components/Icon';
 import FilterButton from '../components/FilterButton';
+import RefreshButton from '../components/RefreshButton';
 import { Broadcast } from '../types';
 import { useI18n } from '../context/i18n';
 import BroadcastViewModal from '../components/BroadcastViewModal';
@@ -655,15 +656,7 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                         {t('communication.filters.open')}
                     </FilterButton>
                     {onRefresh && (
-                        <button
-                            type="button"
-                            onClick={onRefresh}
-                            disabled={isLoading}
-                            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
-                        >
-                            {isLoading ? <LoadingSpinner size="sm" label={t('common.loading') || 'Loading'} /> : <Icon name="refresh" className="w-4 h-4" />}
-                            <span>{t('common.refresh')}</span>
-                        </button>
+                        <RefreshButton onClick={onRefresh} loading={isLoading} hideLabelOnMobile={false} />
                     )}
                 </div>
             </div>

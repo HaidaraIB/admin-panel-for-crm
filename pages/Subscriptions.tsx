@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Icon from '../components/Icon';
 import FilterButton from '../components/FilterButton';
+import RefreshButton from '../components/RefreshButton';
 import { Plan, Payment, Invoice, PaymentStatus, Tenant, type InvoicePaymentStatus, type BillingBranding } from '../types';
 import { useI18n } from '../context/i18n';
 import PlanModal from '../components/PlanModal';
@@ -271,7 +272,8 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
 
     return (
     <div>
-        <div className="flex justify-end mb-6">
+        <div className="flex justify-end gap-2 mb-6">
+            <RefreshButton onClick={() => void loadPlans()} loading={isLoading} />
             <button onClick={() => handleOpenModal(null)} className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center shadow-md transition-transform transform hover:scale-105">
                 <Icon name="plus" className="w-5 h-5 mx-2" />
                 {t('subscriptions.plans.createPlan')}
@@ -510,13 +512,14 @@ const PaymentsTab: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
                 <FilterButton
                     onClick={() => setIsFilterDrawerOpen(true)}
                     hasActiveFilters={filtersActive}
                 >
                     {t('subscriptions.filters.open')}
                 </FilterButton>
+                <RefreshButton onClick={() => void loadPayments()} loading={isLoading} />
             </div>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                 <div className="overflow-x-auto">
@@ -746,13 +749,14 @@ const InvoicesTab: React.FC = () => {
     return (
         <>
             <div className="space-y-4">
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
                     <FilterButton
                         onClick={() => setIsFilterDrawerOpen(true)}
                         hasActiveFilters={filtersActive}
                     >
                         {t('subscriptions.filters.open')}
                     </FilterButton>
+                    <RefreshButton onClick={() => void loadInvoices()} loading={isLoading} />
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                      <div className="overflow-x-auto">
@@ -997,13 +1001,14 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
         <FilterButton
           onClick={() => setIsFilterDrawerOpen(true)}
           hasActiveFilters={filtersActive}
         >
           {t('subscriptions.filters.open')}
         </FilterButton>
+        <RefreshButton onClick={() => void loadSubscriptions()} loading={isLoading} />
       </div>
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
         <div className="overflow-x-auto">

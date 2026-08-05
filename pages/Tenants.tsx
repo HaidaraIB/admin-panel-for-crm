@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import Icon from '../components/Icon';
 import FilterButton from '../components/FilterButton';
+import RefreshButton from '../components/RefreshButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Tenant, TenantStatus, Page } from '../types';
 import { useI18n } from '../context/i18n';
@@ -254,6 +255,9 @@ const Tenants: React.FC<TenantsProps> = ({
                     >
                         {t('tenants.filters.open')}
                     </FilterButton>
+                    {onRefresh && (
+                        <RefreshButton onClick={() => void onRefresh()} loading={isLoading} />
+                    )}
                 </div>
             </div>
 

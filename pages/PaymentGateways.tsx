@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { PaymentGateway, PaymentGatewayStatus } from '../types';
 import { useI18n } from '../context/i18n';
 import Icon from '../components/Icon';
+import RefreshButton from '../components/RefreshButton';
 import GatewaySettingsModal from '../components/GatewaySettingsModal';
 import AddGatewayModal from '../components/AddGatewayModal';
 import AlertDialog from '../components/AlertDialog';
@@ -295,13 +296,16 @@ const PaymentGateways: React.FC = () => {
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('paymentGateways.title')}</h1>
                     <p className="mt-2 text-gray-600 dark:text-gray-400">{t('paymentGateways.subtitle')}</p>
                 </div>
-                <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center space-x-2 rtl:space-x-reverse px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium transition-colors"
-                >
-                    <Icon name="plus" className="w-5 h-5" />
-                    <span>{t('paymentGateways.addGateway')}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                    <RefreshButton onClick={() => void loadGateways()} loading={isLoading} />
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="flex items-center space-x-2 rtl:space-x-reverse px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium transition-colors"
+                    >
+                        <Icon name="plus" className="w-5 h-5" />
+                        <span>{t('paymentGateways.addGateway')}</span>
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">

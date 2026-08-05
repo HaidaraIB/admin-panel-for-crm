@@ -10,6 +10,7 @@ import {
 import type { Tenant } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Icon from '../components/Icon';
+import RefreshButton from '../components/RefreshButton';
 import { withLatinDigits } from '../utils/latinNumerals';
 import {
   WhatsAppFormattedText,
@@ -207,19 +208,12 @@ const TenantWhatsAppChat: React.FC = () => {
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selected.owner_phone}</p>
               ) : null}
             </div>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 shrink-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
-              disabled={selectedId == null || loadingMessages}
+            <RefreshButton
+              iconOnly
+              disabled={selectedId == null}
+              loading={loadingMessages}
               onClick={() => selectedId != null && void loadMessages(selectedId)}
-              title={t('tenantWhatsapp.refresh')}
-            >
-              <Icon
-                name="refresh"
-                className={`w-4 h-4 ${loadingMessages ? 'animate-spin' : ''}`}
-              />
-              <span className="hidden sm:inline">{t('tenantWhatsapp.refresh')}</span>
-            </button>
+            />
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px] bg-gray-50/40 dark:bg-gray-900/20">

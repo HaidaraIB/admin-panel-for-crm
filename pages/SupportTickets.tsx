@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Icon from '../components/Icon';
 import FilterButton from '../components/FilterButton';
+import RefreshButton from '../components/RefreshButton';
 import { useI18n } from '../context/i18n';
 import {
   getSupportTicketsAPI,
@@ -155,17 +156,7 @@ const SupportTickets: React.FC = () => {
           >
             {t('tickets.filters.open')}
           </FilterButton>
-          <button
-            type="button"
-            onClick={loadTickets}
-            disabled={loading}
-            className={`inline-flex h-9 items-center gap-2 px-3 rounded-md text-sm font-medium transition-colors ${
-              isRtl ? 'flex-row-reverse' : ''
-            } bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50`}
-          >
-            <Icon name="refresh" className="w-4 h-4" />
-            {t('common.refresh') || 'Refresh'}
-          </button>
+          <RefreshButton onClick={loadTickets} loading={loading} />
         </div>
       </div>
 

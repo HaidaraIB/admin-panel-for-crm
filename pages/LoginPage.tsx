@@ -45,8 +45,36 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     return () => observer.disconnect();
   }, [colorTheme]);
 
-  const translateLoginError = (errorMessage: string): string => {
+  const translateLoginError = (errorMessage: string, error?: any): string => {
+    const code = String(error?.code || '').toUpperCase();
+    if (code === 'ACCOUNT_LOCKED' || errorMessage.toLowerCase().includes('too many failed login')) {
+      const details = error?.details;
+      let retrySeconds = 0;
+      if (details && typeof details === 'object' && !Array.isArray(details)) {
+        retrySeconds = Number((details as Record<string, unknown>).retry_after_seconds) || 0;
+      }
+      if (retrySeconds > 0) {
+        const minutes = Math.max(1, Math.ceil(retrySeconds / 60));
+        return (t('login.accountLockedWithMinutes') || 'Too many failed attempts. Try again in {minutes} minutes.').replace(
+          '{minutes}',
+          String(minutes)
+        );
+      }
+      return t('login.accountLocked') || 'Too many failed attempts. Please try again later.';
+    }
+
     const lowerMessage = errorMessage.toLowerCase();
+    if (code === 'THROTTLED' || lowerMessage.includes('throttled') || lowerMessage.includes('too many requests')) {
+      const match = errorMessage.match(/available in\s+(\d+)\s+seconds?/i);
+      const seconds = match ? Number(match[1]) : 0;
+      if (seconds > 0) {
+        return (t('login.throttledWithSeconds') || 'Too many requests. Please try again in {seconds} seconds.').replace(
+          '{seconds}',
+          String(seconds)
+        );
+      }
+      return t('login.throttled') || 'Too many requests. Please wait a moment and try again.';
+    }
     
     if (lowerMessage.includes('no active account') || lowerMessage.includes('active account')) {
       return t('login.errorNoActiveAccount') || 'No active account found with the given credentials';
@@ -61,7 +89,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       return t('login.errorInvalidCredentials') || 'Invalid username or password';
     }
     
-    // Default fallback
+    if (errorMessage.trim()) {
+      return errorMessage.trim();
+    }
     return t('login.invalidCredentials') || 'Invalid username or password';
   };
 
@@ -92,7 +122,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       navigate('/dashboard');
     } catch (error: any) {
       const errorMessage = error.message || '';
-      setError(translateLoginError(errorMessage));
+      setError(translateLoginError(errorMessage, error));
       setIsLoading(false);
     }
   };

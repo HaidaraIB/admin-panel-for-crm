@@ -902,6 +902,9 @@ export const updateSystemSettingsAPI = async (settingsData: {
     global_message?: string;
     company_overrides?: Record<string, { enabled?: boolean; message?: string }>;
   }>;
+  login_lockout_enabled?: boolean;
+  login_max_failed_attempts?: number;
+  login_lockout_duration_minutes?: number;
 }) => {
   return apiRequest<any>('/settings/system/1/', {
     method: 'PATCH',

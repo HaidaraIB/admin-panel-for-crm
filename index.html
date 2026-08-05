@@ -8,6 +8,124 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/AlexanderPoellmann/PaymentFont/css/paymentfont.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+      /* Thmanyah typeface — Sans (UI), Serif Display (headlines), Serif Text (reading) */
+      @font-face {
+        font-family: 'Thmanyah Sans';
+        src: url('/fonts/thmanyah/sans/thmanyahsans-Light.woff2') format('woff2');
+        font-weight: 300;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Sans';
+        src: url('/fonts/thmanyah/sans/thmanyahsans-Regular.woff2') format('woff2');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Sans';
+        src: url('/fonts/thmanyah/sans/thmanyahsans-Medium.woff2') format('woff2');
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Sans';
+        src: url('/fonts/thmanyah/sans/thmanyahsans-Bold.woff2') format('woff2');
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Sans';
+        src: url('/fonts/thmanyah/sans/thmanyahsans-Black.woff2') format('woff2');
+        font-weight: 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: 'Thmanyah Serif Display';
+        src: url('/fonts/thmanyah/serif-display/thmanyahserifdisplay-Light.woff2') format('woff2');
+        font-weight: 300;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Serif Display';
+        src: url('/fonts/thmanyah/serif-display/thmanyahserifdisplay-Regular.woff2') format('woff2');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Serif Display';
+        src: url('/fonts/thmanyah/serif-display/thmanyahserifdisplay-Medium.woff2') format('woff2');
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Serif Display';
+        src: url('/fonts/thmanyah/serif-display/thmanyahserifdisplay-Bold.woff2') format('woff2');
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Serif Display';
+        src: url('/fonts/thmanyah/serif-display/thmanyahserifdisplay-Black.woff2') format('woff2');
+        font-weight: 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: 'Thmanyah Serif Text';
+        src: url('/fonts/thmanyah/serif-text/thmanyahseriftext-Light.woff2') format('woff2');
+        font-weight: 300;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Serif Text';
+        src: url('/fonts/thmanyah/serif-text/thmanyahseriftext-Regular.woff2') format('woff2');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Serif Text';
+        src: url('/fonts/thmanyah/serif-text/thmanyahseriftext-Medium.woff2') format('woff2');
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Serif Text';
+        src: url('/fonts/thmanyah/serif-text/thmanyahseriftext-Bold.woff2') format('woff2');
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Thmanyah Serif Text';
+        src: url('/fonts/thmanyah/serif-text/thmanyahseriftext-Black.woff2') format('woff2');
+        font-weight: 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      html, body {
+        font-family: 'Thmanyah Sans', sans-serif;
+      }
+
+      h1, h2, h3,
+      .font-display {
+        font-family: 'Thmanyah Serif Display', 'Thmanyah Sans', serif;
+      }
+
       :root {
         --scrollbar-size: 10px;
         --scrollbar-track-color: hsl(var(--color-primary-500) / 0.12);
@@ -193,6 +311,12 @@
         darkMode: 'class',
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Thmanyah Sans', 'sans-serif'],
+              arabic: ['Thmanyah Sans', 'sans-serif'],
+              display: ['Thmanyah Serif Display', 'Thmanyah Sans', 'serif'],
+              serif: ['Thmanyah Serif Text', 'Thmanyah Sans', 'serif'],
+            },
             colors: {
               'primary': {
                 '50': 'hsl(var(--color-primary-50) / <alpha-value>)',
@@ -225,7 +349,7 @@
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
-  <body class="bg-gray-50 dark:bg-gray-900">
+  <body class="font-sans bg-gray-50 dark:bg-gray-900">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
