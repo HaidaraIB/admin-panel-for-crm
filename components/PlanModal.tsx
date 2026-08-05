@@ -45,6 +45,8 @@ const emptyPlan: Omit<Plan, 'id'> = {
     max_employees: 10,
     max_clients: 100,
     max_deals: null,
+    max_storage_bytes: 1 * 1024 * 1024 * 1024,
+    max_file_size_bytes: 20 * 1024 * 1024,
   },
   entitlementsUsageLimitsMonthly: {},
   tier: 0,
@@ -96,13 +98,40 @@ const PlanModal: React.FC<PlanModalProps> = ({
     setFormData(newFormData);
   };
 
-  const handleUnlimitedChange = (field: 'max_employees' | 'max_clients' | 'max_deals', isChecked: boolean) => {
-    const fallbackValue = field === 'max_employees' ? 10 : field === 'max_clients' ? 100 : null;
+  const handleUnlimitedChange = (
+    field: 'max_employees' | 'max_clients' | 'max_deals' | 'max_storage_bytes' | 'max_file_size_bytes',
+    isChecked: boolean,
+  ) => {
+    const fallbackValue =
+      field === 'max_employees' ? 10
+      : field === 'max_clients' ? 100
+      : field === 'max_storage_bytes' ? 1 * 1024 * 1024 * 1024
+      : field === 'max_file_size_bytes' ? 20 * 1024 * 1024
+      : null;
     setFormData(prev => ({
       ...prev,
       entitlementsLimits: {
         ...(prev.entitlementsLimits || {}),
         [field]: isChecked ? 'unlimited' : fallbackValue,
+      },
+    }));
+  };
+
+  const bytesToDisplayUnit = (bytes: number | 'unlimited' | null | undefined, unitBytes: number): string => {
+    if (bytes === 'unlimited' || bytes == null) return '';
+    const n = Number(bytes);
+    if (!Number.isFinite(n)) return '';
+    const converted = n / unitBytes;
+    return Number.isInteger(converted) ? String(converted) : String(Math.round(converted * 100) / 100);
+  };
+
+  const handleBytesLimitChange = (key: 'max_storage_bytes' | 'max_file_size_bytes', displayValue: string, unitBytes: number) => {
+    const parsed = parseNullableNumber(displayValue);
+    setFormData(prev => ({
+      ...prev,
+      entitlementsLimits: {
+        ...(prev.entitlementsLimits || {}),
+        [key]: parsed == null ? null : Math.round(parsed * unitBytes),
       },
     }));
   };
@@ -393,6 +422,52 @@ const PlanModal: React.FC<PlanModalProps> = ({
                       id="maxDealsUnlimited"
                       checked={(formData.entitlementsLimits || {}).max_deals === 'unlimited'}
                       onChange={(e) => handleUnlimitedChange('max_deals', e.target.checked)}
+                      label={t('subscriptions.plans.unlimited')}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClasses}>{t('subscriptions.plans.storageGB') || 'Storage (GB)'}</label>
+                  <div className={`flex items-center gap-2 ${language === 'ar' ? 'justify-start' : ''}`}>
+                    <input
+                      className={inputClasses}
+                      inputMode="decimal"
+                      value={
+                        (formData.entitlementsLimits || {}).max_storage_bytes === 'unlimited'
+                          ? ''
+                          : bytesToDisplayUnit((formData.entitlementsLimits || {}).max_storage_bytes, 1024 * 1024 * 1024)
+                      }
+                      onChange={(e) => handleBytesLimitChange('max_storage_bytes', e.target.value, 1024 * 1024 * 1024)}
+                      placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                      disabled={(formData.entitlementsLimits || {}).max_storage_bytes === 'unlimited'}
+                    />
+                    <Checkbox
+                      id="maxStorageUnlimited"
+                      checked={(formData.entitlementsLimits || {}).max_storage_bytes === 'unlimited'}
+                      onChange={(e) => handleUnlimitedChange('max_storage_bytes', e.target.checked)}
+                      label={t('subscriptions.plans.unlimited')}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClasses}>{t('subscriptions.plans.maxFileSizeMB') || 'Max file size (MB)'}</label>
+                  <div className={`flex items-center gap-2 ${language === 'ar' ? 'justify-start' : ''}`}>
+                    <input
+                      className={inputClasses}
+                      inputMode="decimal"
+                      value={
+                        (formData.entitlementsLimits || {}).max_file_size_bytes === 'unlimited'
+                          ? ''
+                          : bytesToDisplayUnit((formData.entitlementsLimits || {}).max_file_size_bytes, 1024 * 1024)
+                      }
+                      onChange={(e) => handleBytesLimitChange('max_file_size_bytes', e.target.value, 1024 * 1024)}
+                      placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                      disabled={(formData.entitlementsLimits || {}).max_file_size_bytes === 'unlimited'}
+                    />
+                    <Checkbox
+                      id="maxFileSizeUnlimited"
+                      checked={(formData.entitlementsLimits || {}).max_file_size_bytes === 'unlimited'}
+                      onChange={(e) => handleUnlimitedChange('max_file_size_bytes', e.target.checked)}
                       label={t('subscriptions.plans.unlimited')}
                     />
                   </div>

@@ -144,6 +144,8 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     max_employees: plan.limits?.max_employees ?? plan.users ?? null,
                     max_clients: plan.limits?.max_clients ?? plan.clients ?? null,
                     max_deals: plan.limits?.max_deals ?? null,
+                    max_storage_bytes: plan.limits?.max_storage_bytes ?? (1 * 1024 * 1024 * 1024),
+                    max_file_size_bytes: plan.limits?.max_file_size_bytes ?? (20 * 1024 * 1024),
                 },
                 entitlementsUsageLimitsMonthly: plan.usage_limits_monthly || {},
                 tier: typeof plan.tier === 'number' ? plan.tier : 0,
