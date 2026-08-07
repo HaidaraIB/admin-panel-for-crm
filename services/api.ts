@@ -682,6 +682,141 @@ export const updateBillingSettingsAPI = async (formData: FormData) => {
   return res.data;
 };
 
+// ==================== Platform Content (Guide + News) ====================
+
+export type GuideArticlePayload = {
+  title_en: string;
+  title_ar: string;
+  body_en: string;
+  body_ar: string;
+  slug?: string;
+  sort_order?: number;
+  is_published?: boolean;
+  cover_image?: File | null;
+};
+
+export type NewsPostPayload = {
+  title_en: string;
+  title_ar: string;
+  summary_en?: string;
+  summary_ar?: string;
+  body_en: string;
+  body_ar: string;
+  is_published?: boolean;
+  cover_image?: File | null;
+};
+
+function appendContentFields(formData: FormData, data: Record<string, unknown>) {
+  Object.entries(data).forEach(([key, value]) => {
+    if (key === 'cover_image') return;
+    if (value === undefined || value === null) return;
+    if (typeof value === 'boolean') {
+      formData.append(key, value ? 'true' : 'false');
+    } else {
+      formData.append(key, String(value));
+    }
+  });
+}
+
+export const getGuideArticlesAPI = async (params?: { search?: string; ordering?: string }) => {
+  const query = buildQueryString(params ?? {});
+  return fetchAllPaginatedPages<import('../types').GuideArticle>(`/guide-articles/${query}`);
+};
+
+export const getGuideArticleAPI = async (id: number) => {
+  return apiRequest<import('../types').GuideArticle>(`/guide-articles/${id}/`);
+};
+
+export const createGuideArticleAPI = async (payload: GuideArticlePayload) => {
+  if (payload.cover_image instanceof File) {
+    const formData = new FormData();
+    appendContentFields(formData, payload as unknown as Record<string, unknown>);
+    formData.append('cover_image', payload.cover_image);
+    const res = await adminHttp.post('guide-articles/', formData);
+    return res.data;
+  }
+  const { cover_image: _c, ...json } = payload;
+  return apiRequest('/guide-articles/', {
+    method: 'POST',
+    body: JSON.stringify(json),
+  });
+};
+
+export const updateGuideArticleAPI = async (id: number, payload: Partial<GuideArticlePayload>) => {
+  if (payload.cover_image instanceof File) {
+    const formData = new FormData();
+    appendContentFields(formData, payload as unknown as Record<string, unknown>);
+    formData.append('cover_image', payload.cover_image);
+    const res = await adminHttp.patch(`guide-articles/${id}/`, formData);
+    return res.data;
+  }
+  const { cover_image: _c, ...json } = payload;
+  return apiRequest(`/guide-articles/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(json),
+  });
+};
+
+export const deleteGuideArticleAPI = async (id: number) => {
+  return apiRequest<void>(`/guide-articles/${id}/`, { method: 'DELETE' });
+};
+
+export const getNewsPostsAPI = async (params?: { search?: string; ordering?: string }) => {
+  const query = buildQueryString(params ?? {});
+  return fetchAllPaginatedPages<import('../types').NewsPost>(`/news-posts/${query}`);
+};
+
+export const getNewsPostAPI = async (id: number) => {
+  return apiRequest<import('../types').NewsPost>(`/news-posts/${id}/`);
+};
+
+export const createNewsPostAPI = async (payload: NewsPostPayload) => {
+  if (payload.cover_image instanceof File) {
+    const formData = new FormData();
+    appendContentFields(formData, payload as unknown as Record<string, unknown>);
+    formData.append('cover_image', payload.cover_image);
+    const res = await adminHttp.post('news-posts/', formData);
+    return res.data;
+  }
+  const { cover_image: _c, ...json } = payload;
+  return apiRequest('/news-posts/', {
+    method: 'POST',
+    body: JSON.stringify(json),
+  });
+};
+
+export const updateNewsPostAPI = async (id: number, payload: Partial<NewsPostPayload>) => {
+  if (payload.cover_image instanceof File) {
+    const formData = new FormData();
+    appendContentFields(formData, payload as unknown as Record<string, unknown>);
+    formData.append('cover_image', payload.cover_image);
+    const res = await adminHttp.patch(`news-posts/${id}/`, formData);
+    return res.data;
+  }
+  const { cover_image: _c, ...json } = payload;
+  return apiRequest(`/news-posts/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(json),
+  });
+};
+
+export const deleteNewsPostAPI = async (id: number) => {
+  return apiRequest<void>(`/news-posts/${id}/`, { method: 'DELETE' });
+};
+
+export type NewsNotifyChannel = 'push' | 'email' | 'both';
+
+/** POST /api/news-posts/{id}/notify/ — notify company owners (published only) */
+export const notifyNewsPostAPI = async (id: number, channels: NewsNotifyChannel) => {
+  return apiRequest<import('../types').NewsPost & { notify_queued?: boolean; channels?: string }>(
+    `/news-posts/${id}/notify/`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ channels }),
+    },
+  );
+};
+
 // ==================== Broadcasts APIs ====================
 
 /**
@@ -1103,6 +1238,7 @@ export const createLimitedAdminAPI = async (adminData: {
   can_manage_payment_gateways?: boolean;
   can_view_reports?: boolean;
   can_manage_communication?: boolean;
+  can_manage_content?: boolean;
   can_manage_settings?: boolean;
   can_manage_limited_admins?: boolean;
 }) => {

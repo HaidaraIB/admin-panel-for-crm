@@ -1,5 +1,5 @@
 
-export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'TenantWhatsApp' | 'Subscriptions' | 'Reports' | 'Communication' | 'Settings' | 'PaymentGateways' | 'SupportTickets';
+export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'TenantWhatsApp' | 'Subscriptions' | 'Reports' | 'Communication' | 'Content' | 'Settings' | 'PaymentGateways' | 'SupportTickets';
 
 export type TicketStatus = 'open' | 'in_progress' | 'closed';
 
@@ -171,8 +171,41 @@ export interface LimitedAdmin {
     can_manage_payment_gateways: boolean;
     can_view_reports: boolean;
     can_manage_communication: boolean;
+    can_manage_content: boolean;
     can_manage_settings: boolean;
     can_manage_limited_admins: boolean;
+}
+
+export interface GuideArticle {
+    id: number;
+    title_en: string;
+    title_ar: string;
+    body_en?: string;
+    body_ar?: string;
+    slug: string;
+    sort_order: number;
+    is_published: boolean;
+    cover_image_url?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface NewsPost {
+    id: number;
+    title_en: string;
+    title_ar: string;
+    summary_en?: string;
+    summary_ar?: string;
+    body_en?: string;
+    body_ar?: string;
+    is_published: boolean;
+    published_at?: string | null;
+    notified_at?: string | null;
+    last_notify_channels?: string;
+    is_notified?: boolean;
+    cover_image_url?: string | null;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface AuditLog {

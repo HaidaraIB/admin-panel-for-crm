@@ -12,6 +12,7 @@ const API_MESSAGE_TO_KEY: Record<string, string> = {
   'You do not have permission to manage payment gateways.': 'errors.permissionManagePaymentGateways',
   'You do not have permission to view reports.': 'errors.permissionViewReports',
   'You do not have permission to manage communication.': 'errors.permissionManageCommunication',
+  'You do not have permission to manage platform content.': 'errors.permissionManageContent',
   'You do not have permission to manage settings.': 'errors.permissionManageSettings',
   'You do not have permission to manage limited admins.': 'errors.permissionManageLimitedAdmins',
   'You do not have permission to perform this action.': 'errors.permissionPerformAction',
