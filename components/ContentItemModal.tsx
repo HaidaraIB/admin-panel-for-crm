@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { GuideArticle, NewsPost } from '../types';
+import { GuideArticle, GuideCategory, NewsPost } from '../types';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
 import Icon from './Icon';
@@ -14,8 +14,10 @@ export type ContentFormData = {
   summary_en: string;
   summary_ar: string;
   slug: string;
+  category_id: number | null;
   sort_order: number;
   is_published: boolean;
+  youtube_url: string;
   cover_image: File | null;
 };
 
@@ -24,11 +26,15 @@ interface ContentItemModalProps {
   kind: ContentKind;
   editingGuide?: GuideArticle | null;
   editingNews?: NewsPost | null;
+  categories?: GuideCategory[];
   initialBody?: { body_en: string; body_ar: string; summary_en?: string; summary_ar?: string };
   isLoading?: boolean;
   onClose: () => void;
   onSave: (data: ContentFormData) => void;
 }
+
+const YOUTUBE_HOST_RE =
+  /^(https?:\/\/)?(www\.|m\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\b/i;
 
 const emptyForm = (): ContentFormData => ({
   title_en: '',
@@ -38,8 +44,10 @@ const emptyForm = (): ContentFormData => ({
   summary_en: '',
   summary_ar: '',
   slug: '',
+  category_id: null,
   sort_order: 0,
   is_published: false,
+  youtube_url: '',
   cover_image: null,
 });
 
@@ -48,12 +56,13 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
   kind,
   editingGuide,
   editingNews,
+  categories = [],
   initialBody,
   isLoading = false,
   onClose,
   onSave,
 }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { showAlert } = useAlert();
   const [formData, setFormData] = useState<ContentFormData>(emptyForm());
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -69,8 +78,10 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
         summary_en: '',
         summary_ar: '',
         slug: editingGuide.slug || '',
+        category_id: editingGuide.category?.id ?? editingGuide.category_id ?? null,
         sort_order: editingGuide.sort_order ?? 0,
         is_published: !!editingGuide.is_published,
+        youtube_url: editingGuide.youtube_url || '',
         cover_image: null,
       });
       setCoverPreview(editingGuide.cover_image_url || null);
@@ -83,8 +94,10 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
         summary_en: initialBody?.summary_en ?? editingNews.summary_en ?? '',
         summary_ar: initialBody?.summary_ar ?? editingNews.summary_ar ?? '',
         slug: '',
+        category_id: null,
         sort_order: 0,
         is_published: !!editingNews.is_published,
+        youtube_url: editingNews.youtube_url || '',
         cover_image: null,
       });
       setCoverPreview(editingNews.cover_image_url || null);
@@ -101,7 +114,7 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
   const labelClasses = 'block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300';
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -113,8 +126,18 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
       setFormData((prev) => ({ ...prev, sort_order: parseInt(value, 10) || 0 }));
       return;
     }
+    if (name === 'category_id') {
+      setFormData((prev) => ({
+        ...prev,
+        category_id: value ? parseInt(value, 10) : null,
+      }));
+      return;
+    }
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  const categoryLabel = (cat: GuideCategory) =>
+    language === 'ar' ? cat.name_ar || cat.name_en : cat.name_en || cat.name_ar;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -132,6 +155,11 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
     }
     if (!formData.body_en.trim() || !formData.body_ar.trim()) {
       showAlert(t('content.validation.bodiesRequired'), { variant: 'warning' });
+      return;
+    }
+    const yt = formData.youtube_url.trim();
+    if (yt && !YOUTUBE_HOST_RE.test(yt)) {
+      showAlert(t('content.validation.youtubeInvalid'), { variant: 'warning' });
       return;
     }
     onSave(formData);
@@ -244,31 +272,61 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
           </div>
 
           {kind === 'guide' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <>
               <div>
-                <label className={labelClasses}>{t('content.fields.slug')}</label>
-                <input
-                  name="slug"
-                  value={formData.slug}
+                <label className={labelClasses}>{t('content.fields.category')}</label>
+                <select
+                  name="category_id"
+                  value={formData.category_id ?? ''}
                   onChange={handleChange}
                   className={inputClasses}
-                  dir="ltr"
-                  placeholder={t('content.fields.slugHint')}
-                />
+                >
+                  <option value="">{t('content.fields.categoryNone')}</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {categoryLabel(cat)}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div>
-                <label className={labelClasses}>{t('content.fields.sortOrder')}</label>
-                <input
-                  type="number"
-                  name="sort_order"
-                  value={formData.sort_order}
-                  onChange={handleChange}
-                  className={inputClasses}
-                  min={0}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClasses}>{t('content.fields.slug')}</label>
+                  <input
+                    name="slug"
+                    value={formData.slug}
+                    onChange={handleChange}
+                    className={inputClasses}
+                    dir="ltr"
+                    placeholder={t('content.fields.slugHint')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClasses}>{t('content.fields.sortOrder')}</label>
+                  <input
+                    type="number"
+                    name="sort_order"
+                    value={formData.sort_order}
+                    onChange={handleChange}
+                    className={inputClasses}
+                    min={0}
+                  />
+                </div>
               </div>
-            </div>
+            </>
           )}
+
+          <div>
+            <label className={labelClasses}>{t('content.fields.youtubeUrl')}</label>
+            <input
+              name="youtube_url"
+              value={formData.youtube_url}
+              onChange={handleChange}
+              className={inputClasses}
+              dir="ltr"
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+          </div>
 
           <div>
             <label className={labelClasses}>{t('content.fields.coverImage')}</label>

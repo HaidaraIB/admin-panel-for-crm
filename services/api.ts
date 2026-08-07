@@ -684,14 +684,23 @@ export const updateBillingSettingsAPI = async (formData: FormData) => {
 
 // ==================== Platform Content (Guide + News) ====================
 
+export type GuideCategoryPayload = {
+  name_en: string;
+  name_ar: string;
+  slug?: string;
+  sort_order?: number;
+};
+
 export type GuideArticlePayload = {
   title_en: string;
   title_ar: string;
   body_en: string;
   body_ar: string;
   slug?: string;
+  category_id?: number | null;
   sort_order?: number;
   is_published?: boolean;
+  youtube_url?: string;
   cover_image?: File | null;
 };
 
@@ -703,13 +712,19 @@ export type NewsPostPayload = {
   body_en: string;
   body_ar: string;
   is_published?: boolean;
+  youtube_url?: string;
   cover_image?: File | null;
 };
 
 function appendContentFields(formData: FormData, data: Record<string, unknown>) {
   Object.entries(data).forEach(([key, value]) => {
     if (key === 'cover_image') return;
-    if (value === undefined || value === null) return;
+    if (value === undefined) return;
+    // Allow clearing nullable FK fields (e.g. category_id) via empty string.
+    if (value === null) {
+      if (key === 'category_id') formData.append(key, '');
+      return;
+    }
     if (typeof value === 'boolean') {
       formData.append(key, value ? 'true' : 'false');
     } else {
@@ -717,6 +732,32 @@ function appendContentFields(formData: FormData, data: Record<string, unknown>) 
     }
   });
 }
+
+export const getGuideCategoriesAPI = async (params?: { search?: string; ordering?: string }) => {
+  const query = buildQueryString(params ?? {});
+  return fetchAllPaginatedPages<import('../types').GuideCategory>(`/guide-categories/${query}`);
+};
+
+export const createGuideCategoryAPI = async (payload: GuideCategoryPayload) => {
+  return apiRequest<import('../types').GuideCategory>('/guide-categories/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
+export const updateGuideCategoryAPI = async (
+  id: number,
+  payload: Partial<GuideCategoryPayload>,
+) => {
+  return apiRequest<import('../types').GuideCategory>(`/guide-categories/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteGuideCategoryAPI = async (id: number) => {
+  return apiRequest<void>(`/guide-categories/${id}/`, { method: 'DELETE' });
+};
 
 export const getGuideArticlesAPI = async (params?: { search?: string; ordering?: string }) => {
   const query = buildQueryString(params ?? {});
@@ -815,6 +856,46 @@ export const notifyNewsPostAPI = async (id: number, channels: NewsNotifyChannel)
       body: JSON.stringify({ channels }),
     },
   );
+};
+
+export type PageHelpVideo = {
+  id?: number;
+  page_key: string;
+  page_key_display?: string;
+  youtube_url?: string;
+  youtube_embed_url?: string | null;
+  title_en?: string;
+  title_ar?: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export const getPageHelpVideosAPI = async () => {
+  return fetchAllPaginatedPages<PageHelpVideo>('/page-help-videos/');
+};
+
+export const getPageHelpVideoKeysAPI = async () => {
+  return apiRequest<Array<{ value: string; label: string }>>('/page-help-videos/page-keys/');
+};
+
+export const upsertPageHelpVideoAPI = async (payload: {
+  page_key: string;
+  youtube_url: string;
+  title_en?: string;
+  title_ar?: string;
+  is_active?: boolean;
+}) => {
+  return apiRequest<PageHelpVideo>('/page-help-videos/upsert/', {
+    method: 'POST',
+    body: JSON.stringify({
+      page_key: payload.page_key,
+      youtube_url: payload.youtube_url,
+      title_en: payload.title_en ?? '',
+      title_ar: payload.title_ar ?? '',
+      is_active: payload.is_active ?? true,
+    }),
+  });
 };
 
 // ==================== Broadcasts APIs ====================

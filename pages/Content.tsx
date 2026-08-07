@@ -5,8 +5,10 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ContentItemModal, { ContentFormData, ContentKind } from '../components/ContentItemModal';
 import ContentViewModal from '../components/ContentViewModal';
 import NewsNotifyModal, { NewsNotifyChannel } from '../components/NewsNotifyModal';
+import PageHelpVideosPanel from '../components/PageHelpVideosPanel';
+import GuideCategoriesPanel from '../components/GuideCategoriesPanel';
 import AlertDialog from '../components/AlertDialog';
-import { GuideArticle, NewsPost } from '../types';
+import { GuideArticle, GuideCategory, NewsPost } from '../types';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
 import { translateAdminApiError } from '../utils/translateApiError';
@@ -26,14 +28,14 @@ import {
   notifyNewsPostAPI,
 } from '../services/api';
 
-type TabId = 'guide' | 'news';
+type TabId = 'guide' | 'news' | 'tutorials';
 
 const Content: React.FC = () => {
   const { t, language } = useI18n();
   const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     const saved = localStorage.getItem('content_activeTab');
-    return saved === 'news' || saved === 'guide' ? saved : 'guide';
+    return saved === 'news' || saved === 'guide' || saved === 'tutorials' ? saved : 'guide';
   });
   const [guides, setGuides] = useState<GuideArticle[]>([]);
   const [news, setNews] = useState<NewsPost[]>([]);
@@ -56,6 +58,7 @@ const Content: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [notifyTarget, setNotifyTarget] = useState<NewsPost | null>(null);
   const [notifying, setNotifying] = useState(false);
+  const [categories, setCategories] = useState<GuideCategory[]>([]);
 
   useEffect(() => {
     localStorage.setItem('content_activeTab', activeTab);
@@ -171,8 +174,10 @@ const Content: React.FC = () => {
           body_en: form.body_en,
           body_ar: form.body_ar,
           slug: form.slug.trim() || undefined,
+          category_id: form.category_id,
           sort_order: form.sort_order,
           is_published: form.is_published,
+          youtube_url: form.youtube_url.trim(),
           cover_image: form.cover_image || undefined,
         };
         if (editingGuide) {
@@ -190,6 +195,7 @@ const Content: React.FC = () => {
           body_en: form.body_en,
           body_ar: form.body_ar,
           is_published: form.is_published,
+          youtube_url: form.youtube_url.trim(),
           cover_image: form.cover_image || undefined,
         };
         if (editingNews) {
@@ -259,6 +265,12 @@ const Content: React.FC = () => {
 
   const displayTitle = (en: string, ar: string) => (language === 'ar' ? ar || en : en || ar);
 
+  const displayCategory = (item: GuideArticle) => {
+    const cat = item.category;
+    if (!cat) return '—';
+    return language === 'ar' ? cat.name_ar || cat.name_en : cat.name_en || cat.name_ar;
+  };
+
   const formatDate = (value?: string | null) => {
     if (!value) return '—';
     try {
@@ -283,14 +295,16 @@ const Content: React.FC = () => {
         </h1>
         <div className="flex items-center gap-2">
           <RefreshButton onClick={() => void loadAll()} loading={loading} />
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 text-sm font-medium"
-          >
-            <Icon name="plus" className="w-4 h-4" />
-            {activeTab === 'guide' ? t('content.guide.add') : t('content.news.add')}
-          </button>
+          {activeTab !== 'tutorials' && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 text-sm font-medium"
+            >
+              <Icon name="plus" className="w-4 h-4" />
+              {activeTab === 'guide' ? t('content.guide.add') : t('content.news.add')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -310,43 +324,64 @@ const Content: React.FC = () => {
           >
             {t('content.tabs.news')}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('tutorials')}
+            className={`pb-3 text-sm ${activeTab === 'tutorials' ? ADMIN_PAGE_TAB_ACTIVE : ADMIN_PAGE_TAB_INACTIVE}`}
+          >
+            {t('content.tabs.tutorials')}
+          </button>
         </nav>
       </div>
 
-      {loading ? (
+      {activeTab === 'tutorials' ? (
+        <PageHelpVideosPanel />
+      ) : loading ? (
         <div className="flex justify-center py-16">
           <LoadingSpinner />
         </div>
       ) : activeTab === 'guide' ? (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+        <div className="space-y-3">
+          <GuideCategoriesPanel onCategoriesChange={setCategories} />
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-center text-gray-500 dark:text-gray-400">
               <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
                 <tr>
-                  <th className="px-6 py-3 text-center">{t('content.table.title')}</th>
-                  <th className="px-6 py-3 text-center">{t('content.table.order')}</th>
-                  <th className="px-6 py-3 text-center">{t('content.table.status')}</th>
-                  <th className="px-6 py-3 text-center">{t('content.table.updated')}</th>
-                  <th className="px-6 py-3 text-center">{t('content.table.actions')}</th>
+                  <th className="px-4 py-3 text-center">{t('content.table.title')}</th>
+                  <th className="px-4 py-3 text-center">{t('content.table.category')}</th>
+                  <th className="px-4 py-3 text-center w-20">{t('content.table.order')}</th>
+                  <th className="px-4 py-3 text-center w-28">{t('content.table.status')}</th>
+                  <th className="px-4 py-3 text-center w-32">{t('content.table.updated')}</th>
+                  <th className="px-4 py-3 text-center w-36">{t('content.table.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {guides.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                       {t('content.empty.guide')}
                     </td>
                   </tr>
                 ) : (
                   guides.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                      <td className="px-6 py-4 text-center text-gray-900 dark:text-gray-100">
+                      <td className="px-4 py-3 text-center font-medium text-gray-900 dark:text-gray-100">
                         {displayTitle(item.title_en, item.title_ar)}
                       </td>
-                      <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-300">
+                      <td className="px-4 py-3 text-center">
+                        {item.category ? (
+                          <span className="inline-flex max-w-[12rem] truncate rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">
+                            {displayCategory(item)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">
                         {String(item.sort_order)}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         <button
                           type="button"
                           onClick={() => void handleTogglePublish('guide', item.id, !item.is_published)}
@@ -359,11 +394,11 @@ const Content: React.FC = () => {
                           {item.is_published ? t('content.status.published') : t('content.status.draft')}
                         </button>
                       </td>
-                      <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-300">
+                      <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">
                         {formatDate(item.updated_at)}
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="inline-flex items-center justify-center gap-2">
+                      <td className="px-4 py-3 text-center">
+                        <div className="inline-flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => void openViewGuide(item)}
@@ -401,6 +436,7 @@ const Content: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       ) : (
@@ -523,9 +559,10 @@ const Content: React.FC = () => {
 
       <ContentItemModal
         isOpen={modalOpen}
-        kind={activeTab}
+        kind={activeTab === 'news' ? 'news' : 'guide'}
         editingGuide={editingGuide}
         editingNews={editingNews}
+        categories={categories}
         initialBody={detailBodies || undefined}
         isLoading={saving}
         onClose={() => setModalOpen(false)}

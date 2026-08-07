@@ -176,6 +176,16 @@ export interface LimitedAdmin {
     can_manage_limited_admins: boolean;
 }
 
+export interface GuideCategory {
+    id: number;
+    name_en: string;
+    name_ar: string;
+    slug: string;
+    sort_order: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
 export interface GuideArticle {
     id: number;
     title_en: string;
@@ -183,8 +193,12 @@ export interface GuideArticle {
     body_en?: string;
     body_ar?: string;
     slug: string;
+    category?: GuideCategory | null;
+    category_id?: number | null;
     sort_order: number;
     is_published: boolean;
+    youtube_url?: string;
+    youtube_embed_url?: string | null;
     cover_image_url?: string | null;
     created_at: string;
     updated_at: string;
@@ -203,6 +217,8 @@ export interface NewsPost {
     notified_at?: string | null;
     last_notify_channels?: string;
     is_notified?: boolean;
+    youtube_url?: string;
+    youtube_embed_url?: string | null;
     cover_image_url?: string | null;
     created_at: string;
     updated_at: string;

@@ -84,6 +84,29 @@ const ContentViewModal: React.FC<ContentViewModalProps> = ({
                 />
               )}
 
+              {(item.youtube_embed_url || item.youtube_url) && (
+                <div>
+                  <label className={labelClasses}>{t('content.fields.youtubeUrl')}</label>
+                  {item.youtube_embed_url ? (
+                    <div className="relative w-full overflow-hidden rounded-md border border-gray-200 dark:border-gray-600 aspect-video bg-black">
+                      <iframe
+                        title="YouTube video"
+                        src={item.youtube_embed_url}
+                        className="absolute inset-0 h-full w-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                      />
+                    </div>
+                  ) : (
+                    <p className={valueClasses} dir="ltr">
+                      {item.youtube_url}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-3">
                 <span
                   className={`px-2 py-1 text-xs rounded-full font-medium ${
@@ -96,6 +119,13 @@ const ContentViewModal: React.FC<ContentViewModalProps> = ({
                 </span>
                 {kind === 'guide' && guide && (
                   <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {guide.category
+                      ? `${t('content.fields.category')}: ${
+                          language === 'ar'
+                            ? guide.category.name_ar || guide.category.name_en
+                            : guide.category.name_en || guide.category.name_ar
+                        } · `
+                      : ''}
                     {t('content.fields.sortOrder')}: {guide.sort_order}
                     {guide.slug ? ` · ${guide.slug}` : ''}
                   </span>
