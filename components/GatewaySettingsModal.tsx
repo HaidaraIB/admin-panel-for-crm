@@ -6,6 +6,19 @@ import Icon from './Icon';
 import LoadingSpinner from './LoadingSpinner';
 import { testPaymentGatewayConnectionAPI } from '../services/api';
 
+/** Same alias set the backend uses to resolve the operator-typed Al Qaseh gateway name. */
+const isAlqasehName = (nameLower: string) =>
+  nameLower.includes('alqaseh') ||
+  nameLower.includes('al qaseh') ||
+  nameLower.includes('al-qaseh') ||
+  nameLower.includes('qaseh');
+
+/**
+ * The API returns secrets masked (`••••••••1234`) and drops any value that is
+ * still masked on write, so an untouched field keeps the stored credential.
+ */
+const isMaskedValue = (value: unknown) => typeof value === 'string' && value.includes('•');
+
 interface GatewaySettingsModalProps {
   gateway: PaymentGateway | null;
   isOpen: boolean;
@@ -45,6 +58,9 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         clientId: config.clientId || '',
         clientSecret: config.clientSecret || '',
         environment: config.environment || 'test',
+        baseUrl: config.baseUrl || '',
+        payBaseUrl: config.payBaseUrl || '',
+        currency: config.currency || '',
       });
       setTestStatus('idle'); // Reset test status when modal opens or gateway changes
       setTestMessage(''); // Reset test message
@@ -86,7 +102,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       const isStripe = gatewayNameLower.includes('stripe');
       const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
       const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
-      
+      const isAlqaseh = isAlqasehName(gatewayNameLower);
+
       if (isPaytabs) {
         if (!formData.profileId || !formData.serverKey || !formData.clientKey) {
           setTestStatus('error');
@@ -107,8 +124,11 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
           setTestStatus('error');
           return;
         }
-      } else if (isFib) {
+      } else if (isFib || isAlqaseh) {
         if (!formData.clientId || !formData.clientSecret) {
+          if (isAlqaseh) {
+            setTestMessage(t('paymentGateways.modal.alqasehCredentialsRequired'));
+          }
           setTestStatus('error');
           return;
         }
@@ -120,8 +140,8 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         }
       }
       
-      // For Zain Cash, Stripe, QiCard, and FIB, make actual API test call
-      if (isZaincash || isStripe || isQicard || isFib) {
+      // For Zain Cash, Stripe, QiCard, FIB, and Al Qaseh, make actual API test call
+      if (isZaincash || isStripe || isQicard || isFib || isAlqaseh) {
         try {
           const result = await testPaymentGatewayConnectionAPI(parseInt(gateway.id), formData);
           setTestMessage(result.message || '');
@@ -160,6 +180,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     const isQicard =
       gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
     const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
+    const isAlqaseh = isAlqasehName(gatewayNameLower);
     let hasKeys = false;
     
     if (isPaytabs) {
@@ -175,7 +196,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       const username = formData?.username ? String(formData.username).trim() : '';
       const password = formData?.password ? String(formData.password).trim() : '';
       hasKeys = !!(terminalId && username && password);
-    } else if (isFib) {
+    } else if (isFib || isAlqaseh) {
       const clientId = formData?.clientId ? String(formData.clientId).trim() : '';
       const clientSecret = formData?.clientSecret ? String(formData.clientSecret).trim() : '';
       hasKeys = !!(clientId && clientSecret);
@@ -240,6 +261,15 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
   const isStripe = gatewayNameLower.includes('stripe');
   const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
   const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
+  const isAlqaseh = isAlqasehName(gatewayNameLower);
+
+  /** Helper text shown under a secret field whose stored value came back masked. */
+  const maskedHint = (value: unknown) =>
+    isMaskedValue(value) ? (
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        {t('paymentGateways.modal.maskedSecretHint')}
+      </p>
+    ) : null;
 
   const getGatewayLogo = () => {
     if (isPaytabs) {
@@ -252,16 +282,18 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       return <img src="/q_card_logo.svg" alt="QiCard" className="h-8 w-auto object-contain" />;
     } else if (isFib) {
       return <span className="text-lg font-bold text-blue-700 dark:text-blue-400">FIB</span>;
+    } else if (isAlqaseh) {
+      return <img src="/alqaseh_logo.png" alt="Al Qaseh" className="h-8 w-auto object-contain" />;
     } else {
       return <i className={`pf pf-${gateway.id.toLowerCase()} pf-lg`}></i>;
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg transform transition-all" onClick={e => e.stopPropagation()}>
-        <form onSubmit={handleSave} autoComplete="off">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg transform transition-all flex flex-col max-h-[90vh] my-4" onClick={e => e.stopPropagation()}>
+        <form onSubmit={handleSave} autoComplete="off" className="flex flex-col min-h-0 flex-1">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
                 <div className="flex items-center space-x-3 rtl:space-x-reverse">
                     {getGatewayLogo()}
                     <h2 className="text-xl font-semibold">{gateway.name} {t('paymentGateways.modal.title')}</h2>
@@ -271,7 +303,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                 </button>
             </div>
             
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
                 {isPaytabs ? (
                     <>
                         <div>
@@ -308,6 +340,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                     <Icon name={showServerKey ? 'eye-off' : 'eye'} className="w-5 h-5" />
                                 </button>
                             </div>
+                            {maskedHint(formData.serverKey)}
                         </div>
                         <div>
                             <label htmlFor="clientKey" className={labelClasses}>{t('paymentGateways.modal.clientKey')}</label>
@@ -330,6 +363,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                     <Icon name={showClientKey ? 'eye-off' : 'eye'} className="w-5 h-5" />
                                 </button>
                             </div>
+                            {maskedHint(formData.clientKey)}
                         </div>
                     </>
                 ) : isZaincash ? (
@@ -368,6 +402,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                     <Icon name={showMerchantSecret ? 'eye-off' : 'eye'} className="w-5 h-5" />
                                 </button>
                             </div>
+                            {maskedHint(formData.merchantSecret)}
                         </div>
                         <div>
                             <label htmlFor="msisdn" className={labelClasses}>{t('paymentGateways.modal.msisdn')}</label>
@@ -433,6 +468,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                     <Icon name={showPassword ? 'eye-off' : 'eye'} className="w-5 h-5" />
                                 </button>
                             </div>
+                            {maskedHint(formData.password)}
                         </div>
                     </>
                 ) : isFib ? (
@@ -471,6 +507,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                     <Icon name={showSecretKey ? 'eye-off' : 'eye'} className="w-5 h-5" />
                                 </button>
                             </div>
+                            {maskedHint(formData.clientSecret)}
                         </div>
                         <div>
                             <label className={labelClasses}>{t('paymentGateways.modal.environment') || 'Environment'}</label>
@@ -484,6 +521,111 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                     <span>Live</span>
                                 </label>
                             </div>
+                        </div>
+                    </>
+                ) : isAlqaseh ? (
+                    <>
+                        <div>
+                            <label htmlFor="clientId" className={labelClasses}>{t('paymentGateways.modal.alqasehClientId')}</label>
+                            <input
+                                id="clientId"
+                                name="clientId"
+                                type="text"
+                                value={formData.clientId || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                placeholder={t('paymentGateways.modal.alqasehClientIdPlaceholder')}
+                                autoComplete="off"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="clientSecret" className={labelClasses}>{t('paymentGateways.modal.alqasehClientSecret')}</label>
+                            <div className="relative">
+                                <input
+                                    id="clientSecret"
+                                    name="clientSecret"
+                                    type={showSecretKey ? 'text' : 'password'}
+                                    value={formData.clientSecret || ''}
+                                    onChange={handleChange}
+                                    className={inputClasses + ' pr-10 rtl:pl-10 rtl:pr-3'}
+                                    placeholder={t('paymentGateways.modal.alqasehClientSecretPlaceholder')}
+                                    autoComplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSecretKey(!showSecretKey)}
+                                    className="absolute inset-y-0 right-0 rtl:left-0 rtl:right-auto flex items-center pr-3 rtl:pl-3 rtl:pr-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                >
+                                    <Icon name={showSecretKey ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                                </button>
+                            </div>
+                            {maskedHint(formData.clientSecret)}
+                        </div>
+                        <div>
+                            <label className={labelClasses}>{t('paymentGateways.modal.environment')}</label>
+                            <div className="flex space-x-4 rtl:space-x-reverse mt-2">
+                                <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="environment"
+                                        value="test"
+                                        checked={(formData.environment || 'test') === 'test'}
+                                        onChange={handleChange}
+                                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                    />
+                                    <span>{t('paymentGateways.modal.environment.test')}</span>
+                                </label>
+                                <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="environment"
+                                        value="live"
+                                        checked={formData.environment === 'live'}
+                                        onChange={handleChange}
+                                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                    />
+                                    <span>{t('paymentGateways.modal.environment.live')}</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label htmlFor="currency" className={labelClasses}>{t('paymentGateways.modal.alqasehCurrency')}</label>
+                            <input
+                                id="currency"
+                                name="currency"
+                                type="text"
+                                value={formData.currency || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                placeholder="IQD"
+                                autoComplete="off"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('paymentGateways.modal.alqasehCurrencyHint')}</p>
+                        </div>
+                        <div>
+                            <label htmlFor="baseUrl" className={labelClasses}>{t('paymentGateways.modal.alqasehBaseUrl')}</label>
+                            <input
+                                id="baseUrl"
+                                name="baseUrl"
+                                type="text"
+                                value={formData.baseUrl || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                autoComplete="off"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="payBaseUrl" className={labelClasses}>{t('paymentGateways.modal.alqasehPayBaseUrl')}</label>
+                            <input
+                                id="payBaseUrl"
+                                name="payBaseUrl"
+                                type="text"
+                                value={formData.payBaseUrl || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                autoComplete="off"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('paymentGateways.modal.alqasehUrlHint')}</p>
                         </div>
                     </>
                 ) : (
@@ -520,6 +662,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                     <Icon name={showSecretKey ? 'eye-off' : 'eye'} className="w-5 h-5" />
                                 </button>
                             </div>
+                            {maskedHint(formData.secretKey)}
                         </div>
                         {isStripe && (
                         <div>
@@ -539,11 +682,12 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                 {t('paymentGateways.modal.webhookSecretHint')}
                             </p>
+                            {maskedHint(formData.webhookSecret)}
                         </div>
                         )}
                     </>
                 )}
-                {!isFib && (
+                {!isFib && !isAlqaseh && (
                 <div>
                     <label className={labelClasses}>{t('paymentGateways.modal.environment')}</label>
                     <div className="flex space-x-4 rtl:space-x-reverse">
@@ -600,7 +744,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                 </div>
             </div>
 
-            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg flex-shrink-0">
                 <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
                 {t('common.cancel')}
                 </button>

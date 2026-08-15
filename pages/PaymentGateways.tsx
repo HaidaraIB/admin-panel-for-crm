@@ -11,6 +11,7 @@ import { useAuditLog } from '../context/AuditLogContext';
 import GatewayCardSkeleton from '../components/GatewayCardSkeleton';
 import { getPaymentGatewaysAPI, getPaymentGatewayAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI, createPaymentGatewayAPI } from '../services/api';
 import { buildUpdateDiff } from '../utils/buildUpdateDiff';
+import { enabledCardRivals } from '../utils/cardGateways';
 
 function gatewayStatusToApi(status: PaymentGatewayStatus | string): string {
     if (status === PaymentGatewayStatus.Active || status === 'active') return 'active';
@@ -45,6 +46,12 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
     const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
     const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
     const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
+    // Same alias set the backend uses to resolve the operator-typed Al Qaseh gateway name.
+    const isAlqaseh =
+        gatewayNameLower.includes('alqaseh') ||
+        gatewayNameLower.includes('al qaseh') ||
+        gatewayNameLower.includes('al-qaseh') ||
+        gatewayNameLower.includes('qaseh');
 
     const getGatewayLogo = () => {
         if (isPaytabs) {
@@ -57,6 +64,8 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
             return <img src="/q_card_logo.svg" alt="QiCard" className="h-10 w-auto object-contain" />;
         } else if (isFib) {
             return <img src="/fib_logo.png" alt="FIB" className="h-10 w-auto object-contain" />;
+        } else if (isAlqaseh) {
+            return <img src="/alqaseh_logo.png" alt="Al Qaseh" className="h-10 w-auto object-contain" />;
         } else {
             return <i className={`pf pf-${gateway.id.toLowerCase()} pf-3x`}></i>;
         }
@@ -181,29 +190,33 @@ const PaymentGateways: React.FC = () => {
             const gateway = gateways.find(gw => gw.id === gatewayId);
             if (!gateway) return;
 
-            const gatewayNameLower = gateway.name.toLowerCase();
-            const isPaytabs = gatewayNameLower.includes('paytabs');
-            const isStripe = gatewayNameLower.includes('stripe');
-
-            // If enabling PayTabs or Stripe, disable the other one
-            if (enabled && (isPaytabs || isStripe)) {
-                const otherGatewayType = isPaytabs ? 'stripe' : 'paytabs';
-                const otherGateway = gateways.find(gw => {
-                    const nameLower = gw.name.toLowerCase();
-                    return nameLower.includes(otherGatewayType) && gw.enabled;
-                });
-
-                if (otherGateway) {
-                    await updatePaymentGatewayAPI(parseInt(otherGateway.id), { enabled: false });
-                }
-            }
-
-            // Use API endpoint to toggle
-            await togglePaymentGatewayAPI(parseInt(gatewayId));
+            // Card gateways are mutually exclusive, but the API enforces that
+            // atomically and reports what it switched off - the panel no longer
+            // disables the rival itself in a separate, racy request.
+            const response = await togglePaymentGatewayAPI(parseInt(gatewayId));
             await loadGateways();
-            
+
             const action = enabled ? t('audit.log.activated') : t('audit.log.deactivated');
             addLog('audit.log.gatewayToggled', { action, gatewayName: gateway.name });
+
+            const disabledGateways: string[] = response?.disabled_gateways || [];
+            if (disabledGateways.length > 0) {
+                disabledGateways.forEach(name => {
+                    addLog('audit.log.gatewayToggled', {
+                        action: t('audit.log.deactivated'),
+                        gatewayName: name,
+                    });
+                });
+                setAlertDialog({
+                    isOpen: true,
+                    title: t('paymentGateways.title'),
+                    message: t('paymentGateways.disabledOther').replace(
+                        '{otherGatewayName}',
+                        disabledGateways.join(t('common.listSeparator'))
+                    ),
+                    type: 'info',
+                });
+            }
         } catch (error: any) {
             console.error('Error toggling gateway:', error);
             setAlertDialog({
@@ -219,23 +232,6 @@ const PaymentGateways: React.FC = () => {
     
     const handleSaveSettings = async (updatedGateway: PaymentGateway) => {
         try {
-            const gatewayNameLower = updatedGateway.name.toLowerCase();
-            const isPaytabs = gatewayNameLower.includes('paytabs');
-            const isStripe = gatewayNameLower.includes('stripe');
-
-            // If enabling PayTabs or Stripe, disable the other one
-            if (updatedGateway.enabled && (isPaytabs || isStripe)) {
-                const otherGatewayType = isPaytabs ? 'stripe' : 'paytabs';
-                const otherGateway = gateways.find(gw => {
-                    const nameLower = gw.name.toLowerCase();
-                    return nameLower.includes(otherGatewayType) && gw.id !== updatedGateway.id && gw.enabled;
-                });
-
-                if (otherGateway) {
-                    await updatePaymentGatewayAPI(parseInt(otherGateway.id), { enabled: false });
-                }
-            }
-
             const initialGateway = selectedGateway ?? updatedGateway;
             const nextPayload = gatewayToApiPayload(updatedGateway);
             const initialPayload = gatewayToApiPayload(initialGateway);
@@ -245,11 +241,32 @@ const PaymentGateways: React.FC = () => {
                 setSelectedGateway(null);
                 return;
             }
-            await updatePaymentGatewayAPI(parseInt(updatedGateway.id), diff);
+            const response = await updatePaymentGatewayAPI(parseInt(updatedGateway.id), diff);
             await loadGateways();
             addLog('audit.log.gatewaySettingsUpdated', { gatewayName: updatedGateway.name });
             setIsSettingsModalOpen(false);
             setSelectedGateway(null);
+
+            // Saving the form with the gateway enabled is another way to activate
+            // a card gateway, so the API may have switched its rivals off here too.
+            const disabledGateways: string[] = response?.disabled_gateways || [];
+            if (disabledGateways.length > 0) {
+                disabledGateways.forEach(name => {
+                    addLog('audit.log.gatewayToggled', {
+                        action: t('audit.log.deactivated'),
+                        gatewayName: name,
+                    });
+                });
+                setAlertDialog({
+                    isOpen: true,
+                    title: t('paymentGateways.title'),
+                    message: t('paymentGateways.disabledOther').replace(
+                        '{otherGatewayName}',
+                        disabledGateways.join(t('common.listSeparator'))
+                    ),
+                    type: 'info',
+                });
+            }
         } catch (error: any) {
             console.error('Error saving gateway settings:', error);
             setAlertDialog({
@@ -366,26 +383,23 @@ const PaymentGateways: React.FC = () => {
                                     : t('paymentGateways.confirmDeactivationMessage').replace('{gatewayName}', confirmToggle.gatewayName)}
                             </p>
                             {confirmToggle.enabled && (() => {
-                                const gatewayNameLower = confirmToggle.gatewayName.toLowerCase();
-                                const isPaytabs = gatewayNameLower.includes('paytabs');
-                                const isStripe = gatewayNameLower.includes('stripe');
-                                if (isPaytabs || isStripe) {
-                                    const otherGatewayType = isPaytabs ? 'stripe' : 'paytabs';
-                                    const otherGateway = gateways.find(gw => {
-                                        const nameLower = gw.name.toLowerCase();
-                                        return nameLower.includes(otherGatewayType) && gw.enabled;
-                                    });
-                                    if (otherGateway) {
-                                        return (
-                                            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-                                                <p className="text-sm text-yellow-800 dark:text-yellow-300">
-                                                    {t('paymentGateways.willDisableOther').replace('{otherGatewayName}', otherGateway.name)}
-                                                </p>
-                                            </div>
-                                        );
-                                    }
-                                }
-                                return null;
+                                // Warning only - the API is what actually disables them.
+                                const rivals = enabledCardRivals(
+                                    gateways,
+                                    confirmToggle.gatewayName,
+                                    confirmToggle.gatewayId
+                                );
+                                if (rivals.length === 0) return null;
+                                return (
+                                    <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                                        <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                                            {t('paymentGateways.willDisableOther').replace(
+                                                '{otherGatewayName}',
+                                                rivals.map(gw => gw.name).join(t('common.listSeparator'))
+                                            )}
+                                        </p>
+                                    </div>
+                                );
                             })()}
                         </div>
                         <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">

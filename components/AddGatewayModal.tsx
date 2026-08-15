@@ -84,7 +84,8 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
                   { value: 'Stripe', logo: '/stripe_logo.png', label: 'Stripe' },
                   { value: 'Zain Cash', logo: '/zain_cash_logo.png', label: 'Zain Cash' },
                   { value: 'QiCard', logo: '/q_card_logo.svg', label: 'QiCard' },
-                  { value: 'FIB', logo: null, label: 'FIB (First Iraqi Bank)' }
+                  { value: 'FIB', logo: null, label: 'FIB (First Iraqi Bank)' },
+                  { value: 'Al Qaseh', logo: '/alqaseh_logo.png', label: 'Al Qaseh' }
                 ].map((gateway) => (
                   <button
                     key={gateway.value}

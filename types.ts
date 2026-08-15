@@ -280,8 +280,12 @@ export interface PaymentGateway {
     terminalId?: string;
     username?: string;
     password?: string;
-    // FIB (First Iraqi Bank) OAuth-style credentials
+    // FIB (First Iraqi Bank) / Al Qaseh OAuth-style credentials
     clientId?: string;
     clientSecret?: string;
+    // Al Qaseh optional endpoint overrides
+    baseUrl?: string;
+    payBaseUrl?: string;
+    currency?: string;
   };
 }
