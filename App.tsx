@@ -56,7 +56,6 @@ const App: React.FC = () => {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('');
   const previousInternetStatusRef = useRef<boolean>(isInternetOnline);
-  const probeInFlightRef = useRef(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const hasToken = localStorage.getItem('accessToken');
     const sessionAuth = sessionStorage.getItem('isAuthenticated') === 'true';
@@ -142,69 +141,13 @@ const App: React.FC = () => {
   }, [isAuthenticated, location.pathname]);
 
   useEffect(() => {
-    const checkUrl = async (url: string): Promise<boolean> => {
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 5000);
-      try {
-        await fetch(url, {
-          method: 'GET',
-          cache: 'no-store',
-          mode: 'no-cors',
-          signal: controller.signal,
-        });
-        return true;
-      } catch {
-        return false;
-      } finally {
-        window.clearTimeout(timeoutId);
-      }
-    };
-
-    const runConnectivityProbe = async () => {
-      if (probeInFlightRef.current) return;
-      probeInFlightRef.current = true;
-      try {
-        if (!navigator.onLine) {
-          setIsInternetOnline(false);
-          return;
-        }
-        const ts = Date.now();
-        const probeTargets = [
-          `https://www.gstatic.com/generate_204?ts=${ts}`,
-          `https://cp.cloudflare.com/generate_204?ts=${ts}`,
-          `https://www.msftconnecttest.com/connecttest.txt?ts=${ts}`,
-        ];
-        const results = await Promise.all(probeTargets.map((url) => checkUrl(url)));
-        setIsInternetOnline(results.some(Boolean));
-      } finally {
-        probeInFlightRef.current = false;
-      }
-    };
-
-    const handleOnline = () => {
-      void runConnectivityProbe();
-    };
-    const handleOffline = () => setIsInternetOnline(false);
-    const handleVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void runConnectivityProbe();
-      }
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    document.addEventListener('visibilitychange', handleVisible);
-
-    void runConnectivityProbe();
-    const intervalId = window.setInterval(() => {
-      void runConnectivityProbe();
-    }, 15000);
-
+    const syncOnline = () => setIsInternetOnline(navigator.onLine);
+    window.addEventListener('online', syncOnline);
+    window.addEventListener('offline', syncOnline);
+    syncOnline();
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      document.removeEventListener('visibilitychange', handleVisible);
-      window.clearInterval(intervalId);
+      window.removeEventListener('online', syncOnline);
+      window.removeEventListener('offline', syncOnline);
     };
   }, []);
 
