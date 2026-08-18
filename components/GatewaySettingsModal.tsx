@@ -43,9 +43,6 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       // Ensure config exists and initialize formData with all possible fields
       const config = gateway.config || {};
       setFormData({
-        merchantId: config.merchantId || '',
-        merchantSecret: config.merchantSecret || '',
-        msisdn: config.msisdn || '',
         profileId: config.profileId || '',
         serverKey: config.serverKey || '',
         clientKey: config.clientKey || '',
@@ -85,7 +82,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     }
     setTestStatus('idle'); // Reset test status on any input change
     // Only reset testPassed if a credential field changed
-    const credentialFields = ['merchantId', 'merchantSecret', 'profileId', 'serverKey', 'clientKey', 'publishableKey', 'secretKey', 'webhookSecret', 'terminalId', 'username', 'password', 'clientId', 'clientSecret'];
+    const credentialFields = ['profileId', 'serverKey', 'clientKey', 'publishableKey', 'secretKey', 'webhookSecret', 'terminalId', 'username', 'password', 'clientId', 'clientSecret'];
     if (credentialFields.includes(name)) {
       setTestPassed(false); // Reset test passed flag when credentials change
     }
@@ -110,7 +107,12 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
           return;
         }
       } else if (isZaincash) {
-        if (!formData.merchantId || !formData.merchantSecret) {
+        if (!formData.clientId || !formData.clientSecret) {
+          setTestStatus('error');
+          return;
+        }
+        if (formData.environment === 'live' && !formData.baseUrl) {
+          setTestMessage(t('paymentGateways.modal.zaincashBaseUrlRequired'));
           setTestStatus('error');
           return;
         }
@@ -186,10 +188,10 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     if (isPaytabs) {
       hasKeys = !!(formData?.profileId && formData?.serverKey && formData?.clientKey);
     } else if (isZaincash) {
-      // Check if merchantId and merchantSecret exist and are not empty strings
-      const merchantId = formData?.merchantId ? String(formData.merchantId).trim() : '';
-      const merchantSecret = formData?.merchantSecret ? String(formData.merchantSecret).trim() : '';
-      hasKeys = !!(merchantId && merchantSecret);
+      // Check if clientId and clientSecret exist and are not empty strings
+      const clientId = formData?.clientId ? String(formData.clientId).trim() : '';
+      const clientSecret = formData?.clientSecret ? String(formData.clientSecret).trim() : '';
+      hasKeys = !!(clientId && clientSecret);
     } else if (isQicard) {
       // Check if terminalId, username, and password exist and are not empty strings
       const terminalId = formData?.terminalId ? String(formData.terminalId).trim() : '';
@@ -369,29 +371,29 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                 ) : isZaincash ? (
                     <>
                         <div>
-                            <label htmlFor="merchantId" className={labelClasses}>{t('paymentGateways.modal.merchantId')}</label>
-                            <input 
-                                id="merchantId" 
-                                name="merchantId" 
-                                type="text" 
-                                value={formData.merchantId || ''} 
-                                onChange={handleChange} 
-                                className={inputClasses} 
-                                placeholder={t('paymentGateways.modal.merchantIdPlaceholder')}
+                            <label htmlFor="clientId" className={labelClasses}>{t('paymentGateways.modal.zaincashClientId')}</label>
+                            <input
+                                id="clientId"
+                                name="clientId"
+                                type="text"
+                                value={formData.clientId || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                placeholder={t('paymentGateways.modal.zaincashClientIdPlaceholder')}
                                 autoComplete="off"
                             />
                         </div>
                         <div>
-                            <label htmlFor="merchantSecret" className={labelClasses}>{t('paymentGateways.modal.merchantSecret')}</label>
+                            <label htmlFor="clientSecret" className={labelClasses}>{t('paymentGateways.modal.zaincashClientSecret')}</label>
                             <div className="relative">
-                                <input 
-                                    id="merchantSecret" 
-                                    name="merchantSecret" 
-                                    type={showMerchantSecret ? 'text' : 'password'} 
-                                    value={formData.merchantSecret || ''} 
-                                    onChange={handleChange} 
-                                    className={inputClasses + ' pr-10 rtl:pl-10 rtl:pr-3'} 
-                                    placeholder={t('paymentGateways.modal.merchantSecretPlaceholder')}
+                                <input
+                                    id="clientSecret"
+                                    name="clientSecret"
+                                    type={showMerchantSecret ? 'text' : 'password'}
+                                    value={formData.clientSecret || ''}
+                                    onChange={handleChange}
+                                    className={inputClasses + ' pr-10 rtl:pl-10 rtl:pr-3'}
+                                    placeholder={t('paymentGateways.modal.zaincashClientSecretPlaceholder')}
                                     autoComplete="new-password"
                                 />
                                 <button
@@ -402,21 +404,21 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                     <Icon name={showMerchantSecret ? 'eye-off' : 'eye'} className="w-5 h-5" />
                                 </button>
                             </div>
-                            {maskedHint(formData.merchantSecret)}
+                            {maskedHint(formData.clientSecret)}
                         </div>
                         <div>
-                            <label htmlFor="msisdn" className={labelClasses}>{t('paymentGateways.modal.msisdn')}</label>
-                            <input 
-                                id="msisdn" 
-                                name="msisdn" 
-                                type="text" 
-                                value={formData.msisdn || ''} 
-                                onChange={handleChange} 
-                                className={inputClasses} 
-                                placeholder={t('paymentGateways.modal.msisdnPlaceholder')}
+                            <label htmlFor="baseUrl" className={labelClasses}>{t('paymentGateways.modal.zaincashBaseUrl')}</label>
+                            <input
+                                id="baseUrl"
+                                name="baseUrl"
+                                type="text"
+                                value={formData.baseUrl || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                placeholder="https://pg-api.zaincash.iq"
                                 autoComplete="off"
                             />
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('paymentGateways.modal.msisdnHint')}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('paymentGateways.modal.zaincashBaseUrlHint')}</p>
                         </div>
                     </>
                 ) : isQicard ? (
