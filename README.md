@@ -33,7 +33,7 @@ The codebase lives at the project root (no `src/` folder). Layout is organized b
 ```
 CRM-admin-panel/
 ├── pages/          # Screen components (Dashboard, Tenants, Subscriptions, Reports, Communication, SystemSettings, PaymentGateways, LoginPage)
-├── components/     # Reusable UI (Sidebar, Header, Modals, ProtectedRoute, PermissionGuard, form and layout components)
+├── components/     # Reusable UI (Sidebar, Header, Modals, ProtectedRoute, form and layout components)
 ├── context/        # React context (User, Theme, Alert, AuditLog, i18n)
 ├── services/       # API layer (api.ts)
 ├── utils/          # Helpers (API error translation, colors)
