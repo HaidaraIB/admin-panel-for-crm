@@ -102,20 +102,27 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Entering maintenance does not need a poll to notice: every API call returns
+  // 503 `maintenance_mode`, and subscribeAdminMaintenanceMode turns the first one
+  // into the banner. So this only checks once on mount.
   useEffect(() => {
     void checkMaintenanceStatus();
-    const intervalId = window.setInterval(() => {
-      void checkMaintenanceStatus();
-    }, 30000);
-    const unsubscribe = subscribeAdminMaintenanceMode((message) => {
+    return subscribeAdminMaintenanceMode((message) => {
       setIsMaintenanceMode(true);
       setMaintenanceMessage(message);
     });
-    return () => {
-      window.clearInterval(intervalId);
-      unsubscribe();
-    };
   }, [checkMaintenanceStatus]);
+
+  // Leaving maintenance is the case that does need polling — while the app is
+  // down there are no other requests to learn recovery from. Running it only in
+  // that state means a normal admin session makes no recurring requests at all.
+  useEffect(() => {
+    if (!isMaintenanceMode) return;
+    const intervalId = window.setInterval(() => {
+      void checkMaintenanceStatus();
+    }, 15000);
+    return () => window.clearInterval(intervalId);
+  }, [isMaintenanceMode, checkMaintenanceStatus]);
 
   // On any page navigation, clear list cache so the new page always gets fresh API data
   useEffect(() => {
