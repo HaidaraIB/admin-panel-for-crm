@@ -569,7 +569,7 @@ const Dashboard: React.FC = () => {
                   contentStyle={chartTheme.tooltipContent}
                   labelStyle={chartTheme.tooltipLabel}
                   itemStyle={chartTheme.tooltipItem}
-                  formatter={(value: number) => [`$${Number(value).toLocaleString()}`, t('dashboard.revenueGrowth.revenue')]}
+                  formatter={(value: number) => [`$${Number(value).toLocaleString(undefined, withLatinDigits())}`, t('dashboard.revenueGrowth.revenue')]}
                 />
                 <Legend content={renderChartLegend(chartTheme, language)} />
                 <Line
