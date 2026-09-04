@@ -127,7 +127,7 @@ export type BroadcastTarget =
     | 'role_supervisor'
     | 'role_employee'
     | `company_${number}`;
-export type BroadcastStatus = 'sent' | 'scheduled' | 'pending' | 'failed' | 'draft';
+export type BroadcastStatus = 'sent' | 'sending' | 'scheduled' | 'pending' | 'failed' | 'draft';
 export type BroadcastType = 'email' | 'push';
 
 export interface Broadcast {

@@ -545,6 +545,7 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
 
     const statusLabels: Record<Broadcast['status'], string> = {
         sent: t('communication.history.status.sent'),
+        sending: t('communication.history.status.sending'),
         scheduled: t('communication.history.status.scheduled'),
         pending: t('communication.history.status.pending'),
         failed: t('communication.history.status.failed'),
@@ -553,6 +554,10 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
 
     const statusColors: Record<Broadcast['status'], string> = {
         sent: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+        // Deliberately the same family as `sent` but lighter: it is on its way
+        // there, and it is transient — a broadcast only sits here while a sender
+        // is actually working through the recipient list.
+        sending: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
         scheduled: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
         pending: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
         failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
@@ -562,6 +567,7 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
     const statusFilterOptions = useMemo(
         () => [
             { value: 'sent', label: t('communication.history.status.sent') },
+            { value: 'sending', label: t('communication.history.status.sending') },
             { value: 'scheduled', label: t('communication.history.status.scheduled') },
             { value: 'pending', label: t('communication.history.status.pending') },
             { value: 'failed', label: t('communication.history.status.failed') },
