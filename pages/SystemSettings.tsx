@@ -6,6 +6,15 @@ import { SystemBackup, LimitedAdmin } from '../types';
 import { useI18n } from '../context/i18n';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingButton from '../components/LoadingButton';
+import { NumberInput } from '../components/NumberInput';
+import {
+    FormInput,
+    FormTextarea,
+    FormSelect,
+    SettingsNav,
+    SettingsSectionHeader,
+    SettingsSectionLayout,
+} from '../components/settings';
 import { useAuditLog } from '../context/AuditLogContext';
 import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
@@ -149,11 +158,11 @@ const CompanyOverrideEditor: React.FC<{
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
-                <select
+                <FormSelect
                     value={pendingCompanyId}
                     onChange={(e) => setPendingCompanyId(e.target.value)}
                     disabled={availableCompanies.length === 0}
-                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 text-sm"
+                    className="flex-1 min-w-0 text-sm"
                 >
                     <option value="">
                         {companies.length === 0
@@ -167,7 +176,7 @@ const CompanyOverrideEditor: React.FC<{
                             {company.name}
                         </option>
                     ))}
-                </select>
+                </FormSelect>
                 <button
                     type="button"
                     onClick={addCompany}
@@ -206,11 +215,11 @@ const CompanyOverrideEditor: React.FC<{
                                 </button>
                             </div>
                             {globalEnabled && (
-                                <input
+                                <FormInput
                                     type="text"
                                     value={overrides[id]?.message || ''}
                                     onChange={(e) => updateMessage(id, e.target.value)}
-                                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 text-sm"
+                                    className="text-sm !py-1.5 !px-2.5"
                                     placeholder={labels.messagePlaceholder}
                                 />
                             )}
@@ -307,18 +316,24 @@ const GeneralSettings: React.FC = () => {
         );
     };
 
-    return(
-    <div className="space-y-6">
-        <h3 className="text-xl font-semibold">{t('settings.general.title')}</h3>
-        
-        {renderFeedback()}
+    return (
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.general.title')}
+                    onSave={handleSaveChanges}
+                    isSaving={isSaving}
+                />
+            }
+        >
+            {renderFeedback()}
 
-        {isLoading ? (
-            <div className="flex justify-center py-8">
-                <LoadingSpinner />
-            </div>
-        ) : (
-            <div className="space-y-6">
+            {isLoading ? (
+                <div className="flex justify-center py-8">
+                    <LoadingSpinner />
+                </div>
+            ) : (
+                <div className="space-y-6">
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.general.currency.title') || 'Currency Settings'}</h4>
                     
@@ -326,13 +341,12 @@ const GeneralSettings: React.FC = () => {
                         <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                             {t('settings.general.currency.usdToIqdRate') || 'USD to IQD Rate'}
                         </label>
-                        <input
-                            type="number"
-                            step="100"
-                            min="0"
+                        <NumberInput
+                            step={100}
+                            min={0}
                             value={usdToIqdRate}
                             onChange={(e) => setUsdToIqdRate(parseFloat(e.target.value) || 0)}
-                            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            className="max-w-md"
                             placeholder="1300.00"
                         />
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -354,11 +368,10 @@ const GeneralSettings: React.FC = () => {
                             <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                                 {t('settings.general.mobileVersion.minVersionAndroid') || 'Minimum Android Version'}
                             </label>
-                            <input
+                            <FormInput
                                 type="text"
                                 value={mobileMinVersionAndroid}
                                 onChange={(e) => setMobileMinVersionAndroid(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 placeholder="1.3.0"
                             />
                         </div>
@@ -366,12 +379,10 @@ const GeneralSettings: React.FC = () => {
                             <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                                 {t('settings.general.mobileVersion.minBuildAndroid') || 'Minimum Android Build (optional)'}
                             </label>
-                            <input
-                                type="number"
-                                min="0"
+                            <NumberInput
+                                min={0}
                                 value={mobileMinBuildAndroid}
                                 onChange={(e) => setMobileMinBuildAndroid(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 placeholder="7"
                             />
                         </div>
@@ -379,11 +390,10 @@ const GeneralSettings: React.FC = () => {
                             <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                                 {t('settings.general.mobileVersion.storeUrlAndroid') || 'Android Store URL'}
                             </label>
-                            <input
+                            <FormInput
                                 type="text"
                                 value={mobileStoreUrlAndroid}
                                 onChange={(e) => setMobileStoreUrlAndroid(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 placeholder="https://play.google.com/store/apps/details?id=..."
                             />
                         </div>
@@ -392,11 +402,10 @@ const GeneralSettings: React.FC = () => {
                             <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                                 {t('settings.general.mobileVersion.minVersionIos') || 'Minimum iOS Version'}
                             </label>
-                            <input
+                            <FormInput
                                 type="text"
                                 value={mobileMinVersionIos}
                                 onChange={(e) => setMobileMinVersionIos(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 placeholder="1.3.0"
                             />
                         </div>
@@ -404,12 +413,10 @@ const GeneralSettings: React.FC = () => {
                             <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                                 {t('settings.general.mobileVersion.minBuildIos') || 'Minimum iOS Build (optional)'}
                             </label>
-                            <input
-                                type="number"
-                                min="0"
+                            <NumberInput
+                                min={0}
                                 value={mobileMinBuildIos}
                                 onChange={(e) => setMobileMinBuildIos(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 placeholder="7"
                             />
                         </div>
@@ -417,30 +424,20 @@ const GeneralSettings: React.FC = () => {
                             <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                                 {t('settings.general.mobileVersion.storeUrlIos') || 'iOS Store URL'}
                             </label>
-                            <input
+                            <FormInput
                                 type="text"
                                 value={mobileStoreUrlIos}
                                 onChange={(e) => setMobileStoreUrlIos(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 placeholder="https://apps.apple.com/app/id..."
                             />
                         </div>
                     </div>
                 </div>
-
-                <div>
-                    <LoadingButton
-                        onClick={handleSaveChanges}
-                        isLoading={isSaving}
-                        loadingText={t('settings.general.saving')}
-                    >
-                        {t('settings.general.save')}
-                    </LoadingButton>
                 </div>
-            </div>
-        )}
-    </div>
-)};
+            )}
+        </SettingsSectionLayout>
+    );
+};
 
 const IntegrationsControlSettings: React.FC = () => {
     const { t } = useI18n();
@@ -519,8 +516,15 @@ const IntegrationsControlSettings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold">{t('settings.integrations.title') || 'Integrations Access Control'}</h3>
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.integrations.title') || 'Integrations Access Control'}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                />
+            }
+        >
             {feedback && (
                 <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
                     feedback.type === 'success'
@@ -557,14 +561,13 @@ const IntegrationsControlSettings: React.FC = () => {
                                             {t('settings.integrations.globalActive') || 'Global Active'}
                                         </label>
                                     </div>
-                                    <textarea
+                                    <FormTextarea
                                         value={policy.global_message}
                                         onChange={(e) => setIntegrationPolicies((prev) => ({
                                             ...prev,
                                             [platform]: { ...prev[platform], global_message: e.target.value },
                                         }))}
                                         rows={2}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                         placeholder={t('settings.integrations.globalMessagePlaceholder') || 'Global deactivation message'}
                                     />
                                     <CompanyOverrideEditor
@@ -584,18 +587,9 @@ const IntegrationsControlSettings: React.FC = () => {
                             );
                         })}
                     </div>
-                    <div>
-                        <LoadingButton
-                            onClick={handleSave}
-                            isLoading={isSaving}
-                            loadingText={t('settings.general.saving')}
-                        >
-                            {t('settings.general.save')}
-                        </LoadingButton>
-                    </div>
                 </div>
             )}
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
@@ -664,8 +658,15 @@ const FeaturesControlSettings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold">{t('settings.features.title') || 'Features Access Control'}</h3>
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.features.title') || 'Features Access Control'}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                />
+            }
+        >
             {feedback && (
                 <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
                     feedback.type === 'success'
@@ -702,14 +703,13 @@ const FeaturesControlSettings: React.FC = () => {
                                             {t('settings.features.globalActive') || 'Global Active'}
                                         </label>
                                     </div>
-                                    <textarea
+                                    <FormTextarea
                                         value={policy.global_message}
                                         onChange={(e) => setFeaturePolicies((prev) => ({
                                             ...prev,
                                             [featureKey]: { ...prev[featureKey], global_message: e.target.value },
                                         }))}
                                         rows={2}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                         placeholder={t('settings.features.globalMessagePlaceholder') || 'Global deactivation message'}
                                     />
                                     <CompanyOverrideEditor
@@ -729,18 +729,9 @@ const FeaturesControlSettings: React.FC = () => {
                             );
                         })}
                     </div>
-                    <div>
-                        <LoadingButton
-                            onClick={handleSave}
-                            isLoading={isSaving}
-                            loadingText={t('settings.general.saving')}
-                        >
-                            {t('settings.general.save')}
-                        </LoadingButton>
-                    </div>
                 </div>
             )}
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
@@ -958,30 +949,34 @@ const SecurityBackups: React.FC = () => {
     };
     
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.security.title')}</h3>
-                <div className="text-xs uppercase tracking-wide text-primary-600 dark:text-primary-300 font-semibold">
-                    {t('settings.security.schedule')}: {scheduleOptions.find(opt => opt.value === backupSchedule)?.label}
-                </div>
-            </div>
-
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.security.title')}
+                    actions={
+                        <div className="text-xs uppercase tracking-wide text-primary-600 dark:text-primary-300 font-semibold">
+                            {t('settings.security.schedule')}: {scheduleOptions.find(opt => opt.value === backupSchedule)?.label}
+                        </div>
+                    }
+                />
+            }
+        >
             {renderFeedback()}
 
             <div>
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.security.schedule')}</label>
-                <select
+                <FormSelect
                     value={backupSchedule}
                     onChange={handleScheduleChange}
                     disabled={scheduleSaving}
-                    className="max-w-lg w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="max-w-lg"
                 >
                     {scheduleOptions.map(option => (
                         <option key={option.value} value={option.value}>
                             {option.label}
                         </option>
                     ))}
-                </select>
+                </FormSelect>
             </div>
 
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
@@ -1135,7 +1130,7 @@ const SecurityBackups: React.FC = () => {
                     }
                 }}
             />
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
@@ -1247,9 +1242,16 @@ const TwilioSmsSettings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.twilio.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.twilio.description')}</p>
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.twilio.title')}
+                    description={t('settings.twilio.description')}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                />
+            }
+        >
             {renderFeedback()}
             {isLoading ? (
                 <div className="flex justify-center py-8">
@@ -1259,18 +1261,18 @@ const TwilioSmsSettings: React.FC = () => {
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.accountSid')}</label>
-                        <input
+                        <FormInput
                             type="text"
                             value={accountSid}
                             onChange={(e) => setAccountSid(e.target.value)}
-                            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            className="max-w-md"
                             placeholder="ACxxxxxxxxxx"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.authToken')}</label>
                         <div className="flex items-center gap-2 max-w-md">
-                            <input
+                            <FormInput
                                 type={showAuthToken ? 'text' : 'password'}
                                 value={authToken}
                                 onChange={(e) => setAuthToken(e.target.value)}
@@ -1278,7 +1280,7 @@ const TwilioSmsSettings: React.FC = () => {
                                 name="twilio_platform_auth_token"
                                 id="twilio_platform_auth_token"
                                 data-form-type="other"
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                className="flex-1"
                                 placeholder={t('settings.twilio.authTokenPlaceholder')}
                             />
                             <button
@@ -1295,22 +1297,22 @@ const TwilioSmsSettings: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.twilioNumber')}</label>
-                        <input
+                        <FormInput
                             type="text"
                             value={twilioNumber}
                             onChange={(e) => setTwilioNumber(e.target.value)}
-                            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            className="max-w-md"
                             placeholder="+9647xxxxxxxx"
                         />
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.twilioNumberHelp')}</p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.senderId')}</label>
-                        <input
+                        <FormInput
                             type="text"
                             value={senderId}
                             onChange={(e) => setSenderId(e.target.value)}
-                            className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            className="max-w-md"
                             placeholder="Optional"
                         />
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.senderIdHelp')}</p>
@@ -1328,18 +1330,9 @@ const TwilioSmsSettings: React.FC = () => {
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.isEnabledHelp')}</p>
                     </div>
-                    <div>
-                        <LoadingButton
-                            onClick={handleSave}
-                            isLoading={isSaving}
-                            loadingText={t('settings.general.saving')}
-                        >
-                            {t('settings.general.save')}
-                        </LoadingButton>
-                    </div>
                 </div>
             )}
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
@@ -1434,9 +1427,16 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.platformWhatsapp.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.platformWhatsapp.description')}</p>
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.platformWhatsapp.title')}
+                    description={t('settings.platformWhatsapp.description')}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                />
+            }
+        >
             {feedback && (
                 <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
                     feedback.type === 'success'
@@ -1462,17 +1462,17 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.phoneNumberId')}</label>
-                            <input type="text" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                            <FormInput type="text" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} className="max-w-md" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.accessToken')}</label>
                             <div className="flex items-center gap-2 max-w-md">
-                                <input
+                                <FormInput
                                     type={showToken ? 'text' : 'password'}
                                     value={accessToken}
                                     onChange={(e) => setAccessToken(e.target.value)}
                                     autoComplete="new-password"
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    className="flex-1"
                                     placeholder={t('settings.platformWhatsapp.accessTokenPlaceholder')}
                                 />
                                 <button type="button" onClick={() => setShowToken((v) => !v)} className="p-2 rounded-md border border-gray-300 dark:border-gray-600">
@@ -1483,7 +1483,7 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.graphVersion')}</label>
-                            <input type="text" value={graphVersion} onChange={(e) => setGraphVersion(e.target.value)} className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                            <FormInput type="text" value={graphVersion} onChange={(e) => setGraphVersion(e.target.value)} className="max-w-xs" />
                         </div>
                     </div>
 
@@ -1499,11 +1499,11 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
                             <div className="sm:col-span-2">
                                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.adminTemplateName')}</label>
-                                <input type="text" value={adminTemplateName} onChange={(e) => setAdminTemplateName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="admin_notify_1" />
+                                <FormInput type="text" value={adminTemplateName} onChange={(e) => setAdminTemplateName(e.target.value)} placeholder="admin_notify_1" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.adminTemplateLang')}</label>
-                                <input type="text" value={adminTemplateLang} onChange={(e) => setAdminTemplateLang(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                                <FormInput type="text" value={adminTemplateLang} onChange={(e) => setAdminTemplateLang(e.target.value)} />
                             </div>
                         </div>
                     </div>
@@ -1520,27 +1520,17 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
                             <div className="sm:col-span-2">
                                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateName')}</label>
-                                <input type="text" value={otpTemplateName} onChange={(e) => setOtpTemplateName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                                <FormInput type="text" value={otpTemplateName} onChange={(e) => setOtpTemplateName(e.target.value)} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateLang')}</label>
-                                <input type="text" value={otpTemplateLang} onChange={(e) => setOtpTemplateLang(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                                <FormInput type="text" value={otpTemplateLang} onChange={(e) => setOtpTemplateLang(e.target.value)} />
                             </div>
                         </div>
                     </div>
-
-                    <div>
-                        <LoadingButton
-                            onClick={handleSave}
-                            isLoading={isSaving}
-                            loadingText={t('settings.general.saving')}
-                        >
-                            {t('settings.general.save')}
-                        </LoadingButton>
-                    </div>
                 </div>
             )}
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
@@ -1624,8 +1614,16 @@ const RegistrationOtpSettings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.registrationOtp.title')}</h3>
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.registrationOtp.title')}
+                    description={t('settings.registrationOtp.description')}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                />
+            }
+        >
             {feedback && (
                 <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
                     feedback.type === 'success'
@@ -1640,10 +1638,6 @@ const RegistrationOtpSettings: React.FC = () => {
                 <div className="flex justify-center py-8"><LoadingSpinner /></div>
             ) : (
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-6 bg-white dark:bg-gray-900/40">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('settings.registrationOtp.description')}
-                    </p>
-
                     <section className="space-y-3">
                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                             {t('settings.registrationOtp.phoneSectionTitle')}
@@ -1715,18 +1709,9 @@ const RegistrationOtpSettings: React.FC = () => {
                             </p>
                         </div>
                     </section>
-                    <div>
-                        <LoadingButton
-                            onClick={handleSave}
-                            isLoading={isSaving}
-                            loadingText={t('settings.general.saving')}
-                        >
-                            {t('settings.general.save')}
-                        </LoadingButton>
-                    </div>
                 </div>
             )}
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
@@ -1792,11 +1777,16 @@ const LoginLockoutSettings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.loginLockout.title')}</h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('settings.loginLockout.description')}</p>
-            </div>
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.loginLockout.title')}
+                    description={t('settings.loginLockout.description')}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                />
+            }
+        >
             {feedback && (
                 <div className={`p-3 rounded-md text-sm ${feedback.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'}`}>
                     {feedback.message}
@@ -1826,44 +1816,33 @@ const LoginLockoutSettings: React.FC = () => {
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300" htmlFor="login-max-attempts">
                                 {t('settings.loginLockout.maxAttempts')}
                             </label>
-                            <input
+                            <NumberInput
                                 id="login-max-attempts"
-                                type="number"
                                 min={1}
                                 disabled={!enabled}
                                 value={maxAttempts}
                                 onChange={(e) => setMaxAttempts(Number(e.target.value))}
-                                className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                className="max-w-xs"
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300" htmlFor="login-lockout-minutes">
                                 {t('settings.loginLockout.durationMinutes')}
                             </label>
-                            <input
+                            <NumberInput
                                 id="login-lockout-minutes"
-                                type="number"
                                 min={1}
                                 disabled={!enabled}
                                 value={durationMinutes}
                                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                                className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                className="max-w-xs"
                             />
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.loginLockout.durationHint')}</p>
                         </div>
                     </div>
-                    <div>
-                        <LoadingButton
-                            onClick={handleSave}
-                            isLoading={isSaving}
-                            loadingText={t('settings.general.saving')}
-                        >
-                            {t('settings.general.save')}
-                        </LoadingButton>
-                    </div>
                 </div>
             )}
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
@@ -1890,10 +1869,11 @@ const AuditLog: React.FC = () => {
         return message;
     };
 
-    return(
-    <div className="space-y-6">
-        <h3 className="text-xl font-semibold">{t('settings.audit.title')}</h3>
-        <div className="overflow-x-auto">
+    return (
+        <SettingsSectionLayout
+            header={<SettingsSectionHeader title={t('settings.audit.title')} />}
+        >
+            <div className="overflow-x-auto">
             <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                 <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
@@ -1925,9 +1905,10 @@ const AuditLog: React.FC = () => {
                     </button>
                 </div>
             </nav>
-        )}
-    </div>
-)};
+            )}
+        </SettingsSectionLayout>
+    );
+};
 
 const LimitedAdmins: React.FC = () => {
     const { t, language } = useI18n();
@@ -2054,23 +2035,25 @@ const LimitedAdmins: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {t('limitedAdmins.title') || 'Limited Admins'}
-                </h3>
-                <div className="flex items-center gap-2">
-                    <RefreshButton onClick={() => void loadLimitedAdmins()} loading={isLoading} />
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center gap-2"
-                    >
-                        <Icon name="plus" className="w-5 h-5" />
-                        {t('limitedAdmins.add') || 'Add Limited Admin'}
-                    </button>
+        <SettingsSectionLayout
+            header={
+                <div className="shrink-0 px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center gap-3">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {t('limitedAdmins.title') || 'Limited Admins'}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <RefreshButton onClick={() => void loadLimitedAdmins()} loading={isLoading} />
+                        <LoadingButton
+                            size="toolbar"
+                            icon="plus"
+                            onClick={() => handleOpenModal()}
+                        >
+                            {t('limitedAdmins.add') || 'Add Limited Admin'}
+                        </LoadingButton>
+                    </div>
                 </div>
-            </div>
-
+            }
+        >
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                 <div className="overflow-x-auto">
                     <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
@@ -2206,7 +2189,7 @@ const LimitedAdmins: React.FC = () => {
                 showCancel
                 cancelText={t('common.cancel')}
             />
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
@@ -2328,26 +2311,33 @@ const BillingInvoiceSettings: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6 max-w-2xl">
-            <div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.billing.title')}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings.billing.description')}</p>
-            </div>
-            <div className="space-y-4">
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.billing.title')}
+                    description={t('settings.billing.description')}
+                    onSave={handleSave}
+                    isSaving={saving}
+                    saveDisabled={Boolean(fieldErrors.issuerEmail || fieldErrors.logo)}
+                    saveLabel={t('settings.billing.save')}
+                    savingLabel={t('settings.billing.saving')}
+                />
+            }
+        >
+            <div className="space-y-4 max-w-2xl">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerName')}</label>
-                    <input className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" value={issuerName} onChange={(e) => setIssuerName(e.target.value)} />
+                    <FormInput value={issuerName} onChange={(e) => setIssuerName(e.target.value)} />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerAddress')}</label>
-                    <textarea className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" rows={3} value={issuerAddress} onChange={(e) => setIssuerAddress(e.target.value)} />
+                    <FormTextarea rows={3} value={issuerAddress} onChange={(e) => setIssuerAddress(e.target.value)} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerEmail')}</label>
-                        <input
+                        <FormInput
                             type="email"
-                            className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600"
                             value={issuerEmail}
                             onChange={(e) => {
                                 const next = e.target.value;
@@ -2361,20 +2351,20 @@ const BillingInvoiceSettings: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerPhone')}</label>
-                        <input className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" value={issuerPhone} onChange={(e) => setIssuerPhone(e.target.value)} />
+                        <FormInput value={issuerPhone} onChange={(e) => setIssuerPhone(e.target.value)} />
                     </div>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerTaxId')}</label>
-                    <input className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" value={issuerTaxId} onChange={(e) => setIssuerTaxId(e.target.value)} />
+                    <FormInput value={issuerTaxId} onChange={(e) => setIssuerTaxId(e.target.value)} />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.footer')}</label>
-                    <textarea className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" rows={2} value={footerText} onChange={(e) => setFooterText(e.target.value)} />
+                    <FormTextarea rows={2} value={footerText} onChange={(e) => setFooterText(e.target.value)} />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.paymentInstructions')}</label>
-                    <textarea className="w-full border rounded-lg px-3 py-2 dark:bg-gray-900 dark:border-gray-600" rows={3} value={paymentInstructions} onChange={(e) => setPaymentInstructions(e.target.value)} />
+                    <FormTextarea rows={3} value={paymentInstructions} onChange={(e) => setPaymentInstructions(e.target.value)} />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.logo')}</label>
@@ -2385,21 +2375,12 @@ const BillingInvoiceSettings: React.FC = () => {
                     ) : null}
                 </div>
             </div>
-            <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving || Boolean(fieldErrors.issuerEmail || fieldErrors.logo)}
-                className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 disabled:opacity-50"
-            >
-                {saving ? t('settings.billing.saving') : t('settings.billing.save')}
-            </button>
-        </div>
+        </SettingsSectionLayout>
     );
 };
 
 const SystemSettings: React.FC = () => {
-    const { t, language } = useI18n();
-    const { addLog } = useAuditLog();
+    const { t } = useI18n();
     const { isSuperAdmin, hasPermission } = useUser();
 
     // Limited Admins tab only for super admin or users with can_manage_limited_admins (not for edit-settings-only)
@@ -2411,7 +2392,7 @@ const SystemSettings: React.FC = () => {
     const loadSavedTab = (): string => {
         if (typeof window === 'undefined') return 'general';
         const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'integrations', 'features', 'security', 'twilio', 'platformWhatsapp', 'registrationOtp', 'limitedAdmins', 'audit', 'billing'];
+        const validTabs = ['general', 'integrations', 'features', 'security', 'twilio', 'platformWhatsapp', 'registrationOtp', 'loginLockout', 'limitedAdmins', 'audit', 'billing'];
         if (saved && validTabs.includes(saved)) {
             return saved;
         }
@@ -2469,28 +2450,16 @@ const SystemSettings: React.FC = () => {
     };
 
     return (
-        <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">{t('settings.title')}</h1>
-            <div className="flex flex-col md:flex-row gap-8">
-                <aside className="md:w-1/4">
-                    <nav className="space-y-1">
-                        {settingsMenu.map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveSetting(item.id)}
-                                className={`w-full ${language === 'ar' ? 'text-right' : 'text-left'} px-3 py-2 rounded-md text-sm font-medium ${
-                                    activeSetting === item.id 
-                                    ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white' 
-                                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`
-                                }
-                            >
-                                {item.label}
-                            </button>
-                        ))}
-                    </nav>
-                </aside>
-                <div className="flex-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                   {renderSetting()}
+        <div className="flex flex-col h-[calc(100vh-7rem)] min-h-0">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6 shrink-0">{t('settings.title')}</h1>
+            <div className="flex flex-col md:flex-row gap-8 min-h-0 flex-1">
+                <SettingsNav
+                    items={settingsMenu}
+                    activeId={activeSetting}
+                    onSelect={setActiveSetting}
+                />
+                <div className="flex-1 min-w-0 min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden flex flex-col">
+                    {renderSetting()}
                 </div>
             </div>
         </div>

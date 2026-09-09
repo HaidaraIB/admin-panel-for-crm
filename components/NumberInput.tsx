@@ -28,7 +28,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
     required,
     disabled,
 }) => {
-    const { language } = useI18n();
+    const { language, t } = useI18n();
     const isRTL = language === 'ar';
 
     const roundToStep = (num: number, step: number): number => {
@@ -90,7 +90,6 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const inputValue = e.target.value;
-        // السماح فقط بالأرقام والنقطة والعلامة السالبة
         if (inputValue === '' || /^-?\d*\.?\d*$/.test(inputValue)) {
             if (onChange) {
                 onChange(e);
@@ -98,8 +97,14 @@ export const NumberInput: React.FC<NumberInputProps> = ({
         }
     };
 
+    // Extract border classes from className if provided (parity with CRM-project)
+    const borderClass = className.includes('border-red')
+        ? 'border border-red-500 dark:border-red-500'
+        : 'border border-gray-300 dark:border-gray-700';
+    const baseClassName = className.replace(/border-\S+/g, '').trim();
+
     return (
-        <div className={`relative flex items-center ${className}`}>
+        <div className={`relative flex items-center ${baseClassName}`}>
             <input
                 id={id}
                 name={name}
@@ -113,24 +118,24 @@ export const NumberInput: React.FC<NumberInputProps> = ({
                 className={`
                     w-full px-3 py-2
                     ${isRTL ? 'pl-14' : 'pr-14'}
-                    bg-white dark:bg-gray-700 
-                    border border-gray-300 dark:border-gray-600 
-                    rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 
+                    bg-gray-50 dark:bg-gray-800
+                    ${borderClass}
+                    rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500
                     text-gray-900 dark:text-gray-100 
                     placeholder:text-gray-400 dark:placeholder:text-gray-500
-                    disabled:bg-gray-200 dark:disabled:bg-gray-600
-                    disabled:cursor-not-allowed
+                    disabled:bg-gray-200 dark:disabled:bg-gray-600 disabled:cursor-not-allowed
                 `}
                 onWheel={(e) => e.currentTarget.blur()}
             />
 
             <div
                 className={`
-                    absolute inset-y-0 
+                    absolute inset-y-0
                     ${isRTL ? 'left-0' : 'right-0'}
                     flex flex-col 
                     ${isRTL ? 'rounded-l-md' : 'rounded-r-md'}
                     overflow-hidden
+                    z-10
                 `}
             >
                 <button
@@ -138,12 +143,12 @@ export const NumberInput: React.FC<NumberInputProps> = ({
                     onClick={handleIncrement}
                     disabled={disabled || (max !== undefined && Number(value) >= max)}
                     className={`
-                        flex-1 w-10 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 
-                        disabled:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed 
-                        transition-colors flex items-center justify-center 
+                        flex-1 w-10 bg-primary-600 hover:bg-primary-700 active:bg-primary-800
+                        disabled:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed
+                        transition-colors flex items-center justify-center
                         ${isRTL ? 'rounded-tl-md' : 'rounded-tr-md'}
                     `}
-                    aria-label="Increment"
+                    aria-label={t('numberInputIncrease')}
                 >
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
@@ -157,12 +162,12 @@ export const NumberInput: React.FC<NumberInputProps> = ({
                     onClick={handleDecrement}
                     disabled={disabled || (min !== undefined && Number(value) <= min)}
                     className={`
-                        flex-1 w-10 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 
-                        disabled:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed 
-                        transition-colors flex items-center justify-center 
+                        flex-1 w-10 bg-primary-600 hover:bg-primary-700 active:bg-primary-800
+                        disabled:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed
+                        transition-colors flex items-center justify-center
                         ${isRTL ? 'rounded-bl-md' : 'rounded-br-md'}
                     `}
-                    aria-label="Decrement"
+                    aria-label={t('numberInputDecrease')}
                 >
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
