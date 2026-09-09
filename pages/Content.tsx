@@ -11,6 +11,7 @@ import AlertDialog from '../components/AlertDialog';
 import { GuideArticle, GuideCategory, NewsPost } from '../types';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
@@ -33,6 +34,7 @@ type TabId = 'guide' | 'news' | 'tutorials';
 const Content: React.FC = () => {
   const { t, language } = useI18n();
   const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     const saved = localStorage.getItem('content_activeTab');
     return saved === 'news' || saved === 'guide' || saved === 'tutorials' ? saved : 'guide';
@@ -79,7 +81,7 @@ const Content: React.FC = () => {
     try {
       await Promise.all([loadGuide(), loadNews()]);
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -208,7 +210,7 @@ const Content: React.FC = () => {
       setModalOpen(false);
       showAlert(t('content.alerts.saved'), { variant: 'success' });
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -242,7 +244,7 @@ const Content: React.FC = () => {
       setDeleteTarget(null);
       showAlert(t('content.alerts.deleted'), { variant: 'success' });
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.delete'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.delete'), { variant: 'error' });
     } finally {
       setDeleting(false);
     }

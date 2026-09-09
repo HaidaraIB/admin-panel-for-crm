@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Alert from '../components/Alert';
 import { Link } from 'react-router';
 import { useI18n } from '../context/i18n';
 import {
@@ -156,9 +157,7 @@ const TenantWhatsAppChat: React.FC = () => {
       </p>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-200">
-          {error}
-        </div>
+        <Alert variant="error" className="mb-4">{error}</Alert>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -293,7 +292,7 @@ const TenantWhatsAppChat: React.FC = () => {
                 className="shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary-600 text-white shadow-sm hover:bg-primary-700 disabled:opacity-40 disabled:hover:bg-primary-600 disabled:cursor-not-allowed transition-colors"
               >
                 {sending ? (
-                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  <LoadingSpinner size="sm" tone="light" presentational />
                 ) : (
                   <Icon name="send" className="w-5 h-5 rtl:-scale-x-100" />
                 )}

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useI18n } from '../context/i18n';
 import Icon from './Icon';
+import LoadingButton from './LoadingButton';
 
 interface AddGatewayModalProps {
   isOpen: boolean;
@@ -145,16 +146,17 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
           </div>
 
           <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg flex-shrink-0">
-            <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
+            <LoadingButton type="button" variant="secondary" onClick={onClose}>
               {t('common.cancel')}
-            </button>
-            <button 
-              type="submit" 
-              disabled={isSubmitting || !name}
-              className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            </LoadingButton>
+            <LoadingButton
+              type="submit"
+              disabled={!name}
+              isLoading={isSubmitting}
+              loadingText={t('common.saving')}
             >
-              {isSubmitting ? (t('common.saving') || 'Saving...') : t('common.save')}
-            </button>
+              {t('common.save')}
+            </LoadingButton>
           </div>
         </form>
       </div>

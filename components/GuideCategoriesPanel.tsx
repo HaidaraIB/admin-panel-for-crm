@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import LoadingButton from './LoadingButton';
 import { GuideCategory } from '../types';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import {
   createGuideCategoryAPI,
@@ -34,6 +36,7 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
 }) => {
   const { t, language } = useI18n();
   const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [categories, setCategories] = useState<GuideCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,7 +54,7 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
       setCategories(list);
       onCategoriesChange?.(list);
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.load'), {
+      showToast(translateAdminApiError(error, t) || t('content.errors.load'), {
         variant: 'error',
       });
     } finally {
@@ -115,7 +118,7 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
       await load();
       showAlert(t('content.alerts.saved'), { variant: 'success' });
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.save'), {
+      showToast(translateAdminApiError(error, t) || t('content.errors.save'), {
         variant: 'error',
       });
     } finally {
@@ -253,21 +256,23 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
                 />
               </div>
               <div className="flex gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
-                <button
+                <LoadingButton
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 rounded-md bg-gray-100 px-4 py-2 font-medium text-gray-800 hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
+                  className="flex-1"
+                  variant="secondary"
                   disabled={saving}
                 >
                   {t('common.cancel')}
-                </button>
-                <button
+                </LoadingButton>
+                <LoadingButton
                   type="submit"
-                  className="flex-1 rounded-md bg-primary-600 px-4 py-2 font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                  disabled={saving}
+                  className="flex-1"
+                  isLoading={saving}
+                  loadingText={t('common.saving')}
                 >
-                  {saving ? t('common.saving') || 'Saving...' : t('common.save')}
-                </button>
+                  {t('common.save')}
+                </LoadingButton>
               </div>
             </form>
           </div>

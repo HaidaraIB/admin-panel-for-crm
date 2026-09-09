@@ -27,6 +27,7 @@ import {
 } from '../services/api';
 import { getPaymentsAPI } from '../services/api';
 import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import { buildUpdateDiff } from '../utils/buildUpdateDiff';
 import AlertDialog from '../components/AlertDialog';
@@ -61,6 +62,7 @@ function classifyPlanTypeFromApi(plan: {
 
 const CANONICAL_PLAN_FEATURE_KEYS = [
   'integration_meta',
+  'integration_meta_inbox',
   'integration_tiktok',
   'integration_whatsapp',
   'integration_twilio',
@@ -107,6 +109,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
     const { showAlert } = useAlert();
+  const { showToast } = useToast();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -210,7 +213,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         handleCloseModal();
         } catch (error: any) {
             console.error('Error saving plan:', error);
-            showAlert(translateAdminApiError(error, t) || t('errors.savePlan'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('errors.savePlan'), { variant: 'error' });
         } finally {
             setIsSavingPlan(false);
         }

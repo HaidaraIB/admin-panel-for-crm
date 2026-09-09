@@ -5,8 +5,10 @@ import RefreshButton from '../components/RefreshButton';
 import { SystemBackup, LimitedAdmin } from '../types';
 import { useI18n } from '../context/i18n';
 import LoadingSpinner from '../components/LoadingSpinner';
+import LoadingButton from '../components/LoadingButton';
 import { useAuditLog } from '../context/AuditLogContext';
 import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import { useUser } from '../context/UserContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import { buildUpdateDiff } from '../utils/buildUpdateDiff';
@@ -34,7 +36,7 @@ const persistSchedule = (schedule: BackupSchedule) => {
     localStorage.setItem(BACKUP_SCHEDULE_STORAGE_KEY, schedule);
 };
 
-type IntegrationPlatformKey = 'meta' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'mujeb' | 'pbx';
+type IntegrationPlatformKey = 'meta' | 'meta_inbox' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'mujeb' | 'pbx';
 type IntegrationPolicyState = Record<IntegrationPlatformKey, {
     global_enabled: boolean;
     global_message: string;
@@ -43,6 +45,7 @@ type IntegrationPolicyState = Record<IntegrationPlatformKey, {
 
 const DEFAULT_INTEGRATION_POLICIES: IntegrationPolicyState = {
     meta: { global_enabled: true, global_message: '', company_overrides: {} },
+    meta_inbox: { global_enabled: true, global_message: '', company_overrides: {} },
     tiktok: { global_enabled: true, global_message: '', company_overrides: {} },
     whatsapp: { global_enabled: true, global_message: '', company_overrides: {} },
     twilio: { global_enabled: true, global_message: '', company_overrides: {} },
@@ -426,20 +429,13 @@ const GeneralSettings: React.FC = () => {
                 </div>
 
                 <div>
-                    <button 
-                        onClick={handleSaveChanges} 
-                        disabled={isSaving}
-                        className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                    <LoadingButton
+                        onClick={handleSaveChanges}
+                        isLoading={isSaving}
+                        loadingText={t('settings.general.saving')}
                     >
-                        {isSaving ? (
-                            <>
-                                <LoadingSpinner />
-                                <span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span>
-                            </>
-                        ) : (
-                            t('settings.general.save') || 'Save Changes'
-                        )}
-                    </button>
+                        {t('settings.general.save')}
+                    </LoadingButton>
                 </div>
             </div>
         )}
@@ -456,6 +452,7 @@ const IntegrationsControlSettings: React.FC = () => {
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const platformLabels: Record<IntegrationPlatformKey, string> = {
         meta: t('settings.integrations.platform.meta') || 'Meta',
+        meta_inbox: t('settings.integrations.platform.metaInbox') || 'Instagram & Messenger Inbox',
         tiktok: t('settings.integrations.platform.tiktok') || 'TikTok',
         whatsapp: t('settings.integrations.platform.whatsapp') || 'WhatsApp',
         twilio: t('settings.integrations.platform.twilio') || 'Twilio (SMS)',
@@ -486,6 +483,7 @@ const IntegrationsControlSettings: React.FC = () => {
                 const incoming = (settings?.integration_policies || {}) as Partial<IntegrationPolicyState>;
                 setIntegrationPolicies({
                     meta: { ...DEFAULT_INTEGRATION_POLICIES.meta, ...(incoming.meta || {}), company_overrides: incoming.meta?.company_overrides || {} },
+                    meta_inbox: { ...DEFAULT_INTEGRATION_POLICIES.meta_inbox, ...(incoming.meta_inbox || {}), company_overrides: incoming.meta_inbox?.company_overrides || {} },
                     tiktok: { ...DEFAULT_INTEGRATION_POLICIES.tiktok, ...(incoming.tiktok || {}), company_overrides: incoming.tiktok?.company_overrides || {} },
                     whatsapp: { ...DEFAULT_INTEGRATION_POLICIES.whatsapp, ...(incoming.whatsapp || {}), company_overrides: incoming.whatsapp?.company_overrides || {} },
                     twilio: { ...DEFAULT_INTEGRATION_POLICIES.twilio, ...(incoming.twilio || {}), company_overrides: incoming.twilio?.company_overrides || {} },
@@ -541,7 +539,7 @@ const IntegrationsControlSettings: React.FC = () => {
                         {t('settings.integrations.help') || 'Configure global and per-company integration activation. When globally disabled, allow exceptions for specific companies. When globally enabled, block specific companies.'}
                     </p>
                     <div className="space-y-4">
-                        {(['meta', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'mujeb', 'pbx'] as IntegrationPlatformKey[]).map((platform) => {
+                        {(['meta', 'meta_inbox', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'mujeb', 'pbx'] as IntegrationPlatformKey[]).map((platform) => {
                             const policy = integrationPolicies[platform];
                             return (
                                 <div key={platform} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
@@ -587,13 +585,13 @@ const IntegrationsControlSettings: React.FC = () => {
                         })}
                     </div>
                     <div>
-                        <button
+                        <LoadingButton
                             onClick={handleSave}
-                            disabled={isSaving}
-                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                            isLoading={isSaving}
+                            loadingText={t('settings.general.saving')}
                         >
-                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span></> : (t('settings.general.save') || 'Save Changes')}
-                        </button>
+                            {t('settings.general.save')}
+                        </LoadingButton>
                     </div>
                 </div>
             )}
@@ -732,13 +730,13 @@ const FeaturesControlSettings: React.FC = () => {
                         })}
                     </div>
                     <div>
-                        <button
+                        <LoadingButton
                             onClick={handleSave}
-                            disabled={isSaving}
-                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                            isLoading={isSaving}
+                            loadingText={t('settings.general.saving')}
                         >
-                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span></> : (t('settings.general.save') || 'Save Changes')}
-                        </button>
+                            {t('settings.general.save')}
+                        </LoadingButton>
                     </div>
                 </div>
             )}
@@ -1331,13 +1329,13 @@ const TwilioSmsSettings: React.FC = () => {
                         <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.isEnabledHelp')}</p>
                     </div>
                     <div>
-                        <button
+                        <LoadingButton
                             onClick={handleSave}
-                            disabled={isSaving}
-                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                            isLoading={isSaving}
+                            loadingText={t('settings.general.saving')}
                         >
-                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving')}</span></> : (t('settings.general.save') || 'Save Changes')}
-                        </button>
+                            {t('settings.general.save')}
+                        </LoadingButton>
                     </div>
                 </div>
             )}
@@ -1532,13 +1530,13 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                     </div>
 
                     <div>
-                        <button
+                        <LoadingButton
                             onClick={handleSave}
-                            disabled={isSaving}
-                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                            isLoading={isSaving}
+                            loadingText={t('settings.general.saving')}
                         >
-                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving')}</span></> : (t('settings.general.save') || 'Save Changes')}
-                        </button>
+                            {t('settings.general.save')}
+                        </LoadingButton>
                     </div>
                 </div>
             )}
@@ -1718,13 +1716,13 @@ const RegistrationOtpSettings: React.FC = () => {
                         </div>
                     </section>
                     <div>
-                        <button
+                        <LoadingButton
                             onClick={handleSave}
-                            disabled={isSaving}
-                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                            isLoading={isSaving}
+                            loadingText={t('settings.general.saving')}
                         >
-                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span></> : (t('settings.general.save') || 'Save Changes')}
-                        </button>
+                            {t('settings.general.save')}
+                        </LoadingButton>
                     </div>
                 </div>
             )}
@@ -1855,13 +1853,13 @@ const LoginLockoutSettings: React.FC = () => {
                         </div>
                     </div>
                     <div>
-                        <button
+                        <LoadingButton
                             onClick={handleSave}
-                            disabled={isSaving}
-                            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold flex items-center justify-center transition-colors hover:bg-primary-700 disabled:bg-primary-400 dark:disabled:bg-primary-800 disabled:cursor-wait shadow-sm"
+                            isLoading={isSaving}
+                            loadingText={t('settings.general.saving')}
                         >
-                            {isSaving ? <><LoadingSpinner /><span className="mx-2">{t('settings.general.saving') || 'Saving...'}</span></> : (t('settings.general.save') || 'Save Changes')}
-                        </button>
+                            {t('settings.general.save')}
+                        </LoadingButton>
                     </div>
                 </div>
             )}
@@ -1935,6 +1933,7 @@ const LimitedAdmins: React.FC = () => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
     const { showAlert } = useAlert();
+    const { showToast } = useToast();
     const [limitedAdmins, setLimitedAdmins] = useState<LimitedAdmin[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -2020,7 +2019,7 @@ const LimitedAdmins: React.FC = () => {
             handleCloseModal();
         } catch (error: any) {
             console.error('Error saving limited admin:', error);
-            showAlert(translateAdminApiError(error, t) || t('errors.saveLimitedAdmin'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('errors.saveLimitedAdmin'), { variant: 'error' });
         } finally {
             setIsSaving(false);
         }

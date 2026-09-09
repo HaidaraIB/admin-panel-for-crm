@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import LoadingButton from './LoadingButton';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import {
   getPageHelpVideoKeysAPI,
@@ -25,6 +27,7 @@ type RowState = {
 const PageHelpVideosPanel: React.FC = () => {
   const { t } = useI18n();
   const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [rows, setRows] = useState<RowState[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +57,7 @@ const PageHelpVideosPanel: React.FC = () => {
         }),
       );
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -164,15 +167,17 @@ const PageHelpVideosPanel: React.FC = () => {
                     />
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <button
+                    <LoadingButton
                       type="button"
-                      disabled={!row.dirty || row.saving}
+                      size="sm"
+                      icon="check"
+                      disabled={!row.dirty}
+                      isLoading={row.saving}
+                      loadingText={t('common.saving')}
                       onClick={() => void saveRow(row.page_key)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-40"
                     >
-                      <Icon name="check" className="w-4 h-4" />
-                      {row.saving ? t('common.saving') || 'Saving...' : t('common.save')}
-                    </button>
+                      {t('common.save')}
+                    </LoadingButton>
                   </td>
                 </tr>
               ))}

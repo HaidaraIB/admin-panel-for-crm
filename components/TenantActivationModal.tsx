@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import LoadingButton from './LoadingButton';
 import { Tenant } from '../types';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
@@ -236,34 +237,26 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
           )}
 
           <div className="flex gap-3 pt-4">
-            <button
+            <LoadingButton
               type="button"
+              variant="secondary"
+              className="flex-1"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium transition-colors"
               disabled={isLoading}
             >
               {t('common.cancel')}
-            </button>
-            <button
+            </LoadingButton>
+            <LoadingButton
               type="submit"
-              className={`flex-1 px-4 py-2 text-white rounded-md font-medium transition-colors ${
-                isActive
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-primary-600 hover:bg-primary-700'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-              disabled={isLoading}
+              className="flex-1"
+              variant={isActive ? 'danger' : 'primary'}
+              isLoading={isLoading}
+              loadingText={t('common.processing')}
             >
-              {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                  {t('common.processing') || 'Processing...'}
-                </span>
-              ) : (
-                isActive 
-                  ? t('tenants.activation.deactivate') || 'Deactivate'
-                  : t('tenants.activation.activate') || 'Activate'
-              )}
-            </button>
+              {isActive
+                ? t('tenants.activation.deactivate')
+                : t('tenants.activation.activate')}
+            </LoadingButton>
           </div>
         </form>
       </div>

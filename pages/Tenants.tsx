@@ -12,6 +12,7 @@ import TenantModal from '../components/TenantModal';
 import TenantActivationModal from '../components/TenantActivationModal';
 import { useAuditLog } from '../context/AuditLogContext';
 import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import TenantsFilterDrawer, { TenantFilters, tenantFilterDefaults } from '../components/TenantsFilterDrawer';
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
 import { impersonateAPI } from '../services/api';
@@ -49,6 +50,7 @@ const Tenants: React.FC<TenantsProps> = ({
     const { addLog } = useAuditLog();
     const { isSuperAdmin } = useUser();
     const { showAlert } = useAlert();
+  const { showToast } = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
     const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
@@ -186,12 +188,11 @@ const Tenants: React.FC<TenantsProps> = ({
                         // ignore
                     }
                     w.focus();
-                    showAlert(t('tenants.impersonate.success'), { variant: 'success' });
+                    showToast(t('tenants.impersonate.success'), { variant: 'success' });
                 } else {
                     try {
                         await navigator.clipboard.writeText(url);
-                        showAlert(
-                            `${t('tenants.impersonate.popupBlocked')} ${t('tenants.impersonate.urlCopied')}`,
+                        showToast(`${t('tenants.impersonate.popupBlocked')} ${t('tenants.impersonate.urlCopied')}`,
                             { variant: 'warning' }
                         );
                     } catch {

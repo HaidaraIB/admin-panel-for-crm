@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Alert from '../components/Alert';
 import { useNavigate } from 'react-router';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
@@ -284,9 +285,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
             </div>
 
             {errors.general && (
-              <div className="mb-4 p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-300 text-sm">
-                {errors.general}
-              </div>
+              <Alert variant="error" className="mb-4">{errors.general}</Alert>
             )}
 
             {/* Step 1: Company */}

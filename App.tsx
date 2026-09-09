@@ -21,6 +21,7 @@ import { useAuditLog } from './context/AuditLogContext';
 import { useI18n } from './context/i18n';
 import { useUser } from './context/UserContext';
 import { useAlert } from './context/AlertContext';
+import { useToast } from './context/ToastContext';
 import { translateAdminApiError } from './utils/translateApiError';
 import { buildUpdateDiff } from './utils/buildUpdateDiff';
 import FullPageLoader from './components/FullPageLoader';
@@ -47,6 +48,7 @@ const PermissionGuard: React.FC<{ permission: RoutePermission; children: React.R
 const App: React.FC = () => {
   const { language, t } = useI18n();
   const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -163,15 +165,12 @@ const App: React.FC = () => {
     if (wasOnline === isInternetOnline) return;
 
     if (!isInternetOnline) {
-      showAlert(
-        t('connectivity.offlineWarning'),
+      showToast(t('connectivity.offlineWarning'),
         { variant: 'warning' }
       );
     } else {
       showAlert(
-        t('connectivity.backOnline'),
-        { variant: 'success' }
-      );
+        t('connectivity.backOnline'), { variant: 'success' });
     }
 
     previousInternetStatusRef.current = isInternetOnline;

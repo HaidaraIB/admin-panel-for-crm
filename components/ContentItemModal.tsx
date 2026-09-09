@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import LoadingButton from './LoadingButton';
 import { GuideArticle, GuideCategory, NewsPost } from '../types';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
@@ -359,21 +360,23 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
           </label>
 
           <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
+            <LoadingButton
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium"
+              className="flex-1"
+              variant="secondary"
               disabled={isLoading}
             >
               {t('common.cancel')}
-            </button>
-            <button
+            </LoadingButton>
+            <LoadingButton
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium disabled:opacity-50"
-              disabled={isLoading}
+              className="flex-1"
+              isLoading={isLoading}
+              loadingText={t('common.saving')}
             >
-              {isLoading ? t('common.saving') || 'Saving...' : t('common.save')}
-            </button>
+              {t('common.save')}
+            </LoadingButton>
           </div>
         </form>
       </div>

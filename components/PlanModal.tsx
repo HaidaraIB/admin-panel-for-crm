@@ -33,6 +33,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
   featuresAr: '',
   entitlementsFeatures: {
     integration_meta: true,
+    integration_meta_inbox: true,
     integration_tiktok: true,
     integration_whatsapp: true,
     integration_twilio: true,
@@ -491,6 +492,12 @@ const PlanModal: React.FC<PlanModalProps> = ({
                       checked={!!(formData.entitlementsFeatures || {}).integration_meta}
                       onChange={(e) => handleEntFeatureToggle('integration_meta', e.target.checked)}
                       label={t('settings.integrations.platform.meta') || 'Meta'}
+                    />
+                    <Checkbox
+                      id="feature_integration_meta_inbox"
+                      checked={!!(formData.entitlementsFeatures || {}).integration_meta_inbox}
+                      onChange={(e) => handleEntFeatureToggle('integration_meta_inbox', e.target.checked)}
+                      label={t('settings.integrations.platform.metaInbox') || 'Instagram & Messenger Inbox'}
                     />
                     <Checkbox
                       id="feature_integration_tiktok"

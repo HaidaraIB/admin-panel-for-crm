@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useI18n } from '../context/i18n';
+import LoadingSpinner from './LoadingSpinner';
 import {
   resolveMaintenanceDisplayMessage,
   type MaintenanceRetryResult,
@@ -114,14 +115,11 @@ const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({ message, onRetry 
           onClick={() => void handleRetry()}
           disabled={isChecking}
           aria-busy={isChecking}
-          className="w-full px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium transition-colors inline-flex items-center justify-center gap-2"
+          className="w-full px-4 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium transition-colors inline-flex items-center justify-center gap-2"
         >
           {isChecking ? (
             <>
-              <span
-                className="h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin"
-                aria-hidden
-              />
+              <LoadingSpinner size="sm" tone="light" presentational />
               <span>{t('maintenance.checking')}</span>
             </>
           ) : (

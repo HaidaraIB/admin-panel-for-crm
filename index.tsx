@@ -8,6 +8,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuditLogProvider } from './context/AuditLogContext';
 import { UserProvider } from './context/UserContext';
 import { AlertProvider } from './context/AlertContext';
+import { ToastProvider } from './context/ToastContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -21,11 +22,13 @@ root.render(
       <I18nProvider>
         <ThemeProvider>
           <UserProvider>
-            <AlertProvider>
-              <AuditLogProvider>
-                <App />
-              </AuditLogProvider>
-            </AlertProvider>
+            <ToastProvider>
+              <AlertProvider>
+                <AuditLogProvider>
+                  <App />
+                </AuditLogProvider>
+              </AlertProvider>
+            </ToastProvider>
           </UserProvider>
         </ThemeProvider>
       </I18nProvider>

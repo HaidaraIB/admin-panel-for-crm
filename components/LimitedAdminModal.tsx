@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import LoadingButton from './LoadingButton';
 import { LimitedAdmin } from '../types';
 import { useI18n } from '../context/i18n';
 import { useAlert } from '../context/AlertContext';
 import Icon from './Icon';
+import LoadingSpinner from './LoadingSpinner';
 
 interface LimitedAdminModalProps {
   isOpen: boolean;
@@ -350,28 +352,23 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
+            <LoadingButton
               type="button"
+              variant="secondary"
+              className="flex-1"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium transition-colors"
               disabled={isLoading}
             >
               {t('common.cancel')}
-            </button>
-            <button
+            </LoadingButton>
+            <LoadingButton
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading}
+              className="flex-1"
+              isLoading={isLoading}
+              loadingText={t('common.saving')}
             >
-              {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                  {t('common.saving') || 'Saving...'}
-                </span>
-              ) : (
-                t('common.save') || 'Save'
-              )}
-            </button>
+              {t('common.save')}
+            </LoadingButton>
           </div>
         </form>
       </div>
