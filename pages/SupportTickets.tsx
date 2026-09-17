@@ -9,6 +9,8 @@ import {
   deleteSupportTicketAPI,
 } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PaginationControls from '../components/PaginationControls';
+import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
 import { withLatinDigits } from '../utils/latinNumerals';
 import SupportTicketsFilterDrawer, {
   SupportTicketsFilters,
@@ -35,6 +37,9 @@ const SupportTickets: React.FC = () => {
   const { t, language } = useI18n();
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = usePersistedPageSize('admin-support-tickets');
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [ticketToDelete, setTicketToDelete] = useState<any | null>(null);
@@ -44,21 +49,32 @@ const SupportTickets: React.FC = () => {
   const [filters, setFilters] = useState<SupportTicketsFilters>(supportTicketsFilterDefaults);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  const loadTickets = useCallback(async () => {
+  const loadTickets = useCallback(async (page = currentPage) => {
     setLoading(true);
     try {
-      const res = await getSupportTicketsAPI();
+      const res = await getSupportTicketsAPI({
+        page,
+        page_size: pageSize,
+        search: filters.search.trim() || undefined,
+      });
+      setTotalCount(res.count || 0);
       setTickets(res.results || []);
     } catch {
       setTickets([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, filters.search, pageSize]);
 
   useEffect(() => {
-    loadTickets();
-  }, [loadTickets]);
+    void loadTickets(currentPage);
+  }, [currentPage, filters.search, pageSize, loadTickets]);
+
+  const handlePageSizeChange = (nextSize: number) => {
+    setPageSize(nextSize);
+    setCurrentPage(1);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -77,7 +93,7 @@ const SupportTickets: React.FC = () => {
     setOpenStatusDropdownId(null);
     try {
       await updateSupportTicketStatusAPI(id, { status: newStatus });
-      await loadTickets();
+      await loadTickets(currentPage);
     } finally {
       setUpdatingId(null);
     }
@@ -91,7 +107,7 @@ const SupportTickets: React.FC = () => {
       await deleteSupportTicketAPI(id);
       if (selectedTicket?.id === id) setSelectedTicket(null);
       setTicketToDelete(null);
-      await loadTickets();
+      await loadTickets(currentPage);
     } finally {
       setDeletingId(null);
     }
@@ -135,10 +151,12 @@ const SupportTickets: React.FC = () => {
   const handleApplyFilters = (next: SupportTicketsFilters) => {
     setFilters(next);
     setIsFilterDrawerOpen(false);
+    setCurrentPage(1);
   };
 
   const handleResetFilters = () => {
     setFilters(supportTicketsFilterDefaults);
+    setCurrentPage(1);
   };
 
   const isRtl = language === 'ar';
@@ -156,7 +174,7 @@ const SupportTickets: React.FC = () => {
           >
             {t('tickets.filters.open')}
           </FilterButton>
-          <RefreshButton onClick={loadTickets} loading={loading} />
+          <RefreshButton onClick={() => void loadTickets(currentPage)} loading={loading} />
         </div>
       </div>
 
@@ -287,6 +305,15 @@ const SupportTickets: React.FC = () => {
             </table>
           </div>
         )}
+        <PaginationControls
+            currentPage={currentPage}
+            totalCount={totalCount}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={loading}
+            className="px-6 pb-4"
+          />
       </div>
 
       <SupportTicketsFilterDrawer

@@ -34,6 +34,14 @@ export interface PaginatedResponse<T> {
 
 const DEFAULT_FULL_FETCH_PAGE_SIZE = 100;
 
+/** Common list query params for paginated admin endpoints. */
+export type PaginatedListParams = {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  ordering?: string;
+};
+
 function isPaginatedResponse<T>(value: unknown): value is PaginatedResponse<T> {
   return (
     typeof value === 'object' &&
@@ -199,8 +207,13 @@ export const getCurrentUserAPI = async () => {
  * Get all companies (tenants). Uses short-lived cache to avoid duplicate calls across pages.
  * GET /api/companies/
  */
-export const getCompaniesAPI = async (params?: { search?: string; ordering?: string }) => {
-  const query = buildQueryString(params ?? {});
+export const getCompaniesAPI = async (params?: PaginatedListParams) => {
+  const query = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+    ordering: params?.ordering,
+  });
   const cacheKey = `companies${query}`;
   return getCached(cacheKey, () =>
     apiRequest<PaginatedResponse<unknown>>(`/companies/${query}`)
@@ -303,8 +316,13 @@ export const deleteCompanyAPI = async (id: number) => {
  * Get all subscriptions. Uses short-lived cache to avoid duplicate calls across pages.
  * GET /api/subscriptions/
  */
-export const getSubscriptionsAPI = async (params?: { search?: string; ordering?: string }) => {
-  const query = buildQueryString(params ?? {});
+export const getSubscriptionsAPI = async (params?: PaginatedListParams) => {
+  const query = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+    ordering: params?.ordering,
+  });
   const cacheKey = `subscriptions${query}`;
   return getCached(cacheKey, () =>
     apiRequest<PaginatedResponse<unknown>>(`/subscriptions/${query}`)
@@ -425,14 +443,111 @@ export const deletePlanAPI = async (id: number) => {
   invalidateListCache('plans');
 };
 
+// ==================== Trial codes APIs ====================
+
+export const getTrialCodesAPI = async (params?: PaginatedListParams & {
+  status?: string;
+  plan?: number;
+  label?: string;
+}) => {
+  const query = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+    ordering: params?.ordering,
+    status: params?.status,
+    plan: params?.plan,
+    label: params?.label,
+  });
+  return apiRequest<PaginatedResponse<unknown>>(`/trial-codes/${query}`);
+};
+
+export const createTrialCodeAPI = async (data: {
+  code?: string;
+  label?: string;
+  trial_days: number;
+  plan: number;
+  max_redemptions: number;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  is_active?: boolean;
+  notes?: string;
+}) => {
+  const result = await apiRequest<unknown>('/trial-codes/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  invalidateListCache('trial-codes');
+  return result;
+};
+
+export const updateTrialCodeAPI = async (id: number, data: Record<string, unknown>) => {
+  const result = await apiRequest<unknown>(`/trial-codes/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  invalidateListCache('trial-codes');
+  return result;
+};
+
+export const deactivateTrialCodeAPI = async (id: number) => {
+  const result = await apiRequest<unknown>(`/trial-codes/${id}/deactivate/`, {
+    method: 'POST',
+  });
+  invalidateListCache('trial-codes');
+  return result;
+};
+
+export const deleteTrialCodeAPI = async (id: number) => {
+  await apiRequest<void>(`/trial-codes/${id}/`, { method: 'DELETE' });
+  invalidateListCache('trial-codes');
+};
+
+export const generateTrialCodeBatchAPI = async (data: {
+  label: string;
+  trial_days: number;
+  plan: number;
+  quantity: number;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  notes?: string;
+}) => {
+  const result = await apiRequest<{ created_count: number; codes: unknown[] }>(
+    '/trial-codes/generate-batch/',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }
+  );
+  invalidateListCache('trial-codes');
+  return result;
+};
+
+export const getTrialCodeRedemptionsAPI = async (id: number) => {
+  return apiRequest<unknown[]>(`/trial-codes/${id}/redemptions/`);
+};
+
+export const exportUnusedTrialCodesAPI = async (label: string): Promise<Blob> => {
+  const res = await adminHttp.get<Blob>('trial-codes/export-unused/', {
+    params: { label },
+    responseType: 'blob',
+  });
+  return res.data;
+};
+
 // ==================== Payments APIs ====================
 
 /**
  * Get all payments
  * GET /api/payments/
  */
-export const getPaymentsAPI = async (params?: { search?: string; ordering?: string }) => {
-  const query = buildQueryString(params ?? {});
+export const getPaymentsAPI = async (params?: PaginatedListParams) => {
+  const query = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+    ordering: params?.ordering,
+  });
   return apiRequest<PaginatedResponse<unknown>>(`/payments/${query}`);
 };
 
@@ -641,8 +756,13 @@ export const getAdminTenantWhatsAppMessagesAPI = async (
  * Get all invoices
  * GET /api/invoices/
  */
-export const getInvoicesAPI = async (params?: { search?: string; ordering?: string }) => {
-  const query = buildQueryString(params ?? {});
+export const getInvoicesAPI = async (params?: PaginatedListParams) => {
+  const query = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+    ordering: params?.ordering,
+  });
   return apiRequest<PaginatedResponse<unknown>>(`/invoices/${query}`);
 };
 
@@ -904,8 +1024,13 @@ export const upsertPageHelpVideoAPI = async (payload: {
  * Get all broadcasts
  * GET /api/broadcasts/
  */
-export const getBroadcastsAPI = async (params?: { search?: string; ordering?: string }) => {
-  const query = buildQueryString(params ?? {});
+export const getBroadcastsAPI = async (params?: PaginatedListParams) => {
+  const query = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+    ordering: params?.ordering,
+  });
   return apiRequest<PaginatedResponse<unknown>>(`/broadcasts/${query}`);
 };
 
@@ -1361,8 +1486,13 @@ export const toggleLimitedAdminActiveAPI = async (id: number) => {
 };
 
 /** GET /api/support-tickets/ - list all support tickets (super admin) */
-export const getSupportTicketsAPI = async (params?: { page?: number; page_size?: number }) => {
-  const query = buildQueryString(params ?? {});
+export const getSupportTicketsAPI = async (params?: PaginatedListParams) => {
+  const query = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+    ordering: params?.ordering,
+  });
   return apiRequest<PaginatedResponse<unknown>>(`/support-tickets/${query}`);
 };
 

@@ -7,7 +7,9 @@ import { Broadcast } from '../types';
 import { useI18n } from '../context/i18n';
 import BroadcastViewModal from '../components/BroadcastViewModal';
 import AlertDialog from '../components/AlertDialog';
-import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getCompaniesAPI, sendSmsBroadcastAPI } from '../services/api';
+import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getAllCompaniesAPI, sendSmsBroadcastAPI } from '../services/api';
+import PaginationControls from '../components/PaginationControls';
+import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
@@ -536,9 +538,14 @@ interface HistoryProps {
     lastUpdated?: string | null;
     plans: { id: number; name: string; name_ar?: string }[];
     companies: { id: number; name: string }[];
+    currentPage: number;
+    totalCount: number;
+    pageSize: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (pageSize: number) => void;
 }
 
-const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh, isLoading = false, lastUpdated, plans, companies }) => {
+const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh, isLoading = false, lastUpdated, plans, companies, currentPage, totalCount, pageSize, onPageChange, onPageSizeChange }) => {
     const { t, language } = useI18n();
     const [filters, setFilters] = useState<CommunicationFilters>(communicationFilterDefaults);
     const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
@@ -637,10 +644,12 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
     const handleApplyFilters = (next: CommunicationFilters) => {
         setFilters(next);
         setIsFilterDrawerOpen(false);
+        onPageChange(1);
     };
 
     const handleResetFilters = () => {
         setFilters(communicationFilterDefaults);
+        onPageChange(1);
     };
 
     return (
@@ -740,6 +749,14 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                     </tbody>
                 </table>
             </div>
+            <PaginationControls
+                currentPage={currentPage}
+                totalCount={totalCount}
+                pageSize={pageSize}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+                disabled={isLoading}
+            />
             <CommunicationFilterDrawer
                 isOpen={isFilterDrawerOpen}
                 onClose={() => setIsFilterDrawerOpen(false)}
@@ -763,6 +780,9 @@ const Communication: React.FC = () => {
         localStorage.setItem('communication_activeTab', activeTab);
     }, [activeTab]);
     const [history, setHistory] = useState<Broadcast[]>([]);
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyTotalCount, setHistoryTotalCount] = useState(0);
+    const [historyPageSize, setHistoryPageSize] = usePersistedPageSize('admin-broadcasts');
     const [plans, setPlans] = useState<{ id: number; name: string; name_ar?: string }[]>([]);
     const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
     const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null);
@@ -799,10 +819,15 @@ const Communication: React.FC = () => {
         { id: 'history', label: t('communication.tabs.history') },
     ];
 
-    const loadBroadcasts = useCallback(async () => {
+    const loadBroadcasts = useCallback(async (page = historyPage) => {
         setIsHistoryLoading(true);
         try {
-            const response = await getBroadcastsAPI({ ordering: '-created_at' });
+            const response = await getBroadcastsAPI({
+                ordering: '-created_at',
+                page,
+                page_size: historyPageSize,
+            });
+            setHistoryTotalCount(response.count || 0);
             const apiBroadcasts: Broadcast[] = (response.results || []).map(mapBroadcastFromApi);
             setHistory(apiBroadcasts);
             setLastUpdatedAt(new Date().toISOString());
@@ -817,18 +842,23 @@ const Communication: React.FC = () => {
         } finally {
             setIsHistoryLoading(false);
         }
-    }, [t]);
+    }, [historyPage, historyPageSize, t]);
 
     useEffect(() => {
-        loadBroadcasts();
-    }, [loadBroadcasts]);
+        loadBroadcasts(historyPage);
+    }, [historyPage, historyPageSize, loadBroadcasts]);
+
+    const handleHistoryPageSizeChange = (nextSize: number) => {
+        setHistoryPageSize(nextSize);
+        setHistoryPage(1);
+    };
 
     useEffect(() => {
         const fetchPlansAndCompanies = async () => {
             try {
                 const [plansRes, companiesRes] = await Promise.all([
                     getPlansAPI(),
-                    getCompaniesAPI(),
+                    getAllCompaniesAPI(),
                 ]);
                 setPlans((plansRes.results || []) as { id: number; name: string; name_ar?: string }[]);
                 setCompanies((companiesRes.results || []).map((c: any) => ({ id: c.id, name: c.name || c.company_name || String(c.id) })));
@@ -841,9 +871,9 @@ const Communication: React.FC = () => {
 
     useEffect(() => {
         if (activeTab === 'history') {
-            loadBroadcasts();
+            loadBroadcasts(historyPage);
         }
-    }, [activeTab, loadBroadcasts]);
+    }, [activeTab, historyPage, loadBroadcasts]);
 
     const handleViewBroadcast = async (broadcast: Broadcast) => {
         setSelectedBroadcast(broadcast);
@@ -927,11 +957,16 @@ const Communication: React.FC = () => {
                     history={history}
                     onView={handleViewBroadcast}
                     onDelete={handleDeleteBroadcast}
-                    onRefresh={loadBroadcasts}
+                    onRefresh={() => loadBroadcasts(historyPage)}
                     isLoading={isHistoryLoading}
                     lastUpdated={lastUpdatedAt}
                     plans={plans}
                     companies={companies}
+                    currentPage={historyPage}
+                    totalCount={historyTotalCount}
+                    pageSize={historyPageSize}
+                    onPageChange={setHistoryPage}
+                    onPageSizeChange={handleHistoryPageSizeChange}
                 />
             )}
             <BroadcastViewModal 

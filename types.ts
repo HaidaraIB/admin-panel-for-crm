@@ -41,6 +41,37 @@ export interface Tenant {
   freeTrialConsumed?: boolean;
 }
 
+export interface TrialCode {
+  id: number;
+  code: string;
+  label: string;
+  trialDays: number;
+  planId: number;
+  planName: string;
+  maxRedemptions: number;
+  redeemedCount: number;
+  isExhausted: boolean;
+  startsAt?: string | null;
+  expiresAt?: string | null;
+  isActive: boolean;
+  notes: string;
+  createdAt: string;
+}
+
+export interface TrialCodeRedemption {
+  id: number;
+  codeId: number;
+  codeValue: string;
+  companyId: number;
+  companyName: string;
+  subscriptionId: number;
+  trialDays: number;
+  trialEndsAt: string;
+  ownerEmail: string;
+  ownerName: string;
+  redeemedAt: string;
+}
+
 export interface Plan {
     id: number;
     name: string;

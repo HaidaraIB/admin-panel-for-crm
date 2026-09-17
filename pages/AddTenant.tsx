@@ -261,7 +261,15 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          type="button"
+          onClick={() => navigate('/tenants')}
+          aria-label={t('common.back')}
+          className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+        >
+          <Icon name="arrow-left" className="w-6 h-6 rtl:rotate-180" />
+        </button>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('tenants.add.title')}</h1>
       </div>
 

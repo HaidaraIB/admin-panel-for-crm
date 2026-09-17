@@ -25,7 +25,8 @@ import { useToast } from './context/ToastContext';
 import { translateAdminApiError } from './utils/translateApiError';
 import { buildUpdateDiff } from './utils/buildUpdateDiff';
 import FullPageLoader from './components/FullPageLoader';
-import { getCompaniesAPI, getCompanyAPI, getSubscriptionsAPI, getPlansAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI, invalidateListCache } from './services/api';
+import { getCompaniesAPI, getCompanyAPI, getAllSubscriptionsAPI, getPlansAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI, invalidateListCache } from './services/api';
+import { usePersistedPageSize } from './hooks/usePersistedPageSize';
 import { fetchMaintenanceStatus } from './services/maintenance';
 import MaintenanceScreen from './components/MaintenanceScreen';
 import { subscribeAdminMaintenanceMode } from './utils/maintenanceMode';
@@ -84,6 +85,10 @@ const App: React.FC = () => {
   const activePage = getActivePageFromRoute(location.pathname);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [isLoadingTenants, setIsLoadingTenants] = useState(false);
+  const [tenantsPage, setTenantsPage] = useState(1);
+  const [tenantsTotalCount, setTenantsTotalCount] = useState(0);
+  const [tenantsSearch, setTenantsSearch] = useState<string | undefined>(undefined);
+  const [tenantsPageSize, setTenantsPageSize] = usePersistedPageSize('tenants');
   const { addLog } = useAuditLog();
   const [isPageLoading, setIsPageLoading] = useState(false);
   const prevPathnameRef = useRef<string>(location.pathname);
@@ -176,19 +181,27 @@ const App: React.FC = () => {
     previousInternetStatusRef.current = isInternetOnline;
   }, [isInternetOnline, language, showAlert]);
 
-  const loadTenants = async () => {
+  const loadTenants = async (opts?: { page?: number; search?: string; pageSize?: number }) => {
+    const page = opts?.page ?? tenantsPage;
+    const search = opts?.search !== undefined ? opts.search : tenantsSearch;
+    const pageSize = opts?.pageSize ?? tenantsPageSize;
     setIsLoadingTenants(true);
     try {
-      // Fetch companies, subscriptions, and plans
       const [companiesResponse, subscriptionsResponse, plansResponse] = await Promise.all([
-        getCompaniesAPI(),
-        getSubscriptionsAPI(),
+        getCompaniesAPI({ page, page_size: pageSize, search: search || undefined }),
+        getAllSubscriptionsAPI(),
         getPlansAPI()
       ]);
 
       const companies = companiesResponse.results || [];
       const subscriptions = (subscriptionsResponse.results || []) as any[];
       const plans = (plansResponse.results || []) as ApiPlanRow[];
+
+      setTenantsTotalCount(companiesResponse.count || 0);
+      setTenantsPage(page);
+      if (opts?.search !== undefined) {
+        setTenantsSearch(search);
+      }
 
       // Create a map of company_id -> active subscription
       const subscriptionMap = new Map();
@@ -217,6 +230,8 @@ const App: React.FC = () => {
             const end = new Date(subscription.end_date);
             if (end < now) {
               status = TenantStatus.Expired;
+            } else if (subscription.subscription_status === 'trialing') {
+              status = TenantStatus.Trial;
             } else {
               status = TenantStatus.Active;
             }
@@ -283,9 +298,24 @@ const App: React.FC = () => {
       }
       // Set empty array on error to show "no tenants" message
       setTenants([]);
+      setTenantsTotalCount(0);
     } finally {
       setIsLoadingTenants(false);
     }
+  };
+
+  const handleTenantsPageChange = (page: number) => {
+    void loadTenants({ page });
+  };
+
+  const handleTenantsPageSizeChange = (pageSize: number) => {
+    setTenantsPageSize(pageSize);
+    setTenantsPage(1);
+    void loadTenants({ page: 1, pageSize });
+  };
+
+  const handleTenantsRefresh = (opts?: { page?: number; search?: string; pageSize?: number }) => {
+    void loadTenants(opts);
   };
 
 
@@ -343,7 +373,7 @@ const App: React.FC = () => {
       addLog('audit.log.tenantUpdated', { companyName: updatedTenant.name });
       
       // Reload tenants to get updated list
-      await loadTenants();
+      await loadTenants({ page: tenantsPage });
     } catch (error: any) {
       console.error('Error updating tenant:', error);
       showAlert(translateAdminApiError(error, t) || t('errors.updateTenant'), { variant: 'error' });
@@ -372,7 +402,7 @@ const App: React.FC = () => {
       }
 
       // Use existing subscription for this company if any (active or not) so only one sub per company
-      const subscriptionsResponse = await getSubscriptionsAPI();
+      const subscriptionsResponse = await getAllSubscriptionsAPI();
       const subscriptionRows = (subscriptionsResponse.results || []) as ApiSubscriptionRow[];
       const existingSubscription = subscriptionRows.find((sub) => sub.company === tenantId);
 
@@ -396,7 +426,7 @@ const App: React.FC = () => {
       }
 
       // Reload tenants to get updated list
-      await loadTenants();
+      await loadTenants({ page: tenantsPage });
     } catch (error: any) {
       console.error('Error activating tenant:', error);
       // Handle field-specific errors
@@ -419,7 +449,7 @@ const App: React.FC = () => {
       const company = await getCompanyAPI(tenantId);
 
       // Find active subscription and deactivate it
-      const subscriptionsResponse = await getSubscriptionsAPI();
+      const subscriptionsResponse = await getAllSubscriptionsAPI();
       const deactivateRows = (subscriptionsResponse.results || []) as ApiSubscriptionRow[];
       const activeSubscription = deactivateRows.find((sub) => sub.company === tenantId && sub.is_active);
 
@@ -429,7 +459,7 @@ const App: React.FC = () => {
       }
 
       // Reload tenants to get updated list
-      await loadTenants();
+      await loadTenants({ page: tenantsPage });
     } catch (error: any) {
       console.error('Error deactivating tenant:', error);
       throw new Error(error.message || 'Failed to deactivate tenant');
@@ -441,7 +471,7 @@ const App: React.FC = () => {
       const company = await getCompanyAPI(tenantId);
       await deleteCompanyAPI(tenantId);
       addLog('audit.log.tenantDeleted', { companyName: company.name });
-      await loadTenants();
+      await loadTenants({ page: tenantsPage });
     } catch (error: any) {
       console.error('Error deleting tenant:', error);
       showAlert(translateAdminApiError(error, t) || t('errors.deleteTenant'), { variant: 'error' });
@@ -547,7 +577,12 @@ const App: React.FC = () => {
                   onDeactivateTenant={handleDeactivateTenant}
                   onDeleteTenant={handleDeleteTenant}
                   isLoading={isLoadingTenants} 
-                  onRefresh={loadTenants} 
+                  onRefresh={handleTenantsRefresh}
+                  currentPage={tenantsPage}
+                  totalCount={tenantsTotalCount}
+                  pageSize={tenantsPageSize}
+                  onPageChange={handleTenantsPageChange}
+                  onPageSizeChange={handleTenantsPageSizeChange}
                 />
               </Layout>
             </PermissionGuard>

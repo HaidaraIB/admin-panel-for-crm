@@ -14,6 +14,7 @@ import { useAuditLog } from '../context/AuditLogContext';
 import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import TenantsFilterDrawer, { TenantFilters, tenantFilterDefaults } from '../components/TenantsFilterDrawer';
+import PaginationControls from '../components/PaginationControls';
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
 import { impersonateAPI } from '../services/api';
 
@@ -31,7 +32,12 @@ interface TenantsProps {
     onDeactivateTenant: (tenantId: number) => Promise<void>;
     onDeleteTenant: (tenantId: number) => Promise<void>;
     isLoading?: boolean;
-    onRefresh?: () => void;
+    onRefresh?: (opts?: { page?: number; search?: string; pageSize?: number }) => void | Promise<void>;
+    currentPage?: number;
+    totalCount?: number;
+    pageSize?: number;
+    onPageChange?: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
 }
 
 const CRM_APP_URL = import.meta.env.VITE_CRM_APP_URL || '';
@@ -43,7 +49,12 @@ const Tenants: React.FC<TenantsProps> = ({
     onDeactivateTenant,
     onDeleteTenant,
     isLoading = false,
-    onRefresh
+    onRefresh,
+    currentPage = 1,
+    totalCount = 0,
+    pageSize = 20,
+    onPageChange,
+    onPageSizeChange,
 }) => {
     const { t, language } = useI18n();
     const navigate = useNavigate();
@@ -160,10 +171,21 @@ const Tenants: React.FC<TenantsProps> = ({
     const handleApplyFilters = (nextFilters: TenantFilters) => {
         setFilters(nextFilters);
         setIsFilterDrawerOpen(false);
+        onPageChange?.(1);
+        if (onRefresh) {
+            void onRefresh({
+                page: 1,
+                search: nextFilters.search.trim() || undefined,
+            });
+        }
     };
 
     const handleResetFilters = () => {
         setFilters(tenantFilterDefaults);
+        onPageChange?.(1);
+        if (onRefresh) {
+            void onRefresh({ page: 1, search: undefined });
+        }
     };
 
     const handleImpersonateClick = (tenant: Tenant) => {
@@ -257,7 +279,7 @@ const Tenants: React.FC<TenantsProps> = ({
                         {t('tenants.filters.open')}
                     </FilterButton>
                     {onRefresh && (
-                        <RefreshButton onClick={() => void onRefresh()} loading={isLoading} />
+                        <RefreshButton onClick={() => void onRefresh({ page: currentPage })} loading={isLoading} />
                     )}
                 </div>
             </div>
@@ -351,6 +373,16 @@ const Tenants: React.FC<TenantsProps> = ({
                         </tbody>
                     </table>
                 </div>
+                {onPageChange && (
+                    <PaginationControls
+                        currentPage={currentPage}
+                        totalCount={totalCount}
+                        pageSize={pageSize}
+                        onPageChange={onPageChange}
+                        onPageSizeChange={onPageSizeChange}
+                        disabled={isLoading}
+                    />
+                )}
             </div>
             <TenantModal 
                 isOpen={isModalOpen}
@@ -377,13 +409,13 @@ const Tenants: React.FC<TenantsProps> = ({
                 onActivate={async (tenantId, planId, startDate, endDate) => {
                     await onActivateTenant(tenantId, planId, startDate, endDate);
                     if (onRefresh) {
-                        await onRefresh();
+                        await onRefresh({ page: currentPage });
                     }
                 }}
                 onDeactivate={async (tenantId) => {
                     await onDeactivateTenant(tenantId);
                     if (onRefresh) {
-                        await onRefresh();
+                        await onRefresh({ page: currentPage });
                     }
                 }}
             />

@@ -6,6 +6,7 @@ import RefreshButton from '../components/RefreshButton';
 import { Plan, Payment, Invoice, PaymentStatus, Tenant, type InvoicePaymentStatus, type BillingBranding } from '../types';
 import { useI18n } from '../context/i18n';
 import PlanModal from '../components/PlanModal';
+import TrialCodesTab from '../components/TrialCodesTab';
 import InvoiceModal from '../components/InvoiceModal';
 import { useTheme } from '../context/ThemeContext';
 import { useAuditLog } from '../context/AuditLogContext';
@@ -18,7 +19,7 @@ import {
   deletePlanAPI,
   getSubscriptionsAPI,
   updateSubscriptionAPI,
-  getCompaniesAPI,
+  getAllCompaniesAPI,
   getInvoicesAPI,
   checkHasSuccessfulPaymentForSubscription,
   downloadInvoicePdfAPI,
@@ -26,6 +27,8 @@ import {
   getBillingSettingsAPI,
 } from '../services/api';
 import { getPaymentsAPI } from '../services/api';
+import PaginationControls from '../components/PaginationControls';
+import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
 import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
@@ -424,17 +427,21 @@ const PaymentsTab: React.FC = () => {
     const { t, language } = useI18n();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const [pageSize, setPageSize] = usePersistedPageSize('admin-payments');
     const [filters, setFilters] = useState<SubscriptionsFilters>(subscriptionsFilterDefaults);
     const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-    useEffect(() => {
-        loadPayments();
-    }, []);
-
-    const loadPayments = async () => {
+    const loadPayments = async (page = currentPage) => {
         setIsLoading(true);
         try {
-            const response = await getPaymentsAPI();
+            const response = await getPaymentsAPI({
+                page,
+                page_size: pageSize,
+                search: filters.search.trim() || undefined,
+            });
+            setTotalCount(response.count || 0);
             // Map API payment fields to frontend format
             const apiPayments: Payment[] = (response.results || []).map((payment: any) => {
                 // Backend PaymentStatus enum values: 'completed', 'pending', 'failed', 'canceled'
@@ -481,6 +488,26 @@ const PaymentsTab: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        void loadPayments(currentPage);
+    }, [currentPage, filters.search, pageSize]);
+
+    const handlePageSizeChange = (nextSize: number) => {
+        setPageSize(nextSize);
+        setCurrentPage(1);
+    };
+
+    const handleApplyFilters = (next: SubscriptionsFilters) => {
+        setFilters(next);
+        setIsFilterDrawerOpen(false);
+        setCurrentPage(1);
+    };
+
+    const handleResetFilters = () => {
+        setFilters(subscriptionsFilterDefaults);
+        setCurrentPage(1);
+    };
+
     const statusColors: { [key in PaymentStatus]: string } = {
         [PaymentStatus.Successful]: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
         [PaymentStatus.Failed]: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
@@ -506,15 +533,6 @@ const PaymentsTab: React.FC = () => {
         [filters],
     );
 
-    const handleApplyFilters = (next: SubscriptionsFilters) => {
-        setFilters(next);
-        setIsFilterDrawerOpen(false);
-    };
-
-    const handleResetFilters = () => {
-        setFilters(subscriptionsFilterDefaults);
-    };
-
     return (
         <div className="space-y-4">
             <div className="flex justify-end gap-2">
@@ -524,7 +542,7 @@ const PaymentsTab: React.FC = () => {
                 >
                     {t('subscriptions.filters.open')}
                 </FilterButton>
-                <RefreshButton onClick={() => void loadPayments()} loading={isLoading} />
+                <RefreshButton onClick={() => void loadPayments(currentPage)} loading={isLoading} />
             </div>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                 <div className="overflow-x-auto">
@@ -571,6 +589,14 @@ const PaymentsTab: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+                <PaginationControls
+                    currentPage={currentPage}
+                    totalCount={totalCount}
+                    pageSize={pageSize}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={handlePageSizeChange}
+                    disabled={isLoading}
+                />
             </div>
             <SubscriptionsFilterDrawer
                 isOpen={isFilterDrawerOpen}
@@ -629,12 +655,14 @@ const InvoicesTab: React.FC = () => {
     const [sendingId, setSendingId] = useState<number | null>(null);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const [pageSize, setPageSize] = usePersistedPageSize('admin-invoices');
     const [branding, setBranding] = useState<Partial<BillingBranding> | null>(null);
     const [filters, setFilters] = useState<SubscriptionsFilters>(subscriptionsFilterDefaults);
     const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
     useEffect(() => {
-        loadInvoices();
         getBillingSettingsAPI()
             .then((b) =>
                 setBranding({
@@ -651,10 +679,15 @@ const InvoicesTab: React.FC = () => {
             .catch(() => setBranding(null));
     }, []);
 
-    const loadInvoices = async () => {
+    const loadInvoices = async (page = currentPage) => {
         setIsLoading(true);
         try {
-            const response = await getInvoicesAPI();
+            const response = await getInvoicesAPI({
+                page,
+                page_size: pageSize,
+                search: filters.search.trim() || undefined,
+            });
+            setTotalCount(response.count || 0);
             const apiInvoices: Invoice[] = (response.results || []).map((invoice: any) => ({
                 numericId: invoice.id,
                 id: invoice.invoice_number || `inv_${invoice.id}`,
@@ -674,6 +707,15 @@ const InvoicesTab: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    useEffect(() => {
+        void loadInvoices(currentPage);
+    }, [currentPage, filters.search, pageSize]);
+
+    const handleInvoicePageSizeChange = (nextSize: number) => {
+        setPageSize(nextSize);
+        setCurrentPage(1);
     };
 
     const handleViewInvoice = (invoice: Invoice) => {
@@ -709,7 +751,7 @@ const InvoicesTab: React.FC = () => {
         try {
             await sendInvoiceEmailAPI(invoice.numericId);
             showAlert(t('subscriptions.invoices.emailSent'), { variant: 'success' });
-            await loadInvoices();
+            await loadInvoices(currentPage);
         } catch (error: any) {
             showAlert(translateAdminApiError(error, t) || t('subscriptions.invoices.emailError'), { variant: 'error' });
         } finally {
@@ -745,10 +787,12 @@ const InvoicesTab: React.FC = () => {
     const handleApplyFilters = (next: SubscriptionsFilters) => {
         setFilters(next);
         setIsFilterDrawerOpen(false);
+        setCurrentPage(1);
     };
 
     const handleResetFilters = () => {
         setFilters(subscriptionsFilterDefaults);
+        setCurrentPage(1);
     };
 
     return (
@@ -761,7 +805,7 @@ const InvoicesTab: React.FC = () => {
                     >
                         {t('subscriptions.filters.open')}
                     </FilterButton>
-                    <RefreshButton onClick={() => void loadInvoices()} loading={isLoading} />
+                    <RefreshButton onClick={() => void loadInvoices(currentPage)} loading={isLoading} />
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                      <div className="overflow-x-auto">
@@ -842,6 +886,14 @@ const InvoicesTab: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
+                    <PaginationControls
+                        currentPage={currentPage}
+                        totalCount={totalCount}
+                        pageSize={pageSize}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={handleInvoicePageSizeChange}
+                        disabled={isLoading}
+                    />
                 </div>
             </div>
             <InvoiceModal 
@@ -873,6 +925,9 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const { showAlert } = useAlert();
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = usePersistedPageSize('admin-subscriptions');
   const [showFirstConfirm, setShowFirstConfirm] = useState(false);
   const [showNoPaymentConfirm, setShowNoPaymentConfirm] = useState(false);
   const [pendingActivateSub, setPendingActivateSub] = useState<any | null>(null);
@@ -880,16 +935,16 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const [filters, setFilters] = useState<SubscriptionsFilters>(subscriptionsFilterDefaults);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    loadSubscriptions();
-  }, []);
-
-  const loadSubscriptions = async () => {
+  const loadSubscriptions = async (page = currentPage) => {
     setIsLoading(true);
     try {
       const [subscriptionsRes, companiesRes, plansRes] = await Promise.all([
-        getSubscriptionsAPI(),
-        getCompaniesAPI(),
+        getSubscriptionsAPI({
+          page,
+          page_size: pageSize,
+          search: filters.search.trim() || undefined,
+        }),
+        getAllCompaniesAPI(),
         getPlansAPI()
       ]);
 
@@ -897,7 +952,8 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       const companies = (companiesRes.results || []) as { id: number; name?: string }[];
       const plans = (plansRes.results || []) as { id: number; name?: string; name_ar?: string }[];
 
-      // Map subscriptions with company and plan names
+      setTotalCount(subscriptionsRes.count || 0);
+
       const mappedSubs = subs.map((sub: any) => {
         const company = companies.find((c) => c.id === sub.company);
         const plan = plans.find((p) => p.id === sub.plan);
@@ -917,6 +973,15 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     }
   };
 
+  useEffect(() => {
+    void loadSubscriptions(currentPage);
+  }, [currentPage, filters.search, pageSize]);
+
+  const handleSubscriptionPageSizeChange = (nextSize: number) => {
+    setPageSize(nextSize);
+    setCurrentPage(1);
+  };
+
   const handleToggleActive = async (subscription: any) => {
     const turningOn = !subscription.is_active;
     if (turningOn) {
@@ -926,7 +991,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     }
     try {
       await updateSubscriptionAPI(subscription.id, { is_active: false });
-      await loadSubscriptions();
+      await loadSubscriptions(currentPage);
     } catch (error: any) {
       console.error('Error updating subscription:', error);
       showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
@@ -948,7 +1013,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     try {
       await updateSubscriptionAPI(sub.id, { is_active: true });
       setPendingActivateSub(null);
-      await loadSubscriptions();
+      await loadSubscriptions(currentPage);
     } catch (error: any) {
       console.error('Error updating subscription:', error);
       showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
@@ -965,7 +1030,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     setIsTogglingSub(true);
     try {
       await updateSubscriptionAPI(sub.id, { is_active: true });
-      await loadSubscriptions();
+      await loadSubscriptions(currentPage);
     } catch (error: any) {
       console.error('Error updating subscription:', error);
       showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
@@ -998,10 +1063,12 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const handleApplyFilters = (next: SubscriptionsFilters) => {
     setFilters(next);
     setIsFilterDrawerOpen(false);
+    setCurrentPage(1);
   };
 
   const handleResetFilters = () => {
     setFilters(subscriptionsFilterDefaults);
+    setCurrentPage(1);
   };
 
   return (
@@ -1013,7 +1080,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
         >
           {t('subscriptions.filters.open')}
         </FilterButton>
-        <RefreshButton onClick={() => void loadSubscriptions()} loading={isLoading} />
+        <RefreshButton onClick={() => void loadSubscriptions(currentPage)} loading={isLoading} />
       </div>
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
         <div className="overflow-x-auto">
@@ -1093,6 +1160,14 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          currentPage={currentPage}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={handleSubscriptionPageSizeChange}
+          disabled={isLoading}
+        />
         <AlertDialog
           isOpen={showFirstConfirm}
           onClose={() => { setShowFirstConfirm(false); setPendingActivateSub(null); }}
@@ -1143,6 +1218,7 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
 
   const tabs = [
     { id: 'plans', label: t('subscriptions.tabs.plans') },
+    { id: 'trialCodes', label: t('subscriptions.tabs.trialCodes') },
     { id: 'subscriptions', label: t('subscriptions.tabs.subscriptions') || 'Subscriptions' },
     { id: 'payments', label: t('subscriptions.tabs.payments') },
     { id: 'invoices', label: t('subscriptions.tabs.invoices') },
@@ -1170,6 +1246,7 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
       </div>
       
       {activeTab === 'plans' && <PlansTab tenants={tenants} />}
+      {activeTab === 'trialCodes' && <TrialCodesTab />}
       {activeTab === 'subscriptions' && <SubscriptionsTab tenants={tenants} />}
       {activeTab === 'payments' && <PaymentsTab />}
       {activeTab === 'invoices' && <InvoicesTab />}
