@@ -12,6 +12,7 @@ import Communication from './pages/Communication';
 import Content from './pages/Content';
 import SystemSettings from './pages/SystemSettings';
 import SupportTickets from './pages/SupportTickets';
+import DemoBookings from './pages/DemoBookings';
 import TenantWhatsAppChat from './pages/TenantWhatsAppChat';
 import LoginPage from './pages/LoginPage';
 import PaymentGateways from './pages/PaymentGateways';
@@ -37,7 +38,7 @@ type ApiPlanRow = { id: number; name?: string; name_ar?: string };
 /** GET /subscriptions/ list item — allows object spread for update payloads */
 type ApiSubscriptionRow = Record<string, unknown> & { id: number; company: number; is_active?: boolean };
 
-type RoutePermission = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_content' | 'can_manage_settings' | 'can_manage_support_tickets';
+type RoutePermission = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_content' | 'can_manage_demo_bookings' | 'can_manage_settings' | 'can_manage_support_tickets';
 
 const PermissionGuard: React.FC<{ permission: RoutePermission; children: React.ReactNode }> = ({ permission, children }) => {
   const { hasPermission, isSuperAdmin, loading } = useUser();
@@ -78,6 +79,7 @@ const App: React.FC = () => {
       '/content': 'Content',
       '/settings': 'Settings',
       '/support-tickets': 'SupportTickets',
+      '/demo-bookings': 'DemoBookings',
     };
     return routeMap[pathname] || 'Dashboard';
   };
@@ -692,6 +694,18 @@ const App: React.FC = () => {
             <PermissionGuard permission="can_manage_support_tickets">
               <Layout>
                 <SupportTickets key={`support-tickets-${language}`} />
+              </Layout>
+            </PermissionGuard>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/demo-bookings"
+        element={
+          <ProtectedRoute>
+            <PermissionGuard permission="can_manage_demo_bookings">
+              <Layout>
+                <DemoBookings key={`demo-bookings-${language}`} />
               </Layout>
             </PermissionGuard>
           </ProtectedRoute>

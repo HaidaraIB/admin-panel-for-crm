@@ -5,7 +5,7 @@ import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';
 import { useUser } from '../context/UserContext';
 
-type PermissionKey = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_content' | 'can_manage_settings' | 'can_manage_support_tickets';
+type PermissionKey = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_content' | 'can_manage_demo_bookings' | 'can_manage_settings' | 'can_manage_support_tickets';
 
 interface SidebarProps {
   activePage: string;
@@ -34,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
     { path: '/communication', labelKey: 'sidebar.communication', icon: 'communication', permission: 'can_manage_communication' },
     { path: '/content', labelKey: 'sidebar.content', icon: 'content', permission: 'can_manage_content' },
     { path: '/support-tickets', labelKey: 'sidebar.supportTickets', icon: 'supportTickets', permission: 'can_manage_support_tickets' },
+    { path: '/demo-bookings', labelKey: 'sidebar.demoBookings', icon: 'calendar', permission: 'can_manage_demo_bookings' },
   ];
 
   const menuItems = allMenuItems.filter((item) => canAccess(item.permission));

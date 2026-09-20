@@ -1516,3 +1516,106 @@ export const deleteSupportTicketAPI = async (id: number) => {
   });
 };
 
+export type DemoBookingWeeklyDay = {
+  enabled: boolean;
+  start: string;
+  end: string;
+};
+
+export type DemoBookingSettings = {
+  is_enabled: boolean;
+  timezone: string;
+  duration_minutes: number;
+  horizon_days: number;
+  min_notice_hours: number;
+  weekly_hours: Record<string, DemoBookingWeeklyDay>;
+  intro_en: string;
+  intro_ar: string;
+  updated_at?: string;
+};
+
+export type DemoBookingRecord = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  company_name: string;
+  notes: string;
+  starts_at: string;
+  ends_at: string;
+  status: 'confirmed' | 'completed' | 'cancelled' | 'no_show';
+  language: string;
+  created_at: string;
+};
+
+export type DemoBookingBlockedDate = {
+  id: number;
+  date: string;
+  reason: string;
+  created_at: string;
+};
+
+/** GET/PATCH /api/demo-booking-settings/ */
+export const getDemoBookingSettingsAPI = async () => {
+  return apiRequest<DemoBookingSettings>('/demo-booking-settings/');
+};
+
+export const patchDemoBookingSettingsAPI = async (data: Partial<DemoBookingSettings>) => {
+  return apiRequest<DemoBookingSettings>('/demo-booking-settings/', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+/** GET /api/demo-bookings/ */
+export const getDemoBookingsAPI = async (params?: PaginatedListParams & {
+  status?: string;
+  from_date?: string;
+  to_date?: string;
+}) => {
+  const query = buildQueryString({
+    page: params?.page,
+    page_size: params?.page_size,
+    search: params?.search,
+    status: params?.status,
+    from_date: params?.from_date,
+    to_date: params?.to_date,
+  });
+  return apiRequest<PaginatedResponse<DemoBookingRecord>>(`/demo-bookings/${query}`);
+};
+
+export const updateDemoBookingStatusAPI = async (id: number, data: { status: string }) => {
+  return apiRequest<DemoBookingRecord>(`/demo-bookings/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteDemoBookingAPI = async (id: number) => {
+  await apiRequest<void>(`/demo-bookings/${id}/`, {
+    method: 'DELETE',
+  });
+};
+
+/** Blocked dates CRUD */
+export const getDemoBookingBlockedDatesAPI = async () => {
+  const query = buildQueryString({ page_size: 200 });
+  const res = await apiRequest<PaginatedResponse<DemoBookingBlockedDate>>(
+    `/demo-booking-blocked-dates/${query}`,
+  );
+  return res.results || [];
+};
+
+export const createDemoBookingBlockedDateAPI = async (data: { date: string; reason?: string }) => {
+  return apiRequest<DemoBookingBlockedDate>('/demo-booking-blocked-dates/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteDemoBookingBlockedDateAPI = async (id: number) => {
+  await apiRequest<void>(`/demo-booking-blocked-dates/${id}/`, {
+    method: 'DELETE',
+  });
+};
+

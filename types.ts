@@ -1,5 +1,7 @@
 
-export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'TenantWhatsApp' | 'Subscriptions' | 'Reports' | 'Communication' | 'Content' | 'Settings' | 'PaymentGateways' | 'SupportTickets';
+export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'TenantWhatsApp' | 'Subscriptions' | 'Reports' | 'Communication' | 'Content' | 'Settings' | 'PaymentGateways' | 'SupportTickets' | 'DemoBookings';
+
+export type DemoBookingStatus = 'confirmed' | 'completed' | 'cancelled' | 'no_show';
 
 export type TicketStatus = 'open' | 'in_progress' | 'closed';
 
@@ -203,6 +205,7 @@ export interface LimitedAdmin {
     can_view_reports: boolean;
     can_manage_communication: boolean;
     can_manage_content: boolean;
+    can_manage_demo_bookings: boolean;
     can_manage_settings: boolean;
     can_manage_limited_admins: boolean;
 }

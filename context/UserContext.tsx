@@ -9,6 +9,7 @@ interface LimitedAdminPermissions {
   can_view_reports: boolean;
   can_manage_communication: boolean;
   can_manage_content: boolean;
+  can_manage_demo_bookings: boolean;
   can_manage_settings: boolean;
   can_manage_limited_admins: boolean;
   can_manage_support_tickets: boolean;

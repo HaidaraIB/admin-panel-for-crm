@@ -44,6 +44,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
     can_view_reports: false,
     can_manage_communication: false,
     can_manage_content: false,
+    can_manage_demo_bookings: false,
     can_manage_settings: false,
     can_manage_limited_admins: false,
   });
@@ -64,6 +65,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
         can_view_reports: editingAdmin.can_view_reports,
         can_manage_communication: editingAdmin.can_manage_communication,
         can_manage_content: editingAdmin.can_manage_content,
+        can_manage_demo_bookings: editingAdmin.can_manage_demo_bookings,
         can_manage_settings: editingAdmin.can_manage_settings,
         can_manage_limited_admins: editingAdmin.can_manage_limited_admins,
       });
@@ -83,6 +85,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
         can_view_reports: false,
         can_manage_communication: false,
         can_manage_content: false,
+        can_manage_demo_bookings: false,
         can_manage_settings: false,
         can_manage_limited_admins: false,
       });
@@ -322,6 +325,18 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   {t('limitedAdmins.permissions.manageContent') || 'Manage Content'}
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="can_manage_demo_bookings"
+                  checked={formData.can_manage_demo_bookings}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 flex-shrink-0"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {t('demoBookings.permission')}
                 </span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
