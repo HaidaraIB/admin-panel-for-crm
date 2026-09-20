@@ -48,7 +48,7 @@ type LegendPayloadItem = {
 };
 
 export function renderChartLegend(theme: ChartTheme, language: string) {
-  return ({ payload }: { payload?: LegendPayloadItem[] }) => (
+  return ({ payload }: { payload?: readonly LegendPayloadItem[] }) => (
     <ul
       className="recharts-default-legend"
       style={{

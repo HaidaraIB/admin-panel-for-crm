@@ -412,16 +412,11 @@ const Dashboard: React.FC = () => {
             <button
               type="button"
               onClick={toggleDatePicker}
-              className="flex items-center gap-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
+              className="inline-flex h-9 items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
             >
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-50 dark:bg-gray-700/60 text-blue-600 dark:text-blue-300">
-                <Icon name="calendar" className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{t('dashboard.filters.dateRange')}</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{dateRangeLabel}</p>
-              </div>
-              <Icon name="chevronDown" className={`w-4 h-4 text-gray-500 transition-transform ${isDatePickerOpen ? 'rotate-180' : ''}`} />
+              <Icon name="calendar" className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-300" />
+              <span className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{dateRangeLabel}</span>
+              <Icon name="chevronDown" className={`w-4 h-4 shrink-0 text-gray-500 transition-transform ${isDatePickerOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isDatePickerOpen && (
@@ -480,12 +475,12 @@ const Dashboard: React.FC = () => {
               <span className="mx-2">·</span>
               <span>{todayDateStr}</span>
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex w-full max-w-3xl flex-wrap gap-2">
               {canViewTenants && (
                 <button
                   type="button"
                   onClick={() => navigate('/tenants')}
-                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="min-w-[8.5rem] flex-1 basis-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium text-center whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   {t('sidebar.tenants')}
                 </button>
@@ -494,7 +489,7 @@ const Dashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/subscriptions')}
-                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="min-w-[8.5rem] flex-1 basis-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium text-center whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   {t('sidebar.subscriptions')}
                 </button>
@@ -503,7 +498,7 @@ const Dashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/payment-gateways')}
-                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="min-w-[8.5rem] flex-1 basis-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium text-center whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   {t('sidebar.paymentGateways')}
                 </button>
@@ -512,7 +507,7 @@ const Dashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/reports')}
-                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="min-w-[8.5rem] flex-1 basis-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium text-center whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   {t('sidebar.reports')}
                 </button>
