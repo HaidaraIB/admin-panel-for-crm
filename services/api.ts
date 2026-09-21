@@ -1543,7 +1543,7 @@ export type DemoBookingRecord = {
   notes: string;
   starts_at: string;
   ends_at: string;
-  status: 'confirmed' | 'completed' | 'cancelled' | 'no_show';
+  status: 'pending' | 'confirmed' | 'not_confirmed' | 'completed' | 'cancelled' | 'no_show';
   language: string;
   created_at: string;
 };
@@ -1588,6 +1588,18 @@ export const updateDemoBookingStatusAPI = async (id: number, data: { status: str
   return apiRequest<DemoBookingRecord>(`/demo-bookings/${id}/`, {
     method: 'PATCH',
     body: JSON.stringify(data),
+  });
+};
+
+export const approveDemoBookingAPI = async (id: number) => {
+  return apiRequest<DemoBookingRecord>(`/demo-bookings/${id}/approve/`, {
+    method: 'POST',
+  });
+};
+
+export const notConfirmDemoBookingAPI = async (id: number) => {
+  return apiRequest<DemoBookingRecord>(`/demo-bookings/${id}/not-confirm/`, {
+    method: 'POST',
   });
 };
 

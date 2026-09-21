@@ -27,12 +27,19 @@ import {
   getDemoBookingsAPI,
   patchDemoBookingSettingsAPI,
   updateDemoBookingStatusAPI,
+  approveDemoBookingAPI,
+  notConfirmDemoBookingAPI,
   deleteDemoBookingAPI,
 } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import DemoBookingStatusCell, {
+  DEMO_BOOKING_STATUS_BADGE_CLASS,
+} from '../components/DemoBookingStatusCell';
 
 const STATUS_OPTIONS = [
+  { value: 'pending', labelKey: 'demoBookings.status.pending', className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100' },
   { value: 'confirmed', labelKey: 'demoBookings.status.confirmed', className: 'bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-blue-100' },
+  { value: 'not_confirmed', labelKey: 'demoBookings.status.not_confirmed', className: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
   { value: 'completed', labelKey: 'demoBookings.status.completed', className: 'bg-green-100 text-green-900 dark:bg-green-900/40 dark:text-green-100' },
   { value: 'cancelled', labelKey: 'demoBookings.status.cancelled', className: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
   { value: 'no_show', labelKey: 'demoBookings.status.no_show', className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100' },
@@ -65,6 +72,27 @@ const formatBookingDateTime = (iso: string, timeZone: string, language: string) 
     return String(iso).slice(0, 16).replace('T', ' ');
   }
 };
+
+type BookingDetailRowProps = {
+  icon: string;
+  label: string;
+  children: React.ReactNode;
+  isRtl: boolean;
+};
+
+const BookingDetailRow: React.FC<BookingDetailRowProps> = ({ icon, label, children, isRtl: _isRtl }) => (
+  <div className="flex gap-3 p-3.5 text-start">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700/80 dark:text-gray-300">
+      <Icon name={icon} className="h-4 w-4" />
+    </div>
+    <div className="min-w-0 flex-1">
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        {label}
+      </dt>
+      <dd className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100 break-words">{children}</dd>
+    </div>
+  </div>
+);
 
 const DemoBookings: React.FC = () => {
   const { t, language } = useI18n();
@@ -129,6 +157,10 @@ const ReservationsTab: React.FC<{
   const [selected, setSelected] = useState<DemoBookingRecord | null>(null);
   const [bookingToDelete, setBookingToDelete] = useState<DemoBookingRecord | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [pendingDecision, setPendingDecision] = useState<{
+    bookingId: number;
+    action: 'approve' | 'not_confirm';
+  } | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [displayTimezone, setDisplayTimezone] = useState('Asia/Baghdad');
 
@@ -178,9 +210,43 @@ const ReservationsTab: React.FC<{
     return opt ? t(opt.labelKey) : status;
   };
 
-  const getStatusClass = (status: string) => {
-    const opt = STATUS_OPTIONS.find((o) => o.value === status);
-    return opt?.className || STATUS_OPTIONS[0].className;
+  const getStatusClass = (status: string) =>
+    DEMO_BOOKING_STATUS_BADGE_CLASS[status] || DEMO_BOOKING_STATUS_BADGE_CLASS.pending;
+
+  const isTableStatusEditable = (status: string) => status === 'pending' || status === 'confirmed';
+
+  const getTableStatusOptions = (status: string) => {
+    if (status === 'pending') {
+      return [
+        { value: 'pending', labelKey: 'demoBookings.status.pending' as const },
+        { value: 'confirmed', labelKey: 'demoBookings.approve' as const },
+        { value: 'not_confirmed', labelKey: 'demoBookings.notConfirm' as const },
+      ];
+    }
+    if (status === 'confirmed') {
+      return STATUS_OPTIONS.filter((o) =>
+        ['confirmed', 'completed', 'cancelled', 'no_show'].includes(o.value),
+      );
+    }
+    return STATUS_OPTIONS.filter((o) => o.value === status);
+  };
+
+  const isRowStatusBusy = (id: number) =>
+    updatingId === id || pendingDecision?.bookingId === id;
+
+  const handleTableStatusSelect = async (booking: DemoBookingRecord, nextStatus: string) => {
+    if (nextStatus === booking.status) return;
+    if (booking.status === 'pending') {
+      if (nextStatus === 'confirmed') {
+        await handleApprove(booking.id);
+      } else if (nextStatus === 'not_confirmed') {
+        await handleNotConfirm(booking.id);
+      }
+      return;
+    }
+    if (booking.status === 'confirmed') {
+      await handleStatusChange(booking.id, nextStatus);
+    }
   };
 
   const handleStatusChange = async (id: number, status: string) => {
@@ -191,8 +257,39 @@ const ReservationsTab: React.FC<{
       if (selected?.id === id) {
         setSelected((prev) => (prev ? { ...prev, status: status as DemoBookingRecord['status'] } : null));
       }
+      showToast(t('demoBookings.statusUpdated'), { variant: 'success' });
+    } catch {
+      showToast(t('common.error') || 'Error', { variant: 'error' });
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleApprove = async (id: number) => {
+    setPendingDecision({ bookingId: id, action: 'approve' });
+    try {
+      const updated = await approveDemoBookingAPI(id);
+      await loadBookings(currentPage);
+      setSelected((prev) => (prev?.id === id ? updated : prev));
+      showToast(t('demoBookings.approve.success'), { variant: 'success' });
+    } catch {
+      showToast(t('common.error') || 'Error', { variant: 'error' });
+    } finally {
+      setPendingDecision(null);
+    }
+  };
+
+  const handleNotConfirm = async (id: number) => {
+    setPendingDecision({ bookingId: id, action: 'not_confirm' });
+    try {
+      const updated = await notConfirmDemoBookingAPI(id);
+      await loadBookings(currentPage);
+      setSelected((prev) => (prev?.id === id ? updated : prev));
+      showToast(t('demoBookings.notConfirm.success'), { variant: 'success' });
+    } catch {
+      showToast(t('common.error') || 'Error', { variant: 'error' });
+    } finally {
+      setPendingDecision(null);
     }
   };
 
@@ -261,10 +358,17 @@ const ReservationsTab: React.FC<{
                     </td>
                     <td className="px-4 py-3">{b.email}</td>
                     <td className="px-4 py-3">{b.company_name || '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(b.status)}`}>
-                        {getStatusLabel(b.status)}
-                      </span>
+                    <td className="px-4 py-3 align-middle">
+                      <DemoBookingStatusCell
+                        status={b.status}
+                        editable={isTableStatusEditable(b.status)}
+                        busy={isRowStatusBusy(b.id)}
+                        options={getTableStatusOptions(b.status)}
+                        label={getStatusLabel(b.status)}
+                        t={t}
+                        ariaLabel={`${t('demoBookings.changeStatus')} #${b.id}`}
+                        onStatusChange={(next) => void handleTableStatusSelect(b, next)}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <div className={`inline-flex items-center gap-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -334,70 +438,85 @@ const ReservationsTab: React.FC<{
           aria-labelledby="demo-booking-detail-title"
         >
           <div
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col border border-gray-200/50 dark:border-gray-700/50"
+            dir={isRtl ? 'rtl' : 'ltr'}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col border border-gray-200/50 dark:border-gray-700/50 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-start gap-3 flex-shrink-0">
-              <h2 id="demo-booking-detail-title" className="text-xl font-bold text-gray-900 dark:text-white">
-                {t('demoBookings.details')}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="shrink-0 p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
-                aria-label={t('common.close') || 'Close'}
-              >
-                <Icon name="x" className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-5 overflow-y-auto space-y-4">
-              <dl className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">{t('demoBookings.datetime')}</dt>
-                  <dd>{formatBookingDateTime(selected.starts_at, displayTimezone, language)}</dd>
+            <div className="px-5 pt-5 pb-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gradient-to-b from-primary-50/80 to-white dark:from-primary-950/30 dark:to-gray-800">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 text-start">
+                  <p className="text-xs font-bold tabular-nums text-primary-700 dark:text-primary-300">
+                    #{selected.id}
+                  </p>
+                  <h2
+                    id="demo-booking-detail-title"
+                    className="text-lg font-bold text-gray-900 dark:text-white mt-1.5 truncate"
+                  >
+                    {selected.name}
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 truncate">{selected.email}</p>
                 </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">{t('demoBookings.guest')}</dt>
-                  <dd>{selected.name}</dd>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/80 transition-colors"
+                    aria-label={t('common.close') || 'Close'}
+                  >
+                    <Icon name="x" className="w-5 h-5" />
+                  </button>
+                  <DemoBookingStatusCell
+                    align="start"
+                    status={selected.status}
+                    editable={isTableStatusEditable(selected.status)}
+                    busy={isRowStatusBusy(selected.id)}
+                    options={getTableStatusOptions(selected.status)}
+                    label={getStatusLabel(selected.status)}
+                    t={t}
+                    ariaLabel={`${t('demoBookings.changeStatus')} #${selected.id}`}
+                    onStatusChange={(next) => void handleTableStatusSelect(selected, next)}
+                  />
                 </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">{t('demoBookings.phone')}</dt>
-                  <dd>
-                    <span dir="ltr" className="[unicode-bidi:isolate] inline-block">
-                      {selected.phone}
-                    </span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">{t('demoBookings.email')}</dt>
-                  <dd>{selected.email}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">{t('demoBookings.company')}</dt>
-                  <dd>{selected.company_name || '—'}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">{t('demoBookings.notes')}</dt>
-                  <dd className="whitespace-pre-wrap">{selected.notes || '—'}</dd>
-                </div>
-              </dl>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300" htmlFor="demo-booking-status">
-                  {t('demoBookings.changeStatus')}
-                </label>
-                <FormSelect
-                  id="demo-booking-status"
-                  value={selected.status}
-                  disabled={updatingId === selected.id}
-                  onChange={(e) => void handleStatusChange(selected.id, e.target.value)}
-                >
-                  {STATUS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {t(o.labelKey)}
-                    </option>
-                  ))}
-                </FormSelect>
               </div>
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-primary-200/70 dark:border-primary-800/50 bg-white/80 dark:bg-gray-900/40 px-3 py-2.5">
+                <Icon name="clock" className="h-4 w-4 shrink-0 text-primary-600 dark:text-primary-400" />
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {formatBookingDateTime(selected.starts_at, displayTimezone, language)}
+                </span>
+              </div>
+              {selected.status === 'pending' ? (
+                <p className="mt-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed text-start">
+                  {t('demoBookings.details.pendingHint')}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 flex-1 min-h-0">
+              <dl className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
+                <BookingDetailRow icon="user" label={t('demoBookings.guest')} isRtl={isRtl}>
+                  {selected.name}
+                </BookingDetailRow>
+                <BookingDetailRow icon="phone" label={t('demoBookings.phone')} isRtl={isRtl}>
+                  <span dir="ltr" className="[unicode-bidi:isolate] inline-block">
+                    {selected.phone}
+                  </span>
+                </BookingDetailRow>
+                <BookingDetailRow icon="mail" label={t('demoBookings.email')} isRtl={isRtl}>
+                  {selected.email}
+                </BookingDetailRow>
+                <BookingDetailRow icon="building" label={t('demoBookings.company')} isRtl={isRtl}>
+                  {selected.company_name || '—'}
+                </BookingDetailRow>
+              </dl>
+
+              {selected.notes?.trim() ? (
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/40 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {t('demoBookings.notes')}
+                  </p>
+                  <p className="mt-1.5 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{selected.notes}</p>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
