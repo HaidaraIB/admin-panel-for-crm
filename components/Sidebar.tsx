@@ -4,6 +4,7 @@ import Icon from './Icon';
 import { useI18n } from '../context/i18n';
 import { useDarkMode } from '../hooks/useDarkMode';
 import { useUser } from '../context/UserContext';
+import { useSupportChatUnreadBadge } from '../hooks/useSupportChatUnread';
 
 type PermissionKey = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_content' | 'can_manage_demo_bookings' | 'can_manage_settings' | 'can_manage_support_tickets';
 
@@ -23,6 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
   });
 
   const canAccess = (permission: PermissionKey) => isSuperAdmin() || hasPermission(permission);
+  const supportChatUnread = useSupportChatUnreadBadge(isSuperAdmin());
 
   const allMenuItems: { path: string; labelKey: string; icon: string; permission: PermissionKey }[] = [
     { path: '/dashboard', labelKey: 'sidebar.dashboard', icon: 'dashboard', permission: 'can_view_dashboard' },
@@ -37,7 +39,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
     { path: '/demo-bookings', labelKey: 'sidebar.demoBookings', icon: 'calendar', permission: 'can_manage_demo_bookings' },
   ];
 
+  const supportChatItem = {
+    path: '/support-chat',
+    labelKey: 'sidebar.supportChat',
+    icon: 'communication',
+    permission: 'can_view_dashboard' as PermissionKey,
+  };
+
   const menuItems = allMenuItems.filter((item) => canAccess(item.permission));
+  const showSupportChat = isSuperAdmin();
   const canAccessSettings = canAccess('can_manage_settings');
   
   // Monitor dark mode changes
@@ -100,25 +110,50 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
           </button>
         </div>
         <nav className="flex-1 px-3 py-6 space-y-2 overflow-x-hidden">
-          {menuItems.map((item) => {
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `${navLinkBase} ${
-                    isActive
-                      ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`
-                }
-              >
-                <Icon name={item.icon} className="w-5 h-5 flex-shrink-0" />
-                <span>{t(item.labelKey)}</span>
-              </NavLink>
-            );
-          })}
+          {menuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={() => setIsSidebarOpen(false)}
+              className={({ isActive }) =>
+                `${navLinkBase} ${
+                  isActive
+                    ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`
+              }
+            >
+              <Icon name={item.icon} className="w-5 h-5 flex-shrink-0" />
+              <span>{t(item.labelKey)}</span>
+            </NavLink>
+          ))}
+          {showSupportChat ? (
+            <NavLink
+              to={supportChatItem.path}
+              onClick={() => setIsSidebarOpen(false)}
+              className={({ isActive }) =>
+                `${navLinkBase} ${
+                  isActive
+                    ? 'bg-primary-600 text-white dark:bg-primary-700 dark:text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`
+              }
+            >
+              <Icon name={supportChatItem.icon} className="w-5 h-5 flex-shrink-0" />
+              <span className="flex-1 truncate">{t(supportChatItem.labelKey)}</span>
+              {supportChatUnread > 0 ? (
+                <span
+                  className={`ms-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${
+                    location.pathname === supportChatItem.path
+                      ? 'bg-white text-primary-600'
+                      : 'bg-red-500 text-white'
+                  }`}
+                >
+                  {supportChatUnread > 99 ? '99+' : supportChatUnread}
+                </span>
+              ) : null}
+            </NavLink>
+          ) : null}
         </nav>
         {canAccessSettings && (
           <div className="px-3 py-6 border-t border-gray-200 dark:border-gray-700 space-y-2">

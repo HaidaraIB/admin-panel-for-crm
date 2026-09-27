@@ -12,6 +12,7 @@ import Communication from './pages/Communication';
 import Content from './pages/Content';
 import SystemSettings from './pages/SystemSettings';
 import SupportTickets from './pages/SupportTickets';
+import SupportChat from './pages/SupportChat';
 import DemoBookings from './pages/DemoBookings';
 import TenantWhatsAppChat from './pages/TenantWhatsAppChat';
 import LoginPage from './pages/LoginPage';
@@ -79,6 +80,7 @@ const App: React.FC = () => {
       '/content': 'Content',
       '/settings': 'Settings',
       '/support-tickets': 'SupportTickets',
+      '/support-chat': 'SupportChat',
       '/demo-bookings': 'DemoBookings',
     };
     return routeMap[pathname] || 'Dashboard';
@@ -696,6 +698,16 @@ const App: React.FC = () => {
                 <SupportTickets key={`support-tickets-${language}`} />
               </Layout>
             </PermissionGuard>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/support-chat"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <SupportChat key={`support-chat-${language}`} />
+            </Layout>
           </ProtectedRoute>
         }
       />

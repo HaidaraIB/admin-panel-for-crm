@@ -1516,6 +1516,156 @@ export const deleteSupportTicketAPI = async (id: number) => {
   });
 };
 
+// --- Owner ↔ platform support chat (super admin inbox) ---
+
+export type SupportChatInboxItem = {
+  id: number;
+  company_id: number;
+  company_name: string;
+  company_domain: string;
+  owner_name: string;
+  owner_email: string;
+  status: 'open' | 'resolved';
+  last_message_at: string | null;
+  last_message_side: 'tenant' | 'support' | null;
+  last_message_preview: string;
+  awaiting_reply: boolean;
+  support_unread_count: number;
+};
+
+export type SupportChatAdminMessage = {
+  id: number;
+  side: 'tenant' | 'support';
+  body: string;
+  created_at: string;
+  is_mine: boolean;
+  display_name: string | null;
+  read_by_peer: boolean;
+  reply_to: {
+    id: number;
+    side: string;
+    display_name: string;
+    body: string;
+    attachment_kind: string | null;
+  } | null;
+  attachment_kind: string | null;
+  attachment_url: string | null;
+  original_filename: string | null;
+  sender: { id: number; label: string } | null;
+};
+
+function normalizeEtag(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  let t = raw.trim();
+  if (t.startsWith('W/')) t = t.slice(2).trim();
+  if (t.startsWith('"') && t.endsWith('"')) t = t.slice(1, -1);
+  return t || null;
+}
+
+async function apiGetConditional<T>(
+  endpoint: string,
+  etag: string | null
+): Promise<{ notModified: boolean; data: T | null; etag: string | null }> {
+  const path = endpoint.replace(/^\//, '');
+  const res = await adminHttp.request<T>({
+    url: path,
+    method: 'GET',
+    headers: etag ? { 'If-None-Match': `"${etag}"` } : {},
+    validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
+  });
+  const nextEtag = normalizeEtag(res.headers?.etag as string) || etag;
+  if (res.status === 304) {
+    return { notModified: true, data: null, etag: nextEtag };
+  }
+  return { notModified: false, data: res.data as T, etag: nextEtag };
+}
+
+export const getSupportChatInboxAPI = async (
+  params?: { search?: string; status?: string; page?: number },
+  etag?: string | null
+) => {
+  const q = buildQueryString({
+    search: params?.search,
+    status: params?.status,
+    page: params?.page,
+    page_size: 50,
+  });
+  return apiGetConditional<PaginatedResponse<SupportChatInboxItem>>(
+    `/support-chat-admin/conversations/${q}`,
+    etag ?? null
+  );
+};
+
+export const getSupportChatUnreadCountAPI = async () => {
+  return apiRequest<{ unread_count: number }>('/support-chat-admin/unread-count/');
+};
+
+export const getSupportChatMessagesAPI = async (
+  conversationId: number,
+  etag?: string | null,
+  params?: { before_id?: number; after_id?: number }
+) => {
+  const q = buildQueryString({
+    before_id: params?.before_id,
+    after_id: params?.after_id,
+    page_size: 80,
+  });
+  return apiGetConditional<{ results: SupportChatAdminMessage[]; has_older: boolean; has_newer: boolean }>(
+    `/support-chat-admin/conversations/${conversationId}/messages/${q}`,
+    etag ?? null
+  );
+};
+
+export const sendSupportChatAdminMessageAPI = async (
+  conversationId: number,
+  body: string,
+  opts?: { replyToMessageId?: number }
+) => {
+  const payload: Record<string, unknown> = { body };
+  if (opts?.replyToMessageId != null) payload.reply_to_message_id = opts.replyToMessageId;
+  return apiRequest<SupportChatAdminMessage>(
+    `/support-chat-admin/conversations/${conversationId}/messages/`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+};
+
+export const sendSupportChatAdminMessageWithFileAPI = async (
+  conversationId: number,
+  file: File,
+  opts?: { body?: string; replyToMessageId?: number }
+) => {
+  const form = new FormData();
+  form.append('file', file);
+  if (opts?.body) form.append('body', opts.body);
+  if (opts?.replyToMessageId != null) {
+    form.append('reply_to_message_id', String(opts.replyToMessageId));
+  }
+  const path = `support-chat-admin/conversations/${conversationId}/messages/`;
+  const res = await adminHttp.post<SupportChatAdminMessage>(path, form);
+  return res.data;
+};
+
+export const markSupportChatAdminReadAPI = async (conversationId: number, messageId: number) => {
+  return apiRequest<{ message_id: number }>(
+    `/support-chat-admin/conversations/${conversationId}/mark-read/`,
+    { method: 'POST', body: JSON.stringify({ message_id: messageId }) }
+  );
+};
+
+export const resolveSupportChatConversationAPI = async (conversationId: number) => {
+  return apiRequest<{ status: string }>(
+    `/support-chat-admin/conversations/${conversationId}/resolve/`,
+    { method: 'POST', body: '{}' }
+  );
+};
+
+export const reopenSupportChatConversationAPI = async (conversationId: number) => {
+  return apiRequest<{ status: string }>(
+    `/support-chat-admin/conversations/${conversationId}/reopen/`,
+    { method: 'POST', body: '{}' }
+  );
+};
+
 export type DemoBookingWeeklyDay = {
   enabled: boolean;
   start: string;

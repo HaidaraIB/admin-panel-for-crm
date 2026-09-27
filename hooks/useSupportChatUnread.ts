@@ -1,0 +1,48 @@
+import { useCallback, useEffect, useState } from 'react';
+
+import { getSupportChatUnreadCountAPI } from '../services/api';
+
+export const SUPPORT_CHAT_UNREAD_EVENT = 'loop-support-chat-unread';
+
+export function broadcastSupportChatUnread(count: number): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(SUPPORT_CHAT_UNREAD_EVENT, { detail: count }));
+}
+
+/** Super-admin sidebar badge; listens for updates from the Support chat page. */
+export function useSupportChatUnreadBadge(enabled: boolean): number {
+  const [count, setCount] = useState(0);
+
+  const refresh = useCallback(() => {
+    if (!enabled) return;
+    void getSupportChatUnreadCountAPI().then((r) => {
+      setCount(r.unread_count);
+      broadcastSupportChatUnread(r.unread_count);
+    });
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setCount(0);
+      return;
+    }
+    refresh();
+    const id = window.setInterval(() => {
+      if (document.hidden) return;
+      refresh();
+    }, 25_000);
+    return () => window.clearInterval(id);
+  }, [enabled, refresh]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onEvent = (e: Event) => {
+      const next = (e as CustomEvent<number>).detail;
+      if (typeof next === 'number') setCount(next);
+    };
+    window.addEventListener(SUPPORT_CHAT_UNREAD_EVENT, onEvent);
+    return () => window.removeEventListener(SUPPORT_CHAT_UNREAD_EVENT, onEvent);
+  }, [enabled]);
+
+  return count;
+}

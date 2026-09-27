@@ -306,6 +306,38 @@
         border-color: hsl(var(--color-primary-300));
       }
 
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background-color: #f3f4f6;
+        border-radius: 4px;
+      }
+      .dark .custom-scrollbar::-webkit-scrollbar-track {
+        background-color: #111827;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: hsl(var(--color-primary-500));
+        border-radius: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: hsl(var(--color-primary-600));
+      }
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: hsl(var(--color-primary-400));
+      }
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: hsl(var(--color-primary-500));
+      }
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: hsl(var(--color-primary-500)) #f3f4f6;
+      }
+      .dark .custom-scrollbar {
+        scrollbar-color: hsl(var(--color-primary-400)) #1f2937;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         /* Spinners stay in motion, just gentler — a frozen spinner reads as "hung". */
         .animate-spin {

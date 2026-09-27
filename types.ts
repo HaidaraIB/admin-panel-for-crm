@@ -1,5 +1,5 @@
 
-export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'TenantWhatsApp' | 'Subscriptions' | 'Reports' | 'Communication' | 'Content' | 'Settings' | 'PaymentGateways' | 'SupportTickets' | 'DemoBookings';
+export type Page = 'Dashboard' | 'Tenants' | 'AddTenant' | 'TenantWhatsApp' | 'Subscriptions' | 'Reports' | 'Communication' | 'Content' | 'Settings' | 'PaymentGateways' | 'SupportTickets' | 'SupportChat' | 'DemoBookings';
 
 export type DemoBookingStatus = 'confirmed' | 'completed' | 'cancelled' | 'no_show';
 
