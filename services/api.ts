@@ -201,6 +201,24 @@ export const getCurrentUserAPI = async () => {
   return apiRequest<any>('/users/me/');
 };
 
+/**
+ * Register this browser's FCM push token (`platform: 'web'`).
+ * Same endpoint the tenant CRM and mobile apps use.
+ */
+export async function updateFcmTokenAPI(
+  fcmToken: string,
+  options?: { platform?: 'web' | 'android' | 'ios'; language?: string }
+): Promise<{ success?: boolean }> {
+  return apiRequest('/users/update-fcm-token/', {
+    method: 'POST',
+    body: JSON.stringify({
+      fcm_token: fcmToken,
+      platform: options?.platform ?? 'web',
+      ...(options?.language ? { language: options.language } : {}),
+    }),
+  });
+}
+
 // ==================== Companies (Tenants) APIs ====================
 
 /**

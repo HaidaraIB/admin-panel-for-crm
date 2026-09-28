@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router';
 import { useI18n } from '../context/i18n';
 import { useUser } from '../context/UserContext';
 import { usePolling } from '../hooks/usePolling';
+import { useRealtime } from '../context/RealtimeContext';
 import { useSupportChatRealtime } from '../hooks/useSupportChatRealtime';
 import { broadcastSupportChatUnread } from '../hooks/useSupportChatUnread';
 import Icon from '../components/Icon';
@@ -263,11 +264,11 @@ const SupportChat: React.FC = () => {
   }, [refreshUnread, loadMessages]);
 
   const realtimeConnected = useSupportChatRealtime(syncFromServer, isSuperAdmin());
-  const fallbackPollMs = realtimeConnected ? false : 30_000;
+  const { send: realtimeSend } = useRealtime();
 
   const { data: inboxPage, loading: inboxLoading, refresh: refreshInbox } = usePolling(
     inboxFetcher,
-    fallbackPollMs,
+    false,
     true,
     inboxResetKey
   );
@@ -302,14 +303,21 @@ const SupportChat: React.FC = () => {
   }, [refreshUnread]);
 
   useEffect(() => {
+    if (!selectedId || !isSuperAdmin()) return;
+    realtimeSend({ action: 'subscribe', kind: 'support', conversation: selectedId });
+    return () => {
+      realtimeSend({ action: 'unsubscribe', kind: 'support', conversation: selectedId });
+    };
+  }, [selectedId, isSuperAdmin, realtimeSend]);
+
+  useEffect(() => {
     if (realtimeConnected) return;
     const id = window.setInterval(() => {
       if (document.hidden) return;
-      refreshUnread();
-      void loadMessages({ background: true });
+      syncFromServer();
     }, 30_000);
     return () => window.clearInterval(id);
-  }, [realtimeConnected, refreshUnread, loadMessages]);
+  }, [realtimeConnected, syncFromServer]);
 
   const scrollThreadToBottom = () => {
     const sc = threadScrollRef.current;

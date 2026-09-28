@@ -27,8 +27,10 @@ import { useToast } from './context/ToastContext';
 import { translateAdminApiError } from './utils/translateApiError';
 import { buildUpdateDiff } from './utils/buildUpdateDiff';
 import FullPageLoader from './components/FullPageLoader';
+import WebPushPrompt from './components/WebPushPrompt';
 import { getCompaniesAPI, getCompanyAPI, getAllSubscriptionsAPI, getPlansAPI, updateCompanyAPI, deleteCompanyAPI, createSubscriptionAPI, updateSubscriptionAPI, getSubscriptionAPI, invalidateListCache } from './services/api';
 import { usePersistedPageSize } from './hooks/usePersistedPageSize';
+import { useWebPush } from './hooks/useWebPush';
 import { fetchMaintenanceStatus } from './services/maintenance';
 import MaintenanceScreen from './components/MaintenanceScreen';
 import { subscribeAdminMaintenanceMode } from './utils/maintenanceMode';
@@ -52,6 +54,7 @@ const App: React.FC = () => {
   const { language, t } = useI18n();
   const { showAlert } = useAlert();
   const { showToast } = useToast();
+  const { user } = useUser();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -87,6 +90,7 @@ const App: React.FC = () => {
   };
   
   const activePage = getActivePageFromRoute(location.pathname);
+  useWebPush(Boolean(isAuthenticated && user));
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [isLoadingTenants, setIsLoadingTenants] = useState(false);
   const [tenantsPage, setTenantsPage] = useState(1);
@@ -550,6 +554,8 @@ const App: React.FC = () => {
   }
 
   return (
+    <>
+      {isAuthenticated && user ? <WebPushPrompt /> : null}
     <Routes>
       <Route path="/login" element={
         isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
@@ -725,6 +731,7 @@ const App: React.FC = () => {
       />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </>
   );
 };
 

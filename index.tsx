@@ -7,6 +7,7 @@ import { I18nProvider } from './context/i18n';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuditLogProvider } from './context/AuditLogContext';
 import { UserProvider } from './context/UserContext';
+import { RealtimeGate } from './components/RealtimeGate';
 import { AlertProvider } from './context/AlertContext';
 import { ToastProvider } from './context/ToastContext';
 
@@ -22,13 +23,15 @@ root.render(
       <I18nProvider>
         <ThemeProvider>
           <UserProvider>
-            <ToastProvider>
-              <AlertProvider>
-                <AuditLogProvider>
-                  <App />
-                </AuditLogProvider>
-              </AlertProvider>
-            </ToastProvider>
+            <RealtimeGate>
+              <ToastProvider>
+                <AlertProvider>
+                  <AuditLogProvider>
+                    <App />
+                  </AuditLogProvider>
+                </AlertProvider>
+              </ToastProvider>
+            </RealtimeGate>
           </UserProvider>
         </ThemeProvider>
       </I18nProvider>

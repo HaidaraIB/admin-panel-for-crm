@@ -114,11 +114,21 @@ export const SupportChatComposer: React.FC<Props> = ({
       setText('');
       setPendingFile(null);
       onCancelReply?.();
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
     } catch {
       showToast(t('supportChat.sendFailed'), { variant: 'error' });
     }
   };
+
+  const syncTextareaHeight = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    const maxPx = 112;
+    el.style.height = '0px';
+    el.style.height = `${Math.max(Math.min(el.scrollHeight, maxPx), 40)}px`;
+  };
+
+  useEffect(() => {
+    syncTextareaHeight(textareaRef.current);
+  }, [text]);
 
   const canSend = Boolean(text.trim() || pendingFile);
 
@@ -126,6 +136,26 @@ export const SupportChatComposer: React.FC<Props> = ({
 
   return (
     <div className="space-y-2">
+      <style>{`
+        textarea.support-chat-composer-input,
+        textarea.support-chat-composer-input:focus,
+        textarea.support-chat-composer-input:hover {
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        textarea.support-chat-composer-input::-webkit-scrollbar,
+        textarea.support-chat-composer-input::-webkit-scrollbar-thumb,
+        textarea.support-chat-composer-input::-webkit-scrollbar-track,
+        textarea.support-chat-composer-input::-webkit-scrollbar-button,
+        textarea.support-chat-composer-input::-webkit-scrollbar-corner {
+          width: 0 !important;
+          height: 0 !important;
+          display: none !important;
+          background: transparent !important;
+          appearance: none !important;
+          -webkit-appearance: none !important;
+        }
+      `}</style>
       {replyTo ? (
         <div className="flex items-center gap-3 rounded-xl border border-primary-400/50 bg-primary-50 px-3 py-2 dark:border-primary-500/40 dark:bg-primary-950/40">
           {replyTo.attachment_url &&
@@ -210,20 +240,16 @@ export const SupportChatComposer: React.FC<Props> = ({
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-end gap-1.5">
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              const el = e.target;
-              el.style.height = 'auto';
-              el.style.height = `${Math.min(el.scrollHeight, 112)}px`;
-            }}
+            onChange={(e) => setText(e.target.value)}
             rows={1}
             disabled={disabled || sending}
             placeholder={t('supportChat.placeholder')}
-            className="flex-1 min-h-10 max-h-28 min-w-0 resize-none rounded-xl border border-gray-300 bg-gray-50 px-3.5 py-2.5 text-sm leading-5 text-gray-900 placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-400"
+            className="support-chat-composer-input flex-1 min-h-10 max-h-28 min-w-0 resize-none overflow-y-auto rounded-xl border border-gray-300 bg-gray-50 px-3.5 py-2 text-sm leading-5 text-gray-900 placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-400"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

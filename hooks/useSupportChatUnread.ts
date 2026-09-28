@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useRealtime } from '../context/RealtimeContext';
 import { getSupportChatUnreadCountAPI } from '../services/api';
 
 export const SUPPORT_CHAT_UNREAD_EVENT = 'loop-support-chat-unread';
@@ -12,6 +13,7 @@ export function broadcastSupportChatUnread(count: number): void {
 /** Super-admin sidebar badge; listens for updates from the Support chat page. */
 export function useSupportChatUnreadBadge(enabled: boolean): number {
   const [count, setCount] = useState(0);
+  const { connected, subscribe } = useRealtime();
 
   const refresh = useCallback(() => {
     if (!enabled) return;
@@ -27,12 +29,22 @@ export function useSupportChatUnreadBadge(enabled: boolean): number {
       return;
     }
     refresh();
+    const pollMs = connected ? 120_000 : 25_000;
     const id = window.setInterval(() => {
       if (document.hidden) return;
       refresh();
-    }, 25_000);
+    }, pollMs);
     return () => window.clearInterval(id);
-  }, [enabled, refresh]);
+  }, [enabled, refresh, connected]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribe((frame) => {
+      if (frame.scope === 'support_inbox') {
+        refresh();
+      }
+    });
+  }, [enabled, subscribe, refresh]);
 
   useEffect(() => {
     if (!enabled) return;
