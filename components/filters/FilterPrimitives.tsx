@@ -1,5 +1,6 @@
 import React from 'react';
 import { useI18n } from '../../context/i18n';
+import { resolveInputDir } from '../../utils/inputAutoDir';
 
 export const FilterSection = ({
   title,
@@ -66,7 +67,7 @@ export const FilterSelect = ({
       id={id}
       value={value}
       onChange={onChange}
-      dir={language === 'ar' ? 'rtl' : 'ltr'}
+      dir="auto"
       className={fieldClassName}
     >
       {children}
@@ -88,15 +89,20 @@ export const FilterInput = ({
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) => {
   const { language } = useI18n();
+  const uiIsRtl = language === 'ar';
+  const text = String(value ?? '');
+  const resolvedDir = resolveInputDir(type, text, uiIsRtl);
   return (
-    <input
-      type={type}
-      id={id}
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-      dir={language === 'ar' ? 'rtl' : 'ltr'}
-      className={fieldClassName}
-    />
+    <div className="relative w-full" dir={resolvedDir}>
+      <input
+        type={type}
+        id={id}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        dir={resolvedDir}
+        className={fieldClassName}
+      />
+    </div>
   );
 };

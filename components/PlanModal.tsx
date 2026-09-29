@@ -255,7 +255,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 value={formData.name}
                 onChange={handleInputChange}
                 className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                dir={language === 'ar' ? 'rtl' : 'ltr'}
+                dir="auto"
                 placeholder={t('subscriptions.plans.planNamePlaceholder') || ''}
                 required
               />
@@ -268,7 +268,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 value={formData.nameAr || ''}
                 onChange={handleInputChange}
                 className={`${inputClasses} ${formData.nameAr ? 'text-right' : (language === 'ar' ? 'text-right' : 'text-left')}`}
-                dir={formData.nameAr ? 'rtl' : (language === 'ar' ? 'rtl' : 'ltr')}
+                dir="auto"
                 placeholder={t('subscriptions.plans.planNameArPlaceholder') || ''}
               />
             </div>
@@ -555,7 +555,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 onChange={handleInputChange}
                 rows={4}
                 className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                dir={language === 'ar' ? 'rtl' : 'ltr'}
+                dir="auto"
                 placeholder={t('subscriptions.plans.featuresPlaceholder')}
                 required
               ></textarea>
@@ -569,7 +569,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 onChange={handleInputChange}
                 rows={4}
                 className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                dir={language === 'ar' ? 'rtl' : 'ltr'}
+                dir="auto"
                 placeholder={t('subscriptions.plans.featuresArPlaceholder')}
               ></textarea>
             </div>

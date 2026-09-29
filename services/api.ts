@@ -1543,7 +1543,7 @@ export type SupportChatInboxItem = {
   company_domain: string;
   owner_name: string;
   owner_email: string;
-  status: 'open' | 'resolved';
+  status: 'pending' | 'open' | 'resolved';
   last_message_at: string | null;
   last_message_side: 'tenant' | 'support' | null;
   last_message_preview: string;
@@ -1553,7 +1553,7 @@ export type SupportChatInboxItem = {
 
 export type SupportChatAdminMessage = {
   id: number;
-  side: 'tenant' | 'support';
+  side: 'tenant' | 'support' | 'system';
   body: string;
   created_at: string;
   is_mine: boolean;
@@ -1667,6 +1667,13 @@ export const markSupportChatAdminReadAPI = async (conversationId: number, messag
   return apiRequest<{ message_id: number }>(
     `/support-chat-admin/conversations/${conversationId}/mark-read/`,
     { method: 'POST', body: JSON.stringify({ message_id: messageId }) }
+  );
+};
+
+export const approveSupportChatConversationAPI = async (conversationId: number) => {
+  return apiRequest<{ status: string }>(
+    `/support-chat-admin/conversations/${conversationId}/approve/`,
+    { method: 'POST', body: '{}' }
   );
 };
 

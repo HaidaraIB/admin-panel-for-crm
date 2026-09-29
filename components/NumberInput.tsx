@@ -1,5 +1,6 @@
 import React from 'react';
 import { useI18n } from '../context/i18n';
+import { resolveNumberFieldDir } from '../utils/inputAutoDir';
 
 interface NumberInputProps {
     id?: string;
@@ -29,7 +30,8 @@ export const NumberInput: React.FC<NumberInputProps> = ({
     disabled,
 }) => {
     const { language, t } = useI18n();
-    const isRTL = language === 'ar';
+    const uiIsRtl = language === 'ar';
+    const fieldDir = resolveNumberFieldDir(String(value ?? ''), uiIsRtl);
 
     const roundToStep = (num: number, step: number): number => {
         const stepDecimals = step.toString().split('.')[1]?.length || 0;
@@ -104,7 +106,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
     const baseClassName = className.replace(/border-\S+/g, '').trim();
 
     return (
-        <div className={`relative flex items-center ${baseClassName}`}>
+        <div dir={fieldDir} className={`relative flex w-full items-center ${baseClassName}`}>
             <input
                 id={id}
                 name={name}
@@ -115,9 +117,9 @@ export const NumberInput: React.FC<NumberInputProps> = ({
                 placeholder={placeholder}
                 required={required}
                 disabled={disabled}
+                dir={fieldDir}
                 className={`
-                    w-full px-3 py-2
-                    ${isRTL ? 'pl-14' : 'pr-14'}
+                    w-full px-3 py-2 pe-14
                     bg-gray-50 dark:bg-gray-800
                     ${borderClass}
                     rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500
@@ -129,25 +131,24 @@ export const NumberInput: React.FC<NumberInputProps> = ({
             />
 
             <div
-                className={`
-                    absolute inset-y-0
-                    ${isRTL ? 'left-0' : 'right-0'}
-                    flex flex-col 
-                    ${isRTL ? 'rounded-l-md' : 'rounded-r-md'}
+                className="
+                    absolute inset-y-0 end-0
+                    flex flex-col
+                    rounded-e-md
                     overflow-hidden
                     z-10
-                `}
+                "
             >
                 <button
                     type="button"
                     onClick={handleIncrement}
                     disabled={disabled || (max !== undefined && Number(value) >= max)}
-                    className={`
+                    className="
                         flex-1 w-10 bg-primary-600 hover:bg-primary-700 active:bg-primary-800
                         disabled:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed
                         transition-colors flex items-center justify-center
-                        ${isRTL ? 'rounded-tl-md' : 'rounded-tr-md'}
-                    `}
+                        rounded-tr-md
+                    "
                     aria-label={t('numberInputIncrease')}
                 >
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,12 +162,12 @@ export const NumberInput: React.FC<NumberInputProps> = ({
                     type="button"
                     onClick={handleDecrement}
                     disabled={disabled || (min !== undefined && Number(value) <= min)}
-                    className={`
+                    className="
                         flex-1 w-10 bg-primary-600 hover:bg-primary-700 active:bg-primary-800
                         disabled:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed
                         transition-colors flex items-center justify-center
-                        ${isRTL ? 'rounded-bl-md' : 'rounded-br-md'}
-                    `}
+                        rounded-br-md
+                    "
                     aria-label={t('numberInputDecrease')}
                 >
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

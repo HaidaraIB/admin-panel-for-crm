@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { syncInputDirections } from '../utils/inputAutoDir';
 
 const arTranslations = {
   "sidebar.dashboard": "لوحة التحكم",
@@ -16,10 +17,14 @@ const arTranslations = {
   "supportChat.filter.all": "الكل",
   "supportChat.filter.open": "مفتوحة",
   "supportChat.filter.awaiting": "بانتظار الرد",
+  "supportChat.filter.pending": "بانتظار الموافقة",
   "supportChat.filter.resolved": "محلولة",
   "supportChat.selectThread": "اختر محادثة",
   "supportChat.viewTenant": "عرض المستأجر",
   "supportChat.resolve": "وضع علامة محلولة",
+  "supportChat.approve": "الموافقة على الطلب",
+  "supportChat.approveToReply": "وافق على الطلب لبدء المحادثة.",
+  "supportChat.statusPending": "بانتظار الموافقة",
   "supportChat.reopen": "إعادة فتح",
   "supportChat.placeholder": "اكتب رد LOOP Support…",
   "supportChat.send": "إرسال",
@@ -70,6 +75,10 @@ const arTranslations = {
   "chatMediaDefaultImageName": "image.jpg",
   "chatMediaDefaultVideoName": "video.mp4",
   "chatMediaOpenAria": "فتح الوسائط",
+  "teamChatVoicePlayAria": "تشغيل الرسالة الصوتية",
+  "teamChatVoicePauseAria": "إيقاف الرسالة الصوتية مؤقتاً",
+  "teamChatVoiceSeekAria": "التقديم أو الترجيع في الرسالة الصوتية",
+  "teamChatVoicePlaybackSpeedAria": "سرعة التشغيل",
   "sidebar.demoBookings": "حجوزات العرض",
   "sidebar.settings": "الإعدادات",
   "sidebar.logout": "تسجيل الخروج",
@@ -1205,10 +1214,14 @@ const enTranslations = {
   "supportChat.filter.all": "All",
   "supportChat.filter.open": "Open",
   "supportChat.filter.awaiting": "Awaiting reply",
+  "supportChat.filter.pending": "Pending approval",
   "supportChat.filter.resolved": "Resolved",
   "supportChat.selectThread": "Select a conversation",
   "supportChat.viewTenant": "View tenant",
   "supportChat.resolve": "Mark resolved",
+  "supportChat.approve": "Approve request",
+  "supportChat.approveToReply": "Approve the request to start chatting.",
+  "supportChat.statusPending": "Pending approval",
   "supportChat.reopen": "Reopen",
   "supportChat.placeholder": "Reply as LOOP Support…",
   "supportChat.send": "Send",
@@ -1259,6 +1272,10 @@ const enTranslations = {
   "chatMediaDefaultImageName": "image.jpg",
   "chatMediaDefaultVideoName": "video.mp4",
   "chatMediaOpenAria": "Open media",
+  "teamChatVoicePlayAria": "Play voice message",
+  "teamChatVoicePauseAria": "Pause voice message",
+  "teamChatVoiceSeekAria": "Seek in voice message",
+  "teamChatVoicePlaybackSpeedAria": "Playback speed",
   "sidebar.demoBookings": "Demo bookings",
   "sidebar.settings": "Settings",
   "sidebar.logout": "Logout",
@@ -2405,6 +2422,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('language', language);
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    syncInputDirections();
   }, [language]);
 
   const t = useCallback((key: string): string => {

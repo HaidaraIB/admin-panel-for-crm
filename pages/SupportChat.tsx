@@ -14,12 +14,13 @@ import { buildChatMediaAlbum, findChatMediaAlbumIndex, type ChatMediaAlbumItem }
 import { SupportChatComposer } from '../components/supportChat/SupportChatComposer';
 import { SupportChatMessageMedia } from '../components/supportChat/SupportChatMessageMedia';
 import { withLatinDigits } from '../utils/latinNumerals';
+import { CHAT_BUBBLE_PLAINTEXT_CLASS } from '../utils/chatBubblePlaintext';
 import {
   getSupportChatInboxAPI,
   getSupportChatMessagesAPI,
   getSupportChatUnreadCountAPI,
   markSupportChatAdminReadAPI,
-  reopenSupportChatConversationAPI,
+  approveSupportChatConversationAPI,
   resolveSupportChatConversationAPI,
   sendSupportChatAdminMessageAPI,
   sendSupportChatAdminMessageWithFileAPI,
@@ -27,7 +28,7 @@ import {
   type SupportChatInboxItem,
 } from '../services/api';
 
-type InboxFilter = 'all' | 'open' | 'awaiting' | 'resolved';
+type InboxFilter = 'all' | 'open' | 'awaiting' | 'pending' | 'resolved';
 
 function companyInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -47,6 +48,17 @@ function formatMessageTime(iso: string, language: string): string {
   }
 }
 
+function formatBubbleTime(iso: string, language: string): string {
+  try {
+    return new Date(iso).toLocaleString(
+      language === 'ar' ? 'ar' : undefined,
+      withLatinDigits({ hour: '2-digit', minute: '2-digit' })
+    );
+  } catch {
+    return '';
+  }
+}
+
 const THREAD_NEAR_BOTTOM_PX = 80;
 
 function isNearThreadBottom(scroller: HTMLElement): boolean {
@@ -60,9 +72,13 @@ const filterChipClass = (active: boolean) =>
       : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
   }`;
 
-type StatusKind = 'open' | 'awaiting' | 'resolved';
+type StatusKind = 'open' | 'awaiting' | 'pending' | 'resolved';
 
 const STATUS_TONE: Record<StatusKind, { active: string; idle: string }> = {
+  pending: {
+    active: 'bg-violet-600 text-white ring-violet-600 shadow-sm shadow-violet-600/20',
+    idle: 'bg-violet-50 text-violet-900 ring-violet-200 hover:bg-violet-100 dark:bg-violet-950/50 dark:text-violet-100 dark:ring-violet-800 dark:hover:bg-violet-900/40',
+  },
   open: {
     active: 'bg-emerald-600 text-white ring-emerald-600 shadow-sm shadow-emerald-600/20',
     idle: 'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50',
@@ -79,13 +95,28 @@ const STATUS_TONE: Record<StatusKind, { active: string; idle: string }> = {
 
 function statusKindOf(status: string, awaitingReply: boolean): StatusKind {
   if (status === 'resolved') return 'resolved';
+  if (status === 'pending') return 'pending';
   if (awaitingReply) return 'awaiting';
   return 'open';
+}
+
+function statusLabel(
+  status: string,
+  awaitingReply: boolean,
+  t: (key: string) => string
+): string {
+  if (status === 'resolved') return t('supportChat.statusResolved');
+  if (status === 'pending') return t('supportChat.statusPending');
+  if (awaitingReply) return t('supportChat.awaiting');
+  return t('supportChat.statusOpen');
 }
 
 function StatusMark({ kind, active = false }: { kind: StatusKind; active?: boolean }) {
   if (kind === 'resolved') {
     return <Icon name="check" className={`h-3 w-3 shrink-0 ${active ? 'text-white' : 'text-sky-600 dark:text-sky-300'}`} />;
+  }
+  if (kind === 'pending') {
+    return <Icon name="clock" className={`h-3 w-3 shrink-0 ${active ? 'text-white' : 'text-violet-600 dark:text-violet-300'}`} />;
   }
   if (kind === 'awaiting') {
     return <Icon name="clock" className={`h-3 w-3 shrink-0 ${active ? 'text-white' : 'text-amber-600 dark:text-amber-300'}`} />;
@@ -113,6 +144,31 @@ function quoteLabel(
   return label;
 }
 
+const SUPPORT_LIST_MEDIA_LABELS: Record<string, string> = {
+  photo: 'supportChat.mediaPhoto',
+  video: 'supportChat.mediaVideo',
+  'voice message': 'supportChat.mediaAudio',
+  audio: 'supportChat.mediaAudio',
+  document: 'supportChat.mediaDocument',
+  file: 'supportChat.mediaDocument',
+};
+
+function localizeSupportListPreview(preview: string, t: (key: string) => string): string {
+  const trimmed = (preview || '').trim();
+  if (!trimmed) return '';
+  const exact = SUPPORT_LIST_MEDIA_LABELS[trimmed.toLowerCase()];
+  if (exact) return t(exact);
+  const splitAt = trimmed.indexOf(': ');
+  if (splitAt > 0) {
+    const headKey = SUPPORT_LIST_MEDIA_LABELS[trimmed.slice(0, splitAt).toLowerCase()];
+    if (headKey) {
+      const rest = trimmed.slice(splitAt + 2).trim();
+      return rest ? `${t(headKey)}: ${rest}` : t(headKey);
+    }
+  }
+  return trimmed;
+}
+
 const DOUBLE_TAP_MS = 320;
 const DOUBLE_TAP_SLOP_PX = 24;
 
@@ -129,7 +185,7 @@ function MessageReplyGesture({
 
   return (
     <div
-      className="max-w-[85%] touch-manipulation"
+      className="touch-manipulation"
       onPointerUp={(e) => {
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
@@ -173,7 +229,6 @@ const SupportChat: React.FC = () => {
   const [messages, setMessages] = useState<SupportChatAdminMessage[]>([]);
   const [replyTo, setReplyTo] = useState<SupportChatAdminMessage | null>(null);
   const [msgEtag, setMsgEtag] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [unreadBadge, setUnreadBadge] = useState(0);
   const [showJumpFab, setShowJumpFab] = useState(false);
@@ -402,34 +457,36 @@ const SupportChat: React.FC = () => {
     const body = payload.body.trim();
     if (!body && !payload.file) return;
     const replyToMessageId = replyTo?.id;
-    setSending(true);
-    try {
-      if (payload.file) {
-        await sendSupportChatAdminMessageWithFileAPI(selectedId, payload.file, {
-          body: body || undefined,
-          replyToMessageId,
-        });
-      } else {
-        await sendSupportChatAdminMessageAPI(selectedId, body, { replyToMessageId });
-      }
-      setReplyTo(null);
-      setMsgEtag(null);
-      await loadMessages();
-      refreshInbox();
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const toggleResolved = async () => {
-    if (!selectedId || !selected) return;
-    if (selected.status === 'resolved') {
-      await reopenSupportChatConversationAPI(selectedId);
+    if (payload.file) {
+      await sendSupportChatAdminMessageWithFileAPI(selectedId, payload.file, {
+        body: body || undefined,
+        replyToMessageId,
+      });
     } else {
-      await resolveSupportChatConversationAPI(selectedId);
+      await sendSupportChatAdminMessageAPI(selectedId, body, { replyToMessageId });
     }
+    setMsgEtag(null);
+    void loadMessages({ background: true }).catch(() => {});
     refreshInbox();
   };
+
+  const approveConversation = async () => {
+    if (!selectedId) return;
+    await approveSupportChatConversationAPI(selectedId);
+    refreshInbox();
+    setMsgEtag(null);
+    await loadMessages();
+  };
+
+  const resolveConversation = async () => {
+    if (!selectedId) return;
+    await resolveSupportChatConversationAPI(selectedId);
+    refreshInbox();
+    setMsgEtag(null);
+    await loadMessages();
+  };
+
+  const composerDisabled = selected ? selected.status !== 'open' : true;
 
   const showMobileThread = selectedId != null;
 
@@ -477,13 +534,7 @@ const SupportChat: React.FC = () => {
                   <p className="truncate font-semibold text-gray-900 dark:text-white">{selected.company_name}</p>
                   <StatusBadge
                     kind={statusKindOf(selected.status, selected.awaiting_reply)}
-                    label={
-                      selected.status === 'resolved'
-                        ? t('supportChat.statusResolved')
-                        : selected.awaiting_reply
-                          ? t('supportChat.awaiting')
-                          : t('supportChat.statusOpen')
-                    }
+                    label={statusLabel(selected.status, selected.awaiting_reply, t)}
                   />
                 </div>
                 <p className="truncate text-xs text-gray-500 dark:text-gray-400">
@@ -503,20 +554,31 @@ const SupportChat: React.FC = () => {
                 loading={loadingMessages}
                 onClick={() => void loadMessages()}
               />
-              <button
-                type="button"
-                onClick={() => void toggleResolved()}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
-              >
-                {selected.status === 'resolved' ? t('supportChat.reopen') : t('supportChat.resolve')}
-              </button>
+              {selected.status === 'pending' ? (
+                <button
+                  type="button"
+                  onClick={() => void approveConversation()}
+                  className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-primary-700"
+                >
+                  {t('supportChat.approve')}
+                </button>
+              ) : null}
+              {selected.status === 'open' ? (
+                <button
+                  type="button"
+                  onClick={() => void resolveConversation()}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                >
+                  {t('supportChat.resolve')}
+                </button>
+              ) : null}
             </div>
           </header>
 
           <div className="relative flex min-h-0 flex-1 flex-col">
           <div
             ref={threadScrollRef}
-            className="custom-scrollbar flex-1 overflow-y-auto bg-gray-50/50 p-4 dark:bg-gray-900/20"
+            className="custom-scrollbar flex-1 overflow-y-auto bg-gray-50 px-3 py-4 dark:bg-gray-900/40"
           >
             {loadingMessages && messages.length === 0 ? (
               <div className="flex justify-center py-12">
@@ -527,31 +589,61 @@ const SupportChat: React.FC = () => {
                 <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{t('supportChat.noMessages')}</p>
               </div>
             ) : (
-              <div className="mx-auto flex max-w-2xl flex-col gap-3">
-                {messages.map((m) => (
+              <div className="flex flex-col space-y-3">
+                {messages.map((m) =>
+                  m.side === 'system' ? (
+                    <div key={m.id} className="flex justify-center px-2">
+                      <p
+                        dir="auto"
+                        className={`max-w-md rounded-xl bg-gray-200/80 px-3 py-2 text-center text-xs text-gray-700 dark:bg-gray-700/80 dark:text-gray-200 ${CHAT_BUBBLE_PLAINTEXT_CLASS}`}
+                      >
+                        {m.body}
+                      </p>
+                    </div>
+                  ) : (
                   <div key={m.id} className={`flex ${m.is_mine ? 'justify-end' : 'justify-start'}`}>
                     <MessageReplyGesture
                       label={t('supportChat.reply')}
                       onReply={() => setReplyTo(m)}
                     >
+                    {(() => {
+                      const attachmentKind = m.attachment_kind;
+                      const attachmentUrl = m.attachment_url;
+                      const hasVisualMedia =
+                        attachmentUrl &&
+                        attachmentKind &&
+                        (attachmentKind === 'image' || attachmentKind === 'video');
+                      const bubbleMaxClass = hasVisualMedia
+                        ? 'max-w-[min(100%,22rem)]'
+                        : 'max-w-[min(100%,20rem)]';
+                      return (
                     <div
-                      className={`rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
+                      className={`${bubbleMaxClass} rounded-2xl px-3 py-2 shadow-sm border text-sm ${
                         m.is_mine
-                          ? 'rounded-br-md bg-primary-600 text-white'
-                          : 'rounded-bl-md border border-gray-100 bg-white text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100'
+                          ? 'rounded-br-md bg-primary-500 text-white border-primary-500/30'
+                          : 'rounded-bl-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-700'
                       }`}
                     >
                       {!m.is_mine && m.display_name ? (
-                        <p className="mb-1 text-xs font-semibold opacity-90">{m.display_name}</p>
+                        <p
+                          dir="auto"
+                          className={`mb-1 text-xs font-semibold opacity-80 ${CHAT_BUBBLE_PLAINTEXT_CLASS}`}
+                        >
+                          {m.display_name}
+                        </p>
                       ) : null}
                       {m.reply_to ? (
                         <div
-                          className={`mb-2 rounded-lg border-s-2 ps-2 text-xs ${
-                            m.is_mine ? 'border-white/70' : 'border-primary-500'
+                          className={`mb-2 rounded-lg border-s-2 ps-2 text-xs opacity-90 ${
+                            m.is_mine ? 'border-white/60' : 'border-primary-500/50'
                           }`}
                         >
-                          <p className="font-semibold">{m.reply_to.display_name}</p>
-                          <p className="truncate opacity-90">{quoteLabel(m.reply_to, t)}</p>
+                          <p dir="auto" className={`font-medium ${CHAT_BUBBLE_PLAINTEXT_CLASS}`}>
+                            {m.reply_to.display_name}
+                          </p>
+                          <p dir="auto" className={`truncate ${CHAT_BUBBLE_PLAINTEXT_CLASS}`}>
+                            {quoteLabel(m.reply_to, t)}
+                          </p>
                         </div>
                       ) : null}
                       {m.attachment_url && m.attachment_kind && m.attachment_kind !== 'document' ? (
@@ -576,14 +668,20 @@ const SupportChat: React.FC = () => {
                         />
                       ) : null}
                       {m.body?.trim() ? (
-                        <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                        <p
+                          dir="auto"
+                          className={`whitespace-pre-wrap break-words ${CHAT_BUBBLE_PLAINTEXT_CLASS}`}
+                        >
+                          {m.body}
+                        </p>
                       ) : null}
                       <div
-                        className={`mt-1.5 flex items-center gap-1.5 text-[10px] ${
-                          m.is_mine ? 'justify-end text-white/80' : 'justify-start text-gray-500 dark:text-gray-400'
+                        dir="ltr"
+                        className={`mt-1.5 flex items-center gap-1.5 tabular-nums text-[10px] ${
+                          m.is_mine ? 'justify-end text-white/75' : 'justify-start text-gray-400 dark:text-gray-500'
                         }`}
                       >
-                        <span>{formatMessageTime(m.created_at, language)}</span>
+                        <span>{formatBubbleTime(m.created_at, language)}</span>
                         {m.is_mine ? (
                           <span
                             className={`inline-flex shrink-0 items-center ${
@@ -598,9 +696,12 @@ const SupportChat: React.FC = () => {
                         ) : null}
                       </div>
                     </div>
+                      );
+                    })()}
                     </MessageReplyGesture>
                   </div>
-                ))}
+                  )
+                )}
               </div>
             )}
           </div>
@@ -608,7 +709,7 @@ const SupportChat: React.FC = () => {
             <button
               type="button"
               onClick={scrollThreadToBottom}
-              className="absolute bottom-4 end-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg hover:bg-primary-700 dark:bg-primary-500"
+              className="absolute bottom-3 end-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-primary-500 text-white shadow-lg hover:bg-primary-600"
               aria-label={t('supportChat.jumpToLatest')}
               title={t('supportChat.jumpToLatest')}
             >
@@ -617,15 +718,18 @@ const SupportChat: React.FC = () => {
           ) : null}
           </div>
 
-          <footer className="border-t border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-            <div className="mx-auto max-w-2xl">
+          <footer className="border-t border-gray-200/80 bg-white p-3 dark:border-gray-700/80 dark:bg-gray-900">
               <SupportChatComposer
-                sending={sending}
+                disabled={composerDisabled}
                 replyTo={replyTo}
                 onCancelReply={() => setReplyTo(null)}
                 onSend={handleComposerSend}
               />
-            </div>
+              {composerDisabled && selected.status === 'pending' ? (
+                <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                  {t('supportChat.approveToReply')}
+                </p>
+              ) : null}
           </footer>
         </>
       )}
@@ -664,7 +768,7 @@ const SupportChat: React.FC = () => {
               className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-400"
             />
             <div className="flex flex-wrap gap-1.5">
-              {(['all', 'open', 'awaiting', 'resolved'] as InboxFilter[]).map((f) => {
+              {(['all', 'pending', 'open', 'awaiting', 'resolved'] as InboxFilter[]).map((f) => {
                 const active = filter === f;
                 if (f === 'all') {
                   return (
@@ -732,13 +836,7 @@ const SupportChat: React.FC = () => {
                           <span className="flex shrink-0 items-center gap-1.5">
                             <StatusBadge
                               kind={statusKindOf(row.status, row.awaiting_reply)}
-                              label={
-                                row.status === 'resolved'
-                                  ? t('supportChat.statusResolved')
-                                  : row.awaiting_reply
-                                    ? t('supportChat.awaiting')
-                                    : t('supportChat.statusOpen')
-                              }
+                              label={statusLabel(row.status, row.awaiting_reply, t)}
                             />
                             {row.last_message_at ? (
                               <span className="text-[10px] text-gray-500 dark:text-gray-400">
@@ -749,7 +847,7 @@ const SupportChat: React.FC = () => {
                         </div>
                         <div className="mt-0.5 flex items-center gap-2">
                           <p className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                            {row.last_message_preview || '—'}
+                            {localizeSupportListPreview(row.last_message_preview || '', t) || '—'}
                           </p>
                           {row.support_unread_count > 0 ? (
                             <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">

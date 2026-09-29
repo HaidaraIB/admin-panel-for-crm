@@ -1,0 +1,23 @@
+---
+description: Free-text inputs follow first strong letter (dir=auto); structured fields stay LTR
+alwaysApply: true
+---
+
+# Input text direction (first letter)
+
+Free-text **inputs** and **textareas** take direction from the **first strong letter** (Arabic/Hebrew → RTL, Latin → LTR). Skip digits and punctuation. **Empty** fields follow the UI language so placeholders align.
+
+## Web (CRM-admin-panel)
+
+- Shared helper: [`utils/inputAutoDir.ts`](utils/inputAutoDir.ts) — `dirForInputType()`, `installInputAutoDir()` (called from [`index.tsx`](index.tsx)).
+- [`components/settings/FormFields.tsx`](components/settings/FormFields.tsx): `FormInput` uses `dirForInputType`; `FormTextarea` defaults to `dir="auto"`; `FormSelect` keeps UI language.
+- Filter text inputs: `dirForInputType` in [`components/filters/FilterPrimitives.tsx`](components/filters/FilterPrimitives.tsx).
+- Bare `<input>` / `<textarea>`: `dir="auto"` (or `dir="ltr"` for structured types). Do **not** use `dir={language === 'ar' ? 'rtl' : 'ltr'}` on free-text fields.
+
+## Exceptions (always LTR)
+
+Phone (`PhoneInput`), email, URL, numbers, dates, gateway secrets — `dir="ltr"`.
+
+## Related
+
+- Display phones: isolate with `dir="ltr"` on display only where applicable; `PhoneInput` stays LTR.

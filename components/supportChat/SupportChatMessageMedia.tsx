@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Icon from '../Icon';
 import { useI18n } from '../../context/i18n';
+import { ChatVoicePlayer } from '../chat/ChatVoicePlayer';
 import { fetchChatMediaObjectUrl } from '../../utils/chatMediaAuthBlob';
 
 type Props = {
@@ -15,8 +16,6 @@ export const SupportChatMessageMedia: React.FC<Props> = ({ url, kind, mine, file
   const { t } = useI18n();
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-
-  const isVisual = kind === 'image' || kind === 'video';
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -33,6 +32,55 @@ export const SupportChatMessageMedia: React.FC<Props> = ({ url, kind, mine, file
     };
   }, [url]);
 
+  if (kind === 'document') {
+    const rawName = (filename || '').trim();
+    const docName = rawName || t('supportChat.mediaDocument');
+    const dot = rawName.lastIndexOf('.');
+    const ext = dot > 0 && dot < rawName.length - 1 ? rawName.slice(dot + 1).toUpperCase() : '';
+    const ready = Boolean(src) && !failed;
+    const meta = failed
+      ? t('supportChat.mediaFailed')
+      : !ready
+        ? t('common.loading')
+        : ext || t('chatMediaDownload');
+    return (
+      <a
+        href={ready ? src! : undefined}
+        download={ready ? docName : undefined}
+        onClick={ready ? undefined : (e) => e.preventDefault()}
+        aria-disabled={ready ? undefined : true}
+        aria-label={ready ? `${docName}. ${t('chatMediaDownload')}` : docName}
+        className={`flex w-full min-w-[11rem] items-center gap-2.5 rounded-md px-2 py-1.5 no-underline ${
+          mine
+            ? 'bg-black/10 text-white'
+            : 'bg-black/[0.04] text-gray-900 dark:bg-white/5 dark:text-gray-50'
+        }`}
+      >
+        <span
+          className={`flex size-9 shrink-0 items-center justify-center rounded-md ${
+            mine ? 'bg-white/20' : 'bg-primary-500/15 text-primary-700 dark:text-primary-200'
+          }`}
+        >
+          <Icon name="pdf" className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium" dir="auto">
+            {docName}
+          </span>
+          <span
+            className={`block truncate text-[11px] ${
+              mine ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
+            }`}
+            dir="auto"
+          >
+            {meta}
+          </span>
+        </span>
+        {ready ? <Icon name="download" className="h-4 w-4 shrink-0 opacity-80" /> : null}
+      </a>
+    );
+  }
+
   if (failed) {
     return (
       <p className={`text-xs ${mine ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>
@@ -48,11 +96,18 @@ export const SupportChatMessageMedia: React.FC<Props> = ({ url, kind, mine, file
   }
 
   if (kind === 'audio') {
-    return <audio controls src={src} className="mt-1 max-w-full min-w-[12rem]" preload="metadata" />;
+    return (
+      <div className="mb-1 w-full min-w-0">
+        <ChatVoicePlayer blobUrl={src} mine={mine} t={t} />
+      </div>
+    );
   }
 
-  const visualFrameClass =
-    'relative mt-1 w-full min-w-[12rem] max-w-[17rem] aspect-[4/3] max-h-48 overflow-hidden rounded-lg bg-black/10 dark:bg-black/25';
+  const visualFrameClass = `relative w-full min-w-[12rem] max-h-52 aspect-[4/3] overflow-hidden rounded-lg ${
+    mine
+      ? 'bg-white/10'
+      : 'bg-gradient-to-br from-gray-200/90 to-gray-300/80 dark:from-gray-700/80 dark:to-gray-800/70'
+  }`;
 
   if (kind === 'image') {
     const img = (
@@ -69,7 +124,7 @@ export const SupportChatMessageMedia: React.FC<Props> = ({ url, kind, mine, file
         <button
           type="button"
           onClick={onOpen}
-          className="block w-full max-w-[17rem] cursor-zoom-in border-0 bg-transparent p-0 text-start"
+          className="mb-1 block w-full min-w-0 cursor-zoom-in border-0 bg-transparent p-0 text-start"
           aria-label={t('chatMediaOpenAria')}
         >
           {frame}
@@ -101,7 +156,7 @@ export const SupportChatMessageMedia: React.FC<Props> = ({ url, kind, mine, file
         <button
           type="button"
           onClick={onOpen}
-          className="block w-full max-w-[17rem] cursor-pointer border-0 bg-transparent p-0"
+          className="mb-1 block w-full min-w-0 cursor-pointer border-0 bg-transparent p-0"
           aria-label={t('chatMediaOpenAria')}
         >
           {inner}
@@ -111,13 +166,5 @@ export const SupportChatMessageMedia: React.FC<Props> = ({ url, kind, mine, file
     return inner;
   }
 
-  return (
-    <a
-      href={src}
-      download={filename || 'attachment'}
-      className={`mt-1 inline-block text-sm underline ${mine ? 'text-white' : 'text-primary-600 dark:text-primary-400'}`}
-    >
-      {filename || t('supportChat.downloadAttachment')}
-    </a>
-  );
+  return null;
 };

@@ -1,15 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Icon from '../Icon';
-import LoadingSpinner from '../LoadingSpinner';
 import { ChatMediaThumb } from '../chat/ChatMediaThumb';
 import { useI18n } from '../../context/i18n';
+import { inputTextDir } from '../../utils/inputAutoDir';
 import { useChatVoiceRecorder } from '../../hooks/useChatVoiceRecorder';
 import { useToast } from '../../context/ToastContext';
 import type { SupportChatAdminMessage } from '../../services/api';
 
 type Props = {
   disabled?: boolean;
-  sending?: boolean;
   replyTo?: SupportChatAdminMessage | null;
   onCancelReply?: () => void;
   onSend: (payload: { body: string; file?: File }) => Promise<void>;
@@ -83,11 +82,13 @@ function PendingFileChip({
 }
 
 const iconBtnClass =
-  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-700/80';
+  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800';
+
+const voiceBtnClass =
+  'flex size-10 shrink-0 items-center justify-center rounded-full text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/80';
 
 export const SupportChatComposer: React.FC<Props> = ({
   disabled,
-  sending,
   replyTo,
   onCancelReply,
   onSend,
@@ -100,23 +101,23 @@ export const SupportChatComposer: React.FC<Props> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const voice = useChatVoiceRecorder({
-    enabled: !disabled && !sending,
-    busy: sending,
+    enabled: !disabled,
     onRecordingComplete: (file) => setPendingFile(file),
     onMicDenied: () => showToast(t('supportChat.micDenied'), { variant: 'error' }),
   });
 
-  const handleSend = async () => {
+  const handleSend = () => {
     const body = text.trim();
-    if (!body && !pendingFile) return;
-    try {
-      await onSend({ body, file: pendingFile ?? undefined });
-      setText('');
-      setPendingFile(null);
-      onCancelReply?.();
-    } catch {
+    const file = pendingFile ?? undefined;
+    if (disabled || (!body && !file)) return;
+    setText('');
+    setPendingFile(null);
+    onCancelReply?.();
+    void onSend({ body, file }).catch(() => {
+      setText((current) => (current.trim() ? current : body));
+      if (file) setPendingFile((current) => current ?? file);
       showToast(t('supportChat.sendFailed'), { variant: 'error' });
-    }
+    });
   };
 
   const syncTextareaHeight = (el: HTMLTextAreaElement | null) => {
@@ -134,8 +135,10 @@ export const SupportChatComposer: React.FC<Props> = ({
 
   const snippet = replyTo ? replySnippet(replyTo, t) : '';
 
+  const isRtl = language === 'ar';
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 shrink-0">
       <style>{`
         textarea.support-chat-composer-input,
         textarea.support-chat-composer-input:focus,
@@ -157,7 +160,7 @@ export const SupportChatComposer: React.FC<Props> = ({
         }
       `}</style>
       {replyTo ? (
-        <div className="flex items-center gap-3 rounded-xl border border-primary-400/50 bg-primary-50 px-3 py-2 dark:border-primary-500/40 dark:bg-primary-950/40">
+        <div className="flex items-center gap-3 rounded-xl border border-primary-500/40 bg-primary-500/[0.08] px-3 py-2 dark:border-primary-500/50 dark:bg-primary-500/25">
           {replyTo.attachment_url &&
           (replyTo.attachment_kind === 'image' || replyTo.attachment_kind === 'video') ? (
             <div className="size-11 shrink-0 overflow-hidden rounded-lg">
@@ -185,7 +188,7 @@ export const SupportChatComposer: React.FC<Props> = ({
           <button
             type="button"
             onClick={onCancelReply}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-gray-600 hover:bg-black/10 dark:text-gray-200 dark:hover:bg-white/10"
+            className="shrink-0 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-black/10 dark:text-gray-200 dark:hover:bg-white/10"
             aria-label={t('supportChat.cancelReply')}
           >
             ×
@@ -202,54 +205,70 @@ export const SupportChatComposer: React.FC<Props> = ({
 
       {voice.voiceRecording ? (
         <div
-          className="flex min-h-10 items-center gap-2 rounded-xl border border-red-200 bg-red-50/80 px-3 py-2 dark:border-red-900/50 dark:bg-red-950/30"
-          dir={language === 'ar' ? 'rtl' : 'ltr'}
+          className="flex min-h-10 min-w-0 flex-1 items-center gap-2 px-1"
+          dir={isRtl ? 'rtl' : 'ltr'}
         >
           <span
-            className={`h-2.5 w-2.5 shrink-0 rounded-full bg-red-500 ${voice.voicePaused ? 'opacity-40' : 'animate-pulse'}`}
+            className={`size-2.5 shrink-0 rounded-full bg-red-500 ${voice.voicePaused ? 'opacity-40' : 'animate-pulse'}`}
             aria-hidden
           />
-          <span dir="ltr" className="min-w-[3rem] tabular-nums text-sm font-medium text-red-600 dark:text-red-400">
+          <span
+            dir="ltr"
+            className="min-w-[3rem] tabular-nums text-sm font-medium text-red-600 dark:text-red-400 [unicode-bidi:isolate]"
+          >
             {voice.elapsedLabel}
           </span>
-          <span className="min-w-0 flex-1 truncate text-xs text-gray-600 dark:text-gray-400">
+          <span
+            className={`min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400 ${
+              isRtl ? 'text-right' : 'text-left'
+            }`}
+          >
             {voice.voicePaused ? t('supportChat.recordingPaused') : t('supportChat.recording')}
           </span>
           <button
             type="button"
-            className={iconBtnClass}
+            className={voiceBtnClass}
             onClick={voice.cancelVoiceRecording}
             aria-label={t('supportChat.cancelRecording')}
+            title={t('supportChat.cancelRecording')}
           >
-            <Icon name="x" className="h-4 w-4" />
+            <span className="text-lg leading-none" aria-hidden>×</span>
           </button>
           <button
             type="button"
-            className={iconBtnClass}
+            className={voiceBtnClass}
             onClick={() => (voice.voicePaused ? voice.resumeVoiceRecording() : voice.pauseVoiceRecording())}
             aria-label={voice.voicePaused ? t('supportChat.resumeRecording') : t('supportChat.pauseRecording')}
+            title={voice.voicePaused ? t('supportChat.resumeRecording') : t('supportChat.pauseRecording')}
           >
-            <Icon name={voice.voicePaused ? 'play' : 'pause'} className="h-4 w-4" />
+            <Icon name={voice.voicePaused ? 'play' : 'pause'} className="h-[1.15rem] w-[1.15rem]" />
           </button>
           <button
             type="button"
-            className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
             onClick={voice.stopVoiceRecording}
+            aria-label={t('supportChat.stopRecording')}
+            title={t('supportChat.stopRecording')}
           >
-            {t('supportChat.stopRecording')}
+            <span className="inline-block size-[1.05rem] rounded-sm bg-white" aria-hidden />
           </button>
         </div>
       ) : (
-        <div className="flex items-end gap-1.5">
+        <div className="flex items-end gap-1.5" dir="ltr">
           <textarea
             ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={1}
-            disabled={disabled || sending}
+            disabled={disabled}
             placeholder={t('supportChat.placeholder')}
-            className="support-chat-composer-input flex-1 min-h-10 max-h-28 min-w-0 resize-none overflow-y-auto rounded-xl border border-gray-300 bg-gray-50 px-3.5 py-2 text-sm leading-5 text-gray-900 placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-400"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            dir={inputTextDir(text, isRtl)}
+            className="support-chat-composer-input flex-1 min-h-10 max-h-28 min-w-0 resize-none overflow-y-auto rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm leading-5 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/80 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-400"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              textAlign: inputTextDir(text, isRtl) === 'rtl' ? 'right' : 'left',
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -269,7 +288,7 @@ export const SupportChatComposer: React.FC<Props> = ({
           />
           <button
             type="button"
-            disabled={disabled || sending}
+            disabled={disabled}
             onClick={() => fileRef.current?.click()}
             className={iconBtnClass}
             aria-label={t('supportChat.attachFile')}
@@ -279,7 +298,7 @@ export const SupportChatComposer: React.FC<Props> = ({
           </button>
           <button
             type="button"
-            disabled={disabled || sending}
+            disabled={disabled}
             onClick={() => void voice.startVoiceRecording()}
             className={iconBtnClass}
             aria-label={t('supportChat.recordVoice')}
@@ -289,17 +308,13 @@ export const SupportChatComposer: React.FC<Props> = ({
           </button>
           <button
             type="button"
-            disabled={disabled || sending || !canSend}
+            disabled={disabled || !canSend}
             onClick={() => void handleSend()}
             aria-label={t('supportChat.send')}
             title={t('supportChat.send')}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white shadow-md shadow-primary-500/25 transition-colors hover:bg-primary-500/90 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none dark:disabled:bg-gray-600 dark:disabled:text-gray-400"
           >
-            {sending ? (
-              <LoadingSpinner size="sm" tone="light" presentational />
-            ) : (
-              <Icon name="send" className="h-5 w-5 rtl:-scale-x-100" />
-            )}
+            <Icon name="send" className="h-5 w-5" />
           </button>
         </div>
       )}

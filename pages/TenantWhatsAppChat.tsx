@@ -294,7 +294,7 @@ const TenantWhatsAppChat: React.FC = () => {
                 {sending ? (
                   <LoadingSpinner size="sm" tone="light" presentational />
                 ) : (
-                  <Icon name="send" className="w-5 h-5 rtl:-scale-x-100" />
+                  <Icon name="send" className="w-5 h-5" />
                 )}
               </button>
             </div>

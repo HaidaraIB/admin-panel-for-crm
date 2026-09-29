@@ -1,5 +1,6 @@
 import React, { forwardRef, InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { useI18n } from '../../context/i18n';
+import { resolveInputDir } from '../../utils/inputAutoDir';
 
 /** Shared settings-page field tokens (matches General / Integrations, not filter drawers). */
 export const SETTINGS_FIELD_CLASS =
@@ -8,15 +9,23 @@ export const SETTINGS_FIELD_CLASS =
 export const FormInput = forwardRef<
   HTMLInputElement,
   InputHTMLAttributes<HTMLInputElement> & { className?: string }
->(({ className = '', dir, ...rest }, ref) => {
+>(({ className = '', dir, type, value, defaultValue, ...rest }, ref) => {
   const { language } = useI18n();
+  const text = String(value ?? defaultValue ?? '');
+  const resolvedDir =
+    dir ?? resolveInputDir(typeof type === 'string' ? type : undefined, text, language === 'ar');
   return (
-    <input
-      ref={ref}
-      dir={dir ?? (language === 'ar' ? 'rtl' : 'ltr')}
-      className={`${SETTINGS_FIELD_CLASS} ${className}`.trim()}
-      {...rest}
-    />
+    <div className="relative w-full" dir={resolvedDir}>
+      <input
+        ref={ref}
+        type={type}
+        value={value}
+        defaultValue={defaultValue}
+        dir={resolvedDir}
+        className={`${SETTINGS_FIELD_CLASS} ${className}`.trim()}
+        {...rest}
+      />
+    </div>
   );
 });
 FormInput.displayName = 'FormInput';
@@ -24,12 +33,16 @@ FormInput.displayName = 'FormInput';
 export const FormTextarea = forwardRef<
   HTMLTextAreaElement,
   TextareaHTMLAttributes<HTMLTextAreaElement> & { className?: string }
->(({ className = '', dir, ...rest }, ref) => {
+>(({ className = '', dir, value, defaultValue, ...rest }, ref) => {
   const { language } = useI18n();
+  const text = String(value ?? defaultValue ?? '');
+  const resolvedDir = dir ?? resolveInputDir('text', text, language === 'ar');
   return (
     <textarea
       ref={ref}
-      dir={dir ?? (language === 'ar' ? 'rtl' : 'ltr')}
+      value={value}
+      defaultValue={defaultValue}
+      dir={resolvedDir}
       className={`${SETTINGS_FIELD_CLASS} ${className}`.trim()}
       {...rest}
     />

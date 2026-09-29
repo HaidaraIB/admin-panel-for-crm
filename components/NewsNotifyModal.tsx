@@ -191,7 +191,7 @@ const NewsNotifyModal: React.FC<NewsNotifyModalProps> = ({
             onClick={() => onConfirm(channels)}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            <Icon name="send" className="w-4 h-4 rtl:-scale-x-100" />
+            <Icon name="send" className="w-4 h-4" />
             {isLoading
               ? t('content.notify.sending')
               : alreadyNotified
