@@ -26,7 +26,7 @@ import {
   sendInvoiceEmailAPI,
   getBillingSettingsAPI,
 } from '../services/api';
-import { getPaymentsAPI } from '../services/api';
+import { getPaymentsAPI, refundPaymentAPI, cancelPaymentAPI } from '../services/api';
 import PaginationControls from '../components/PaginationControls';
 import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
 import { useAlert } from '../context/AlertContext';
@@ -421,7 +421,13 @@ const PAYMENT_STATUS_OPTIONS = [
     PaymentStatus.Pending,
     PaymentStatus.Failed,
     PaymentStatus.Canceled,
+    PaymentStatus.Refunded,
 ];
+
+function isQicardGatewayName(name: string | undefined): boolean {
+    const n = (name || '').toLowerCase();
+    return n.includes('qicard') || n.includes('qi card') || n.includes('qi-card');
+}
 
 const PaymentsTab: React.FC = () => {
     const { t, language } = useI18n();
@@ -432,6 +438,25 @@ const PaymentsTab: React.FC = () => {
     const [pageSize, setPageSize] = usePersistedPageSize('admin-payments');
     const [filters, setFilters] = useState<SubscriptionsFilters>(subscriptionsFilterDefaults);
     const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+    const [confirmDialog, setConfirmDialog] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        confirmText: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmText: '',
+        onConfirm: () => {},
+    });
+    const [actionAlert, setActionAlert] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error';
+    }>({ isOpen: false, title: '', message: '', type: 'success' });
 
     const loadPayments = async (page = currentPage) => {
         setIsLoading(true);
@@ -462,6 +487,9 @@ const PaymentsTab: React.FC = () => {
                     case 'cancelled':
                         status = PaymentStatus.Canceled;
                         break;
+                    case 'refunded':
+                        status = PaymentStatus.Refunded;
+                        break;
                     case 'failed':
                     default:
                         status = PaymentStatus.Failed;
@@ -475,9 +503,11 @@ const PaymentsTab: React.FC = () => {
                     amount: parseFloat(payment.amount || 0), // API field: amount (original currency)
                     amountUsd, // Display in USD
                     currency: (payment.currency || 'USD').toUpperCase(),
-                    plan: payment.subscription_plan_name || 'Unknown', // From subscription relation
+                    plan: payment.subscription_plan_name || payment.target_plan_name || 'Unknown',
                     status: status,
                     date: payment.created_at ? new Date(payment.created_at).toISOString().split('T')[0] : '', // API field: created_at
+                    paymentMethodName: payment.payment_method_name || '',
+                    gatewayTranRef: payment.tran_ref || '',
                 };
             });
             setPayments(apiPayments);
@@ -513,6 +543,61 @@ const PaymentsTab: React.FC = () => {
         [PaymentStatus.Failed]: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
         [PaymentStatus.Pending]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
         [PaymentStatus.Canceled]: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+        [PaymentStatus.Refunded]: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+    };
+
+    const runPaymentAction = async (
+        paymentId: string,
+        action: 'refund' | 'cancel',
+        successMessage: string,
+    ) => {
+        try {
+            if (action === 'refund') {
+                await refundPaymentAPI(Number(paymentId));
+            } else {
+                await cancelPaymentAPI(Number(paymentId));
+            }
+            setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+            setActionAlert({
+                isOpen: true,
+                title: successMessage,
+                message: '',
+                type: 'success',
+            });
+            await loadPayments(currentPage);
+        } catch (error: unknown) {
+            setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+            const message =
+                error instanceof Error ? error.message : t('subscriptions.payments.actionError');
+            setActionAlert({
+                isOpen: true,
+                title: t('subscriptions.payments.actionError'),
+                message,
+                type: 'error',
+            });
+        }
+    };
+
+    const openRefundConfirm = (payment: Payment) => {
+        setConfirmDialog({
+            isOpen: true,
+            title: t('subscriptions.payments.refundConfirm.title'),
+            message: t('subscriptions.payments.refundConfirm.message'),
+            confirmText: t('subscriptions.payments.refund'),
+            onConfirm: () =>
+                void runPaymentAction(payment.id, 'refund', t('subscriptions.payments.refundSuccess')),
+        });
+    };
+
+    const openCancelConfirm = (payment: Payment) => {
+        setConfirmDialog({
+            isOpen: true,
+            title: t('subscriptions.payments.cancelConfirm.title'),
+            message: t('subscriptions.payments.cancelConfirm.message'),
+            confirmText: t('subscriptions.payments.cancel'),
+            onConfirm: () =>
+                void runPaymentAction(payment.id, 'cancel', t('subscriptions.payments.cancelSuccess')),
+        });
     };
 
     const filteredPayments = useMemo(() => {
@@ -554,24 +639,25 @@ const PaymentsTab: React.FC = () => {
                                 <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.amount')}</th>
                                 <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.status')}</th>
                                 <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.date')}</th>
+                                <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                         {t('subscriptions.payments.loading')}
                                     </td>
                                 </tr>
                             ) : payments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                         {t('subscriptions.payments.noPayments')}
                                     </td>
                                 </tr>
                             ) : filteredPayments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                         {t('filters.noResults')}
                                     </td>
                                 </tr>
@@ -583,6 +669,28 @@ const PaymentsTab: React.FC = () => {
                                     <td className="px-6 py-4 text-center">${(p.amountUsd != null ? p.amountUsd : p.amount).toLocaleString(undefined, withLatinDigits({ minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</td>
                                     <td className="px-6 py-4 text-center"><span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[p.status]}`}>{t(`status.${p.status}`)}</span></td>
                                     <td className="px-6 py-4 text-center">{p.date}</td>
+                                    <td className="px-6 py-4 text-center">
+                                        {p.status === PaymentStatus.Successful && isQicardGatewayName(p.paymentMethodName) ? (
+                                            <div className="flex flex-wrap justify-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openRefundConfirm(p)}
+                                                    className="text-xs font-medium text-purple-700 hover:underline dark:text-purple-300"
+                                                >
+                                                    {t('subscriptions.payments.refund')}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openCancelConfirm(p)}
+                                                    className="text-xs font-medium text-gray-700 hover:underline dark:text-gray-300"
+                                                >
+                                                    {t('subscriptions.payments.cancel')}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400">—</span>
+                                        )}
+                                    </td>
                                 </tr>
                                 ))
                             )}
@@ -607,6 +715,23 @@ const PaymentsTab: React.FC = () => {
                 statusOptions={PAYMENT_STATUS_OPTIONS}
                 showStatus
                 showDates
+            />
+            <AlertDialog
+                isOpen={confirmDialog.isOpen}
+                onClose={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                type="warning"
+                showCancel={true}
+                confirmText={confirmDialog.confirmText}
+                onConfirm={confirmDialog.onConfirm}
+            />
+            <AlertDialog
+                isOpen={actionAlert.isOpen}
+                onClose={() => setActionAlert((prev) => ({ ...prev, isOpen: false }))}
+                title={actionAlert.title}
+                message={actionAlert.message}
+                type={actionAlert.type}
             />
         </div>
     )

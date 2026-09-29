@@ -107,7 +107,8 @@ export enum PaymentStatus {
     Successful = 'Successful',
     Failed = 'Failed',
     Pending = 'Pending',
-    Canceled = 'Canceled'
+    Canceled = 'Canceled',
+    Refunded = 'Refunded',
 }
 
 export interface Payment {
@@ -120,6 +121,8 @@ export interface Payment {
     plan: string;
     status: PaymentStatus;
     date: string;
+    paymentMethodName?: string;
+    gatewayTranRef?: string;
 }
 
 /** Mirrors API PaymentStatus / invoice `payment_status` (read-only on invoice). */
@@ -310,6 +313,7 @@ export interface PaymentGateway {
     terminalId?: string;
     username?: string;
     password?: string;
+    apiBaseUrl?: string;
     // FIB (First Iraqi Bank) / Al Qaseh OAuth-style credentials
     clientId?: string;
     clientSecret?: string;

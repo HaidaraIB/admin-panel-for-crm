@@ -58,6 +58,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         baseUrl: config.baseUrl || '',
         payBaseUrl: config.payBaseUrl || '',
         currency: config.currency || '',
+        apiBaseUrl: config.apiBaseUrl || '',
       });
       setTestStatus('idle'); // Reset test status when modal opens or gateway changes
       setTestMessage(''); // Reset test message
@@ -471,6 +472,21 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                 </button>
                             </div>
                             {maskedHint(formData.password)}
+                        </div>
+                        <div>
+                            <label htmlFor="apiBaseUrl" className={labelClasses}>{t('paymentGateways.modal.qicardApiBaseUrl')}</label>
+                            <input
+                                id="apiBaseUrl"
+                                name="apiBaseUrl"
+                                type="text"
+                                value={formData.apiBaseUrl || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                                placeholder="https://uat-sandbox-3ds-api.qi.iq"
+                                autoComplete="off"
+                                dir="ltr"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('paymentGateways.modal.qicardApiBaseUrlHint')}</p>
                         </div>
                     </>
                 ) : isFib ? (

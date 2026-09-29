@@ -649,6 +649,31 @@ export const updatePaymentAPI = async (id: number, paymentData: any) => {
   });
 };
 
+/**
+ * Refund a completed QiCard payment (full amount when amount omitted).
+ * POST /api/payments/{id}/refund/
+ */
+export const refundPaymentAPI = async (
+  id: number,
+  body?: { amount?: number; message?: string },
+) => {
+  return apiRequest<any>(`/payments/${id}/refund/`, {
+    method: 'POST',
+    body: JSON.stringify(body ?? {}),
+  });
+};
+
+/**
+ * Cancel a completed QiCard payment via gateway API.
+ * POST /api/payments/{id}/cancel/
+ */
+export const cancelPaymentAPI = async (id: number, body?: { amount?: number }) => {
+  return apiRequest<any>(`/payments/${id}/cancel/`, {
+    method: 'POST',
+    body: JSON.stringify(body ?? {}),
+  });
+};
+
 // ==================== Users APIs ====================
 
 /**
