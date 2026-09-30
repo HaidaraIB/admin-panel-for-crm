@@ -12,6 +12,7 @@ import GatewayCardSkeleton from '../components/GatewayCardSkeleton';
 import { getPaymentGatewaysAPI, getPaymentGatewayAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI, createPaymentGatewayAPI } from '../services/api';
 import { buildUpdateDiff } from '../utils/buildUpdateDiff';
 import { enabledCardRivals } from '../utils/cardGateways';
+import PaymentGatewayLogo from '../components/PaymentGatewayLogo';
 
 function gatewayStatusToApi(status: PaymentGatewayStatus | string): string {
     if (status === PaymentGatewayStatus.Active || status === 'active') return 'active';
@@ -40,43 +41,16 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
     
     const currentStatus = statusMap[gateway.status];
     const isToggleDisabled = gateway.status === PaymentGatewayStatus.SetupRequired;
-    const gatewayNameLower = gateway.name.toLowerCase();
-    const isPaytabs = gatewayNameLower.includes('paytabs');
-    const isStripe = gatewayNameLower.includes('stripe');
-    const isZaincash = gatewayNameLower.includes('zaincash') || gatewayNameLower.includes('zain cash');
-    const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
-    const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
-    // Same alias set the backend uses to resolve the operator-typed Al Qaseh gateway name.
-    const isAlqaseh =
-        gatewayNameLower.includes('alqaseh') ||
-        gatewayNameLower.includes('al qaseh') ||
-        gatewayNameLower.includes('al-qaseh') ||
-        gatewayNameLower.includes('qaseh');
-
-    const getGatewayLogo = () => {
-        if (isPaytabs) {
-            return <img src="/paytabs_logo.png" alt="PayTabs" className="h-10 w-auto object-contain" />;
-        } else if (isStripe) {
-            return <img src="/stripe_logo.png" alt="Stripe" className="h-10 w-auto object-contain" />;
-        } else if (isZaincash) {
-            return <img src="/zain_cash_logo.png" alt="Zain Cash" className="h-10 w-auto object-contain" />;
-        } else if (isQicard) {
-            return <img src="/q_card_logo.svg" alt="QiCard" className="h-10 w-auto object-contain" />;
-        } else if (isFib) {
-            return <img src="/fib_logo.png" alt="FIB" className="h-10 w-auto object-contain" />;
-        } else if (isAlqaseh) {
-            return <img src="/alqaseh_logo.png" alt="Al Qaseh" className="h-10 w-auto object-contain" />;
-        } else {
-            return <i className={`pf pf-${gateway.id.toLowerCase()} pf-3x`}></i>;
-        }
-    };
-
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border dark:border-gray-700 flex flex-col justify-between transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <div>
                 <div className="flex justify-between items-start mb-4">
                     <div className="h-10 flex items-center gap-3 rtl:gap-3 text-gray-700 dark:text-gray-300">
-                        {getGatewayLogo()}
+                        <PaymentGatewayLogo
+                            gatewayName={gateway.name}
+                            imageClassName="h-10 w-auto object-contain"
+                            paymentFontKey={gateway.id}
+                        />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white">{gateway.name}</h3>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer" title={isToggleDisabled ? "Setup required to enable" : (gateway.enabled ? "Deactivate" : "Activate")}>

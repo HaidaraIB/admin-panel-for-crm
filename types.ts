@@ -122,7 +122,12 @@ export interface Payment {
     status: PaymentStatus;
     date: string;
     paymentMethodName?: string;
+    /** QiCard (or gateway) paymentId — API `tran_ref`. */
     gatewayTranRef?: string;
+    /** Checkout requestId sent to the gateway — API `gateway_request_id`. */
+    gatewayRequestId?: string;
+    /** QiCard refundId after admin refund — API `gateway_refund_id`. */
+    gatewayRefundId?: string;
 }
 
 /** Mirrors API PaymentStatus / invoice `payment_status` (read-only on invoice). */
