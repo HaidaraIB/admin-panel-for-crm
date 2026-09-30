@@ -24,12 +24,22 @@ import { buildUpdateDiff } from '../utils/buildUpdateDiff';
 import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getPlatformWhatsAppSettingsAPI, updatePlatformWhatsAppSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getRegistrationEmailRequirementAPI, updateRegistrationEmailRequirementAPI, type PhoneOtpChannel, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getPlatformOtpiqSettingsAPI, updatePlatformOtpiqSettingsAPI, getPlatformWhatsAppSettingsAPI, updatePlatformWhatsAppSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getRegistrationEmailRequirementAPI, updateRegistrationEmailRequirementAPI, type PhoneOtpChannel, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
 import { withLatinDigits } from '../utils/latinNumerals';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
 const BACKUP_SCHEDULE_STORAGE_KEY = 'systemSettings.backupSchedule';
+
+function fieldErrorsFromApi(error: unknown): Record<string, string> {
+    const fields = (error as { fields?: Record<string, string | string[]> })?.fields;
+    if (!fields) return {};
+    const out: Record<string, string> = {};
+    for (const [key, val] of Object.entries(fields)) {
+        out[key] = Array.isArray(val) ? val.join(' ') : String(val);
+    }
+    return out;
+}
 
 const loadStoredSchedule = (): BackupSchedule => {
     if (typeof window === 'undefined') return 'daily';
@@ -1155,6 +1165,7 @@ const TwilioSmsSettings: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
 
     useEffect(() => {
@@ -1195,6 +1206,7 @@ const TwilioSmsSettings: React.FC = () => {
     const handleSave = async () => {
         setIsSaving(true);
         setFeedback(null);
+        setFieldErrors({});
         try {
             const next: Record<string, unknown> = {
                 account_sid: accountSid.trim(),
@@ -1220,6 +1232,7 @@ const TwilioSmsSettings: React.FC = () => {
             });
         } catch (error: any) {
             console.error('Failed to save Twilio settings', error);
+            setFieldErrors(fieldErrorsFromApi(error));
             setFeedback({ type: 'error', message: error?.message || t('settings.twilio.saveError') || 'Failed to save Twilio settings' });
         } finally {
             setIsSaving(false);
@@ -1268,6 +1281,9 @@ const TwilioSmsSettings: React.FC = () => {
                             className="max-w-md"
                             placeholder="ACxxxxxxxxxx"
                         />
+                        {fieldErrors.account_sid ? (
+                            <p className="mt-1 text-xs text-red-500">{fieldErrors.account_sid}</p>
+                        ) : null}
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.authToken')}</label>
@@ -1294,6 +1310,9 @@ const TwilioSmsSettings: React.FC = () => {
                             </button>
                         </div>
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.authTokenHelp')}</p>
+                        {fieldErrors.auth_token ? (
+                            <p className="mt-1 text-xs text-red-500">{fieldErrors.auth_token}</p>
+                        ) : null}
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.twilioNumber')}</label>
@@ -1305,6 +1324,9 @@ const TwilioSmsSettings: React.FC = () => {
                             placeholder="+9647xxxxxxxx"
                         />
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.twilioNumberHelp')}</p>
+                        {fieldErrors.twilio_number ? (
+                            <p className="mt-1 text-xs text-red-500">{fieldErrors.twilio_number}</p>
+                        ) : null}
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.twilio.senderId')}</label>
@@ -1316,6 +1338,9 @@ const TwilioSmsSettings: React.FC = () => {
                             placeholder="Optional"
                         />
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.senderIdHelp')}</p>
+                        {fieldErrors.sender_id ? (
+                            <p className="mt-1 text-xs text-red-500">{fieldErrors.sender_id}</p>
+                        ) : null}
                     </div>
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -1329,6 +1354,158 @@ const TwilioSmsSettings: React.FC = () => {
                             <label htmlFor="twilio-enabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.twilio.isEnabled')}</label>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.twilio.isEnabledHelp')}</p>
+                    </div>
+                </div>
+            )}
+        </SettingsSectionLayout>
+    );
+};
+
+const PlatformOtpiqSettingsPanel: React.FC = () => {
+    const { t } = useI18n();
+    const { addLog } = useAuditLog();
+    const [apiKey, setApiKey] = useState('');
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [senderId, setSenderId] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
+
+    useEffect(() => {
+        loadSettings();
+    }, []);
+
+    useEffect(() => {
+        if (!feedback) return;
+        const timer = setTimeout(() => setFeedback(null), 6000);
+        return () => clearTimeout(timer);
+    }, [feedback]);
+
+    const loadSettings = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getPlatformOtpiqSettingsAPI();
+            if (data) {
+                setSenderId(data.sender_id || '');
+                setApiKey('');
+                setLoadedSettings({
+                    sender_id: data.sender_id || '',
+                });
+            }
+        } catch (error) {
+            console.error('Failed to load OTPIQ settings', error);
+            setFeedback({ type: 'error', message: t('settings.otpiq.loadError') });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        setFeedback(null);
+        setFieldErrors({});
+        try {
+            const next: Record<string, unknown> = {
+                sender_id: senderId.trim(),
+            };
+            if (apiKey.trim()) next.api_key = apiKey.trim();
+            const diff = buildUpdateDiff(loadedSettings ?? {}, next);
+            if (Object.keys(diff).length === 0) {
+                setFeedback({ type: 'success', message: t('settings.otpiq.saveSuccess') });
+                return;
+            }
+            await updatePlatformOtpiqSettingsAPI(diff);
+            addLog('audit.log.otpiqSettingsSaved');
+            setFeedback({ type: 'success', message: t('settings.otpiq.saveSuccess') });
+            setApiKey('');
+            setLoadedSettings({
+                sender_id: senderId.trim(),
+            });
+        } catch (error: any) {
+            setFieldErrors(fieldErrorsFromApi(error));
+            setFeedback({ type: 'error', message: error?.message || t('settings.otpiq.saveError') });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const renderFeedback = () => {
+        if (!feedback) return null;
+        const isSuccess = feedback.type === 'success';
+        return (
+            <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
+                isSuccess
+                    ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
+                    : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
+            }`}>
+                <Icon name={isSuccess ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span>{feedback.message}</span>
+            </div>
+        );
+    };
+
+    return (
+        <SettingsSectionLayout
+            header={
+                <SettingsSectionHeader
+                    title={t('settings.otpiq.title')}
+                    description={t('settings.otpiq.description')}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                />
+            }
+        >
+            {renderFeedback()}
+            {isLoading ? (
+                <div className="flex justify-center py-8">
+                    <LoadingSpinner />
+                </div>
+            ) : (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.otpiq.apiKey')}</label>
+                        <div className="flex items-center gap-2 max-w-md">
+                            <FormInput
+                                type={showApiKey ? 'text' : 'password'}
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                autoComplete="new-password"
+                                name="otpiq_platform_api_key"
+                                id="otpiq_platform_api_key"
+                                data-form-type="other"
+                                className="flex-1"
+                                placeholder={t('settings.otpiq.apiKeyPlaceholder')}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowApiKey((v) => !v)}
+                                className="p-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                title={showApiKey ? t('settings.otpiq.hideKey') : t('settings.otpiq.showKey')}
+                                aria-label={showApiKey ? t('settings.otpiq.hideKey') : t('settings.otpiq.showKey')}
+                            >
+                                <Icon name={showApiKey ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.otpiq.apiKeyHelp')}</p>
+                        {fieldErrors.api_key ? (
+                            <p className="mt-1 text-xs text-red-500">{fieldErrors.api_key}</p>
+                        ) : null}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.otpiq.senderId')}</label>
+                        <FormInput
+                            type="text"
+                            value={senderId}
+                            onChange={(e) => setSenderId(e.target.value)}
+                            className="max-w-md"
+                            placeholder="Optional"
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.otpiq.senderIdHelp')}</p>
+                        {fieldErrors.sender_id ? (
+                            <p className="mt-1 text-xs text-red-500">{fieldErrors.sender_id}</p>
+                        ) : null}
                     </div>
                 </div>
             )}
@@ -1350,6 +1527,7 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
 
     useEffect(() => {
@@ -1392,6 +1570,7 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
     const handleSave = async () => {
         setIsSaving(true);
         setFeedback(null);
+        setFieldErrors({});
         try {
             const next: Record<string, unknown> = {
                 phone_number_id: phoneNumberId.trim(),
@@ -1420,6 +1599,7 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                 admin_template_lang: adminTemplateLang.trim(),
             });
         } catch (error: any) {
+            setFieldErrors(fieldErrorsFromApi(error));
             setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.platformWhatsapp.saveError') });
         } finally {
             setIsSaving(false);
@@ -1463,6 +1643,9 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.phoneNumberId')}</label>
                             <FormInput type="text" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} className="max-w-md" />
+                            {fieldErrors.phone_number_id ? (
+                                <p className="mt-1 text-xs text-red-500">{fieldErrors.phone_number_id}</p>
+                            ) : null}
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.accessToken')}</label>
@@ -1480,6 +1663,9 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                                 </button>
                             </div>
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.platformWhatsapp.accessTokenHelp')}</p>
+                            {fieldErrors.access_token ? (
+                                <p className="mt-1 text-xs text-red-500">{fieldErrors.access_token}</p>
+                            ) : null}
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.graphVersion')}</label>
@@ -1521,6 +1707,9 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                             <div className="sm:col-span-2">
                                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateName')}</label>
                                 <FormInput type="text" value={otpTemplateName} onChange={(e) => setOtpTemplateName(e.target.value)} />
+                                {fieldErrors.otp_template_name ? (
+                                    <p className="mt-1 text-xs text-red-500">{fieldErrors.otp_template_name}</p>
+                                ) : null}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.platformWhatsapp.otpTemplateLang')}</label>
@@ -1554,7 +1743,7 @@ const RegistrationOtpSettings: React.FC = () => {
             setPhoneOtpRequired(!!data.phone_otp_required);
             setEmailVerificationRequired(!!emailData.email_verification_required);
             const ch = data.phone_otp_channel;
-            if (ch === 'whatsapp' || ch === 'twilio_sms') {
+            if (ch === 'whatsapp' || ch === 'twilio_sms' || ch === 'otpiq') {
                 setPhoneOtpChannel(ch);
             }
         } catch (error: any) {
@@ -1590,7 +1779,7 @@ const RegistrationOtpSettings: React.FC = () => {
             ]);
             setPhoneOtpRequired(!!data.phone_otp_required);
             setEmailVerificationRequired(!!emailData.email_verification_required);
-            if (data.phone_otp_channel === 'whatsapp' || data.phone_otp_channel === 'twilio_sms') {
+            if (data.phone_otp_channel === 'whatsapp' || data.phone_otp_channel === 'twilio_sms' || data.phone_otp_channel === 'otpiq') {
                 setPhoneOtpChannel(data.phone_otp_channel);
             }
             const chLabel =
@@ -1598,7 +1787,9 @@ const RegistrationOtpSettings: React.FC = () => {
                     ? t('settings.registrationOtp.channelWhatsapp')
                     : phoneOtpRequired && phoneOtpChannel === 'twilio_sms'
                       ? t('settings.registrationOtp.channelTwilio')
-                      : '';
+                      : phoneOtpRequired && phoneOtpChannel === 'otpiq'
+                        ? t('settings.registrationOtp.channelOtpiq')
+                        : '';
             addLog('audit.log.registrationOtpUpdated', {
                 state: phoneOtpRequired ? `${t('common.enabled')} (${chLabel})` : t('common.disabled'),
             });
@@ -1681,6 +1872,16 @@ const RegistrationOtpSettings: React.FC = () => {
                                         className="text-primary-600 focus:ring-primary-500"
                                     />
                                     <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.registrationOtp.channelTwilio')}</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="phone-otp-channel"
+                                        checked={phoneOtpChannel === 'otpiq'}
+                                        onChange={() => setPhoneOtpChannel('otpiq')}
+                                        className="text-primary-600 focus:ring-primary-500"
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.registrationOtp.channelOtpiq')}</span>
                                 </label>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.registrationOtp.channelHelp')}</p>
                             </div>
@@ -2395,7 +2596,7 @@ const SystemSettings: React.FC = () => {
     const loadSavedTab = (): string => {
         if (typeof window === 'undefined') return 'general';
         const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'integrations', 'features', 'security', 'twilio', 'platformWhatsapp', 'registrationOtp', 'loginLockout', 'limitedAdmins', 'audit', 'billing'];
+        const validTabs = ['general', 'integrations', 'features', 'security', 'twilio', 'platformOtpiq', 'platformWhatsapp', 'registrationOtp', 'loginLockout', 'limitedAdmins', 'audit', 'billing'];
         if (saved && validTabs.includes(saved)) {
             return saved;
         }
@@ -2424,6 +2625,7 @@ const SystemSettings: React.FC = () => {
         { id: 'features', label: t('settings.menu.features') || 'Features' },
         { id: 'security', label: t('settings.menu.security') },
         { id: 'twilio', label: t('settings.menu.twilio') || 'Twilio (SMS)' },
+        { id: 'platformOtpiq', label: t('settings.menu.otpiq') || 'OTPIQ' },
         { id: 'platformWhatsapp', label: t('settings.menu.platformWhatsapp') || 'Platform WhatsApp' },
         { id: 'registrationOtp', label: t('settings.menu.registrationOtp') || 'Registration OTP' },
         { id: 'loginLockout', label: t('settings.menu.loginLockout') || 'Login Lockout' },
@@ -2442,6 +2644,7 @@ const SystemSettings: React.FC = () => {
             case 'features': return <FeaturesControlSettings />;
             case 'security': return <SecurityBackups />;
             case 'twilio': return <TwilioSmsSettings />;
+            case 'platformOtpiq': return <PlatformOtpiqSettingsPanel />;
             case 'platformWhatsapp': return <PlatformWhatsAppSettingsPanel />;
             case 'registrationOtp': return <RegistrationOtpSettings />;
             case 'loginLockout': return <LoginLockoutSettings />;

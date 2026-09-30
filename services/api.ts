@@ -1376,7 +1376,41 @@ export const updatePlatformTwilioSettingsAPI = async (data: {
   });
 };
 
-export type PhoneOtpChannel = 'whatsapp' | 'twilio_sms';
+/**
+ * Get platform OTPIQ settings (registration phone OTP).
+ * GET /api/settings/platform-otpiq/1/
+ */
+export const getPlatformOtpiqSettingsAPI = async () => {
+  try {
+    const response = await apiRequest<any>('/settings/platform-otpiq/1/');
+    return response;
+  } catch (error: unknown) {
+    if (isApiNotFoundError(error)) {
+      return {
+        id: 1,
+        api_key_masked: null,
+        sender_id: '',
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Update platform OTPIQ settings (partial).
+ * PATCH /api/settings/platform-otpiq/1/
+ */
+export const updatePlatformOtpiqSettingsAPI = async (data: {
+  api_key?: string;
+  sender_id?: string;
+}) => {
+  return apiRequest<any>('/settings/platform-otpiq/1/', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export type PhoneOtpChannel = 'whatsapp' | 'twilio_sms' | 'otpiq';
 
 /** GET /auth/register/phone-otp-requirement/ */
 export const getPhoneOtpRequirementAPI = async () => {
