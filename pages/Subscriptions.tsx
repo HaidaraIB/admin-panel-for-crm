@@ -791,10 +791,13 @@ function normalizeInvoicePaymentStatus(raw: string | undefined): InvoicePaymentS
     if (s === 'pending') return 'pending';
     if (s === 'failed') return 'failed';
     if (s === 'canceled' || s === 'cancelled') return 'canceled';
+    if (s === 'refunded') return 'refunded';
     return 'pending';
 }
 
-function invoiceStatusLabelKey(ps: InvoicePaymentStatus): 'Successful' | 'Pending' | 'Failed' | 'Canceled' {
+function invoiceStatusLabelKey(
+    ps: InvoicePaymentStatus,
+): 'Successful' | 'Pending' | 'Failed' | 'Canceled' | 'Refunded' {
     switch (ps) {
         case 'completed':
             return 'Successful';
@@ -804,6 +807,8 @@ function invoiceStatusLabelKey(ps: InvoicePaymentStatus): 'Successful' | 'Pendin
             return 'Failed';
         case 'canceled':
             return 'Canceled';
+        case 'refunded':
+            return 'Refunded';
         default:
             return 'Pending';
     }
@@ -814,9 +819,16 @@ const invoicePaymentStatusColors: Record<InvoicePaymentStatus, string> = {
     pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
     failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
     canceled: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    refunded: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
 };
 
-const INVOICE_STATUS_OPTIONS: InvoicePaymentStatus[] = ['completed', 'pending', 'failed', 'canceled'];
+const INVOICE_STATUS_OPTIONS: InvoicePaymentStatus[] = [
+    'completed',
+    'pending',
+    'failed',
+    'canceled',
+    'refunded',
+];
 
 const InvoicesTab: React.FC = () => {
     const { t, language } = useI18n();

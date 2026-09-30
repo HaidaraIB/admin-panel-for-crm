@@ -131,7 +131,7 @@ export interface Payment {
 }
 
 /** Mirrors API PaymentStatus / invoice `payment_status` (read-only on invoice). */
-export type InvoicePaymentStatus = 'completed' | 'pending' | 'failed' | 'canceled';
+export type InvoicePaymentStatus = 'completed' | 'pending' | 'failed' | 'canceled' | 'refunded';
 
 export interface Invoice {
     /** Numeric PK for API actions (PDF, email). */
