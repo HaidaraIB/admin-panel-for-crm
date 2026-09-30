@@ -25,6 +25,7 @@ import {
   downloadInvoicePdfAPI,
   sendInvoiceEmailAPI,
   getBillingSettingsAPI,
+  getSubscriptionAPI,
 } from '../services/api';
 import { getPaymentsAPI, refundPaymentAPI, cancelPaymentAPI } from '../services/api';
 import PaginationControls from '../components/PaginationControls';
@@ -36,6 +37,7 @@ import { buildUpdateDiff } from '../utils/buildUpdateDiff';
 import AlertDialog from '../components/AlertDialog';
 import PaymentGatewayLogo from '../components/PaymentGatewayLogo';
 import PaymentDetailsModal from '../components/PaymentDetailsModal';
+import SubscriptionViewModal from '../components/SubscriptionViewModal';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
 import SubscriptionsFilterDrawer, {
@@ -43,6 +45,15 @@ import SubscriptionsFilterDrawer, {
   subscriptionsFilterDefaults,
 } from '../components/SubscriptionsFilterDrawer';
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
+
+function planIsDeletable(plan: Plan): boolean {
+  const total =
+    (plan.subscriptionCount ?? 0) +
+    (plan.pendingSubscriptionCount ?? 0) +
+    (plan.trialCodeCount ?? 0) +
+    (plan.targetPaymentCount ?? 0);
+  return total === 0;
+}
 
 const dateInRange = (dateStr: string | undefined | null, fromDate: string, toDate: string): boolean => {
   if (!fromDate && !toDate) return true;
@@ -125,6 +136,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     const [planToToggleVisibility, setPlanToToggleVisibility] = useState<Plan | null>(null);
     const [isVisibilityDialogOpen, setIsVisibilityDialogOpen] = useState(false);
     const [isTogglingVisibility, setIsTogglingVisibility] = useState(false);
+    const [isPlanViewOnly, setIsPlanViewOnly] = useState(false);
 
     useEffect(() => {
         loadPlans();
@@ -158,6 +170,10 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 entitlementsUsageLimitsMonthly: plan.usage_limits_monthly || {},
                 tier: typeof plan.tier === 'number' ? plan.tier : 0,
                 visible: plan.visible !== false, // API field: visible
+                subscriptionCount: plan.subscription_count ?? 0,
+                pendingSubscriptionCount: plan.pending_subscription_count ?? 0,
+                trialCodeCount: plan.trial_code_count ?? 0,
+                targetPaymentCount: plan.target_payment_count ?? 0,
             }));
             setPlans(apiPlans);
         } catch (error) {
@@ -168,6 +184,13 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     };
 
     const handleOpenModal = (plan: Plan | null) => {
+        setIsPlanViewOnly(false);
+        setEditingPlan(plan);
+        setIsModalOpen(true);
+    };
+
+    const handleOpenViewPlan = (plan: Plan) => {
+        setIsPlanViewOnly(true);
         setEditingPlan(plan);
         setIsModalOpen(true);
     };
@@ -175,6 +198,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setEditingPlan(null);
+        setIsPlanViewOnly(false);
     };
 
     const [isSavingPlan, setIsSavingPlan] = useState(false);
@@ -304,7 +328,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     const planNameForDisplay = language === 'ar' && (plan.nameAr?.trim()?.length)
                         ? plan.nameAr
                         : plan.name;
-                    const isDeletable = !tenants.some(tenant => tenant.currentPlan === plan.name);
+                    const isDeletable = planIsDeletable(plan);
                     return (
                         <div key={plan.id} className="bg-primary-50 dark:bg-gray-800 rounded-lg shadow-md p-6 border-t-4 border-primary-500 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                             <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{planNameForDisplay}</h3>
@@ -366,6 +390,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                                     )}
                                 </div>
                                 <div className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse justify-end' : 'justify-start'}`}>
+                                    <button type="button" onClick={() => handleOpenViewPlan(plan)} className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t('common.view')}><Icon name="view" className="w-5 h-5"/></button>
                                     <button onClick={() => handleOpenModal(plan)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t('subscriptions.plans.editPlan')}><Icon name="edit" className="w-5 h-5"/></button>
                                     <button 
                                         onClick={() => openDeleteDialog(plan)} 
@@ -388,6 +413,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             onSave={handleSavePlan}
             planToEdit={editingPlan}
             isLoading={isSavingPlan}
+            readOnly={isPlanViewOnly}
             trialSlotTaken={plans.some(p => p.type === 'Trial' && p.id !== editingPlan?.id)}
             freeForeverSlotTaken={plans.some(p => p.type === 'Free' && p.id !== editingPlan?.id)}
         />
@@ -1119,6 +1145,24 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const [isTogglingSub, setIsTogglingSub] = useState(false);
   const [filters, setFilters] = useState<SubscriptionsFilters>(subscriptionsFilterDefaults);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [subscriptionViewOpen, setSubscriptionViewOpen] = useState(false);
+  const [subscriptionViewLoading, setSubscriptionViewLoading] = useState(false);
+  const [subscriptionViewDetail, setSubscriptionViewDetail] = useState<Record<string, unknown> | null>(null);
+
+  const openSubscriptionView = async (subId: number) => {
+    setSubscriptionViewOpen(true);
+    setSubscriptionViewLoading(true);
+    setSubscriptionViewDetail(null);
+    try {
+      const data = await getSubscriptionAPI(subId);
+      setSubscriptionViewDetail(data as Record<string, unknown>);
+    } catch (error: unknown) {
+      showAlert(translateAdminApiError(error, t) || t('errors.loadSubscription'), { variant: 'error' });
+      setSubscriptionViewOpen(false);
+    } finally {
+      setSubscriptionViewLoading(false);
+    }
+  };
 
   const loadSubscriptions = async (page = currentPage) => {
     setIsLoading(true);
@@ -1326,7 +1370,15 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void openSubscriptionView(sub.id)}
+                          className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          title={t('common.view')}
+                        >
+                          <Icon name="view" className="w-5 h-5" />
+                        </button>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input 
                             type="checkbox" 
@@ -1374,6 +1426,31 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
           confirmText={t('subscriptions.activation.confirmActivate')}
           onConfirm={handleNoPaymentConfirmActivate}
           disabled={isTogglingSub}
+        />
+        <SubscriptionViewModal
+          isOpen={subscriptionViewOpen}
+          onClose={() => {
+            setSubscriptionViewOpen(false);
+            setSubscriptionViewDetail(null);
+          }}
+          loading={subscriptionViewLoading}
+          subscription={
+            subscriptionViewDetail
+              ? {
+                  id: Number(subscriptionViewDetail.id),
+                  company_name: String(subscriptionViewDetail.company_name ?? ''),
+                  plan_name: String(subscriptionViewDetail.plan_name ?? ''),
+                  start_date: subscriptionViewDetail.start_date as string | undefined,
+                  end_date: subscriptionViewDetail.end_date as string | undefined,
+                  current_period_start: subscriptionViewDetail.current_period_start as string | undefined,
+                  billing_cycle: subscriptionViewDetail.billing_cycle as string | undefined,
+                  subscription_status: subscriptionViewDetail.subscription_status as string | undefined,
+                  pending_plan_name: subscriptionViewDetail.pending_plan_name as string | null | undefined,
+                  is_active: Boolean(subscriptionViewDetail.is_active),
+                  auto_renew: Boolean(subscriptionViewDetail.auto_renew),
+                }
+              : null
+          }
         />
       </div>
       <SubscriptionsFilterDrawer

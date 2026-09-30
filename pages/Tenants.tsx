@@ -74,6 +74,7 @@ const Tenants: React.FC<TenantsProps> = ({
     const [isImpersonating, setIsImpersonating] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+    const [deleteConfirmName, setDeleteConfirmName] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
 
     const handleViewDetails = (tenant: Tenant) => {
@@ -240,6 +241,7 @@ const Tenants: React.FC<TenantsProps> = ({
 
     const handleDeleteClick = (tenant: Tenant) => {
         setTenantToDelete(tenant);
+        setDeleteConfirmName('');
         setIsDeleteConfirmOpen(true);
     };
 
@@ -251,6 +253,7 @@ const Tenants: React.FC<TenantsProps> = ({
             showAlert(t('tenants.delete.success'), { variant: 'success' });
             setIsDeleteConfirmOpen(false);
             setTenantToDelete(null);
+            setDeleteConfirmName('');
             if (onRefresh) await onRefresh();
         } catch {
             // Error already shown by App handleDeleteTenant
@@ -451,7 +454,7 @@ const Tenants: React.FC<TenantsProps> = ({
                 </div>
             )}
             {isDeleteConfirmOpen && tenantToDelete && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4" onClick={() => !isDeleting && (setIsDeleteConfirmOpen(false), setTenantToDelete(null))}>
+                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4" onClick={() => !isDeleting && (setIsDeleteConfirmOpen(false), setTenantToDelete(null), setDeleteConfirmName(''))}>
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                             {t('tenants.delete.confirmTitle')}
@@ -459,12 +462,21 @@ const Tenants: React.FC<TenantsProps> = ({
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                             {t('tenants.delete.confirmMessage')}
                         </p>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-                            {tenantToDelete.name}
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                            {t('tenants.delete.typeNameHint')}
                         </p>
+                        <input
+                            type="text"
+                            value={deleteConfirmName}
+                            onChange={(e) => setDeleteConfirmName(e.target.value)}
+                            className="w-full px-3 py-2 mb-4 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            dir="auto"
+                            placeholder={tenantToDelete.name}
+                            autoComplete="off"
+                        />
                         <div className={`flex gap-3 ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
                             <button
-                                onClick={() => { setIsDeleteConfirmOpen(false); setTenantToDelete(null); }}
+                                onClick={() => { setIsDeleteConfirmOpen(false); setTenantToDelete(null); setDeleteConfirmName(''); }}
                                 disabled={isDeleting}
                                 className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
                             >
@@ -472,8 +484,8 @@ const Tenants: React.FC<TenantsProps> = ({
                             </button>
                             <button
                                 onClick={handleDeleteConfirm}
-                                disabled={isDeleting}
-                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50"
+                                disabled={isDeleting || deleteConfirmName !== tenantToDelete.name}
+                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isDeleting ? '...' : t('tenants.actions.delete')}
                             </button>

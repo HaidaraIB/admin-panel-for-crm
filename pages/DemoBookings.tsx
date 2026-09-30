@@ -32,6 +32,9 @@ import {
   deleteDemoBookingAPI,
 } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import AlertDialog from '../components/AlertDialog';
+
+const canDeleteDemoBooking = (status: string) => status === 'pending' || status === 'cancelled';
 import DemoBookingStatusCell, {
   DEMO_BOOKING_STATUS_BADGE_CLASS,
 } from '../components/DemoBookingStatusCell';
@@ -381,16 +384,18 @@ const ReservationsTab: React.FC<{
                         >
                           <Icon name="eye" className="w-5 h-5" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setBookingToDelete(b)}
-                          disabled={deletingId === b.id}
-                          className="inline-flex items-center justify-center p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 focus:outline-none disabled:opacity-50"
-                          title={t('demoBookings.delete')}
-                          aria-label={t('demoBookings.delete')}
-                        >
-                          <Icon name="trash" className="w-5 h-5" />
-                        </button>
+                        {canDeleteDemoBooking(b.status) ? (
+                          <button
+                            type="button"
+                            onClick={() => setBookingToDelete(b)}
+                            disabled={deletingId === b.id}
+                            className="inline-flex items-center justify-center p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 focus:outline-none disabled:opacity-50"
+                            title={t('demoBookings.delete')}
+                            aria-label={t('demoBookings.delete')}
+                          >
+                            <Icon name="trash" className="w-5 h-5" />
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -575,6 +580,8 @@ const AvailabilityTab: React.FC<{
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<DemoBookingSettings | null>(null);
   const [blockedDates, setBlockedDates] = useState<{ id: number; date: string; reason: string }[]>([]);
+  const [blockedToDelete, setBlockedToDelete] = useState<{ id: number; date: string } | null>(null);
+  const [deletingBlockedId, setDeletingBlockedId] = useState<number | null>(null);
   const [newBlockDate, setNewBlockDate] = useState('');
   const [newBlockReason, setNewBlockReason] = useState('');
 
@@ -650,12 +657,18 @@ const AvailabilityTab: React.FC<{
     }
   };
 
-  const handleDeleteBlocked = async (id: number) => {
+  const handleDeleteBlockedConfirm = async () => {
+    if (!blockedToDelete) return;
+    const id = blockedToDelete.id;
+    setDeletingBlockedId(id);
     try {
       await deleteDemoBookingBlockedDateAPI(id);
       setBlockedDates((prev) => prev.filter((b) => b.id !== id));
+      setBlockedToDelete(null);
     } catch {
       showToast(t('common.error') || 'Error', { variant: 'error' });
+    } finally {
+      setDeletingBlockedId(null);
     }
   };
 
@@ -854,7 +867,7 @@ const AvailabilityTab: React.FC<{
               <button
                 type="button"
                 className="text-red-600 dark:text-red-400 hover:underline"
-                onClick={() => void handleDeleteBlocked(b.id)}
+                onClick={() => setBlockedToDelete({ id: b.id, date: b.date })}
               >
                 {t('tickets.delete')}
               </button>
@@ -862,6 +875,18 @@ const AvailabilityTab: React.FC<{
           ))}
         </ul>
       </div>
+      <AlertDialog
+        isOpen={!!blockedToDelete}
+        title={t('demoBookings.blocked.deleteTitle')}
+        message={t('demoBookings.blocked.deleteMessage').replace('{date}', blockedToDelete?.date ?? '')}
+        type="warning"
+        showCancel
+        confirmText={deletingBlockedId ? '...' : t('common.delete')}
+        cancelText={t('common.cancel')}
+        disabled={!!deletingBlockedId}
+        onConfirm={() => void handleDeleteBlockedConfirm()}
+        onClose={() => setBlockedToDelete(null)}
+      />
       </SettingsSectionLayout>
     </div>
   );

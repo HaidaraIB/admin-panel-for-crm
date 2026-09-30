@@ -14,6 +14,7 @@ interface PlanModalProps {
   onClose: () => void;
   onSave: (plan: Omit<Plan, 'id'> & { id?: number }) => void;
   isLoading?: boolean;
+  readOnly?: boolean;
   /** True if another plan already occupies the free-trial slot (excluding the plan being edited). */
   trialSlotTaken?: boolean;
   /** True if another plan already occupies the free-forever slot (excluding the plan being edited). */
@@ -62,6 +63,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
   isLoading = false,
   trialSlotTaken = false,
   freeForeverSlotTaken = false,
+  readOnly = false,
 }) => {
   const { t, language } = useI18n();
   const { showAlert } = useAlert();
@@ -216,6 +218,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     const errorKey = validatePlanForm();
     if (errorKey) {
       showAlert(t(errorKey), { variant: 'warning' });
@@ -238,15 +241,19 @@ const PlanModal: React.FC<PlanModalProps> = ({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all" onClick={e => e.stopPropagation()}>
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h2 className="text-xl font-semibold">
-              {planToEdit ? t('subscriptions.plans.editTitle') : t('subscriptions.plans.createTitle')}
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              {readOnly
+                ? t('subscriptions.plans.viewTitle')
+                : planToEdit
+                  ? t('subscriptions.plans.editTitle')
+                  : t('subscriptions.plans.createTitle')}
             </h2>
             <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
               <Icon name="x" className="w-6 h-6" />
             </button>
           </div>
 
-          <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+          <fieldset disabled={readOnly} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto border-0 m-0 min-w-0">
             <div>
               <label htmlFor="planName" className={labelClasses}>{t('subscriptions.plans.planName')}</label>
               <input
@@ -573,25 +580,33 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 placeholder={t('subscriptions.plans.featuresArPlaceholder')}
               ></textarea>
             </div>
-          </div>
+          </fieldset>
 
           <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
-            <LoadingButton
-              type="button"
-              onClick={onClose}
-              variant="secondary"
-              disabled={isLoading}
-            >
-              {t('common.cancel')}
-            </LoadingButton>
-            <LoadingButton
-              type="submit"
-              variant="primary"
-              isLoading={isLoading}
-              loadingText={planToEdit ? t('common.updating') : t('common.saving')}
-            >
-              {t('common.savePlan')}
-            </LoadingButton>
+            {readOnly ? (
+              <LoadingButton type="button" onClick={onClose} variant="secondary">
+                {t('common.close')}
+              </LoadingButton>
+            ) : (
+              <>
+                <LoadingButton
+                  type="button"
+                  onClick={onClose}
+                  variant="secondary"
+                  disabled={isLoading}
+                >
+                  {t('common.cancel')}
+                </LoadingButton>
+                <LoadingButton
+                  type="submit"
+                  variant="primary"
+                  isLoading={isLoading}
+                  loadingText={planToEdit ? t('common.updating') : t('common.saving')}
+                >
+                  {t('common.savePlan')}
+                </LoadingButton>
+              </>
+            )}
           </div>
         </form>
       </div>

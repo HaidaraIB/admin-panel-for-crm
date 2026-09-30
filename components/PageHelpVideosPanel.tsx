@@ -8,10 +8,12 @@ import {
   getPageHelpVideoKeysAPI,
   getPageHelpVideosAPI,
   upsertPageHelpVideoAPI,
+  deletePageHelpVideoAPI,
   type PageHelpVideo,
 } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import Icon from './Icon';
+import AlertDialog from './AlertDialog';
 
 type RowState = {
   page_key: string;
@@ -22,6 +24,7 @@ type RowState = {
   is_active: boolean;
   dirty: boolean;
   saving: boolean;
+  persisted: boolean;
 };
 
 const PageHelpVideosPanel: React.FC = () => {
@@ -30,6 +33,8 @@ const PageHelpVideosPanel: React.FC = () => {
   const { showToast } = useToast();
   const [rows, setRows] = useState<RowState[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<RowState | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +58,7 @@ const PageHelpVideosPanel: React.FC = () => {
             is_active: cur?.is_active ?? true,
             dirty: false,
             saving: false,
+            persisted: Boolean(cur),
           };
         }),
       );
@@ -95,6 +101,11 @@ const PageHelpVideosPanel: React.FC = () => {
         ),
       );
       showAlert(t('content.alerts.saved'), { variant: 'success' });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.page_key === pageKey ? { ...r, persisted: true } : r,
+        ),
+      );
     } catch (error) {
       setRows((prev) =>
         prev.map((r) => (r.page_key === pageKey ? { ...r, saving: false } : r)),
@@ -107,6 +118,35 @@ const PageHelpVideosPanel: React.FC = () => {
     'w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500';
 
   const hint = useMemo(() => t('content.tutorials.hint'), [t]);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deletePageHelpVideoAPI(deleteTarget.page_key);
+      setRows((prev) =>
+        prev.map((r) =>
+          r.page_key === deleteTarget.page_key
+            ? {
+                ...r,
+                youtube_url: '',
+                title_en: '',
+                title_ar: '',
+                is_active: false,
+                dirty: false,
+                persisted: false,
+              }
+            : r,
+        ),
+      );
+      setDeleteTarget(null);
+      showAlert(t('content.tutorials.deleted'), { variant: 'success' });
+    } catch (error) {
+      showAlert(translateAdminApiError(error, t) || t('content.errors.delete'), { variant: 'error' });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -167,17 +207,29 @@ const PageHelpVideosPanel: React.FC = () => {
                     />
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <LoadingButton
-                      type="button"
-                      size="sm"
-                      icon="check"
-                      disabled={!row.dirty}
-                      isLoading={row.saving}
-                      loadingText={t('common.saving')}
-                      onClick={() => void saveRow(row.page_key)}
-                    >
-                      {t('common.save')}
-                    </LoadingButton>
+                    <div className="inline-flex items-center justify-center gap-1">
+                      <LoadingButton
+                        type="button"
+                        size="sm"
+                        icon="check"
+                        disabled={!row.dirty}
+                        isLoading={row.saving}
+                        loadingText={t('common.saving')}
+                        onClick={() => void saveRow(row.page_key)}
+                      >
+                        {t('common.save')}
+                      </LoadingButton>
+                      {row.persisted ? (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(row)}
+                          className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400"
+                          title={t('common.delete')}
+                        >
+                          <Icon name="trash" className="w-4 h-4" />
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -185,6 +237,18 @@ const PageHelpVideosPanel: React.FC = () => {
           </table>
         </div>
       </div>
+      <AlertDialog
+        isOpen={!!deleteTarget}
+        title={t('content.tutorials.deleteTitle')}
+        message={t('content.tutorials.deleteMessage')}
+        type="warning"
+        showCancel
+        confirmText={deleting ? t('common.deleting') : t('common.delete')}
+        cancelText={t('common.cancel')}
+        disabled={deleting}
+        onConfirm={() => void handleDeleteConfirm()}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   );
 };

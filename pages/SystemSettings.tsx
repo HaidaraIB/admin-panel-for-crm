@@ -758,7 +758,15 @@ const SecurityBackups: React.FC = () => {
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [scheduleSaving, setScheduleSaving] = useState(false);
     const [confirmBackupAction, setConfirmBackupAction] = useState<{ type: 'delete' | 'restore'; backup: SystemBackup } | null>(null);
+    const [backupToView, setBackupToView] = useState<SystemBackup | null>(null);
     const PAGE_SIZE = 20;
+
+    const formatBackupSize = (bytes: number) => {
+        if (!bytes) return '—';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    };
 
     useEffect(() => {
         const loadSchedule = async () => {
@@ -1058,6 +1066,15 @@ const SecurityBackups: React.FC = () => {
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center space-x-2 rtl:space-x-reverse">
                                                     <button
+                                                        type="button"
+                                                        onClick={() => setBackupToView(backup)}
+                                                        disabled={restoringId === backup.id}
+                                                        className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-40"
+                                                        title={t('common.view')}
+                                                    >
+                                                        <Icon name="view" className="w-5 h-5" />
+                                                    </button>
+                                                    <button
                                                         onClick={() => handleDownloadBackup(backup)}
                                                         disabled={restoringId === backup.id}
                                                         className="p-1 text-primary-600 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-100 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1121,6 +1138,65 @@ const SecurityBackups: React.FC = () => {
                     </nav>
                 )}
             </div>
+
+            {backupToView ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={() => setBackupToView(null)}
+                >
+                    <div
+                        className="w-full max-w-lg rounded-xl bg-white shadow-xl dark:bg-gray-800 p-6"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                            {t('settings.security.backupViewTitle')}
+                        </h3>
+                        <dl className="space-y-2 text-sm">
+                            <div className="flex justify-between gap-4">
+                                <dt className="text-gray-500 dark:text-gray-400">{t('settings.security.table.id')}</dt>
+                                <dd className="font-mono text-gray-900 dark:text-white text-end break-all">{backupToView.id}</dd>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                                <dt className="text-gray-500 dark:text-gray-400">{t('settings.security.table.status')}</dt>
+                                <dd>{t(`settings.security.status.${backupToView.status.replace('-', '_')}`)}</dd>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                                <dt className="text-gray-500 dark:text-gray-400">{t('settings.security.table.date')}</dt>
+                                <dd>{new Date(backupToView.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))}</dd>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                                <dt className="text-gray-500 dark:text-gray-400">{t('settings.security.backupView.size')}</dt>
+                                <dd>{formatBackupSize(backupToView.file_size)}</dd>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                                <dt className="text-gray-500 dark:text-gray-400">{t('settings.security.table.initiator')}</dt>
+                                <dd>{t(`settings.security.initiator.${backupToView.initiator.toLowerCase()}`)}</dd>
+                            </div>
+                            {backupToView.created_by_email ? (
+                                <div className="flex justify-between gap-4">
+                                    <dt className="text-gray-500 dark:text-gray-400">{t('settings.security.backupView.createdBy')}</dt>
+                                    <dd dir="ltr" className="[unicode-bidi:isolate]">{backupToView.created_by_email}</dd>
+                                </div>
+                            ) : null}
+                            {backupToView.notes ? (
+                                <div>
+                                    <dt className="text-gray-500 dark:text-gray-400">{t('settings.security.backupView.notes')}</dt>
+                                    <dd className="mt-1 text-gray-900 dark:text-white whitespace-pre-wrap">{backupToView.notes}</dd>
+                                </div>
+                            ) : null}
+                        </dl>
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setBackupToView(null)}
+                                className="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+                            >
+                                {t('common.close')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
 
             <AlertDialog
                 isOpen={confirmBackupAction !== null}
@@ -2051,6 +2127,7 @@ const AuditLog: React.FC = () => {
     const { t, language } = useI18n();
     const { logs } = useAuditLog();
     const [currentPage, setCurrentPage] = useState(1);
+    const [viewingLog, setViewingLog] = useState<import('../types').AuditLog | null>(null);
     const ITEMS_PER_PAGE = 10;
 
     const paginatedLogs = useMemo(() => {
@@ -2081,6 +2158,7 @@ const AuditLog: React.FC = () => {
                         <th className="px-6 py-3 text-center">{t('settings.audit.table.user')}</th>
                         <th className="px-6 py-3 text-center">{t('settings.audit.table.action')}</th>
                         <th className="px-6 py-3 text-center">{t('settings.audit.table.timestamp')}</th>
+                        <th className="px-6 py-3 text-center">{t('settings.audit.table.actions')}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2089,11 +2167,49 @@ const AuditLog: React.FC = () => {
                             <td className="px-6 py-4 text-center font-mono">{log.user}</td>
                             <td className="px-6 py-4 text-center">{formatAction(log.action)}</td>
                             <td className="px-6 py-4 text-center">{new Date(log.timestamp).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))}</td>
+                            <td className="px-6 py-4 text-center">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewingLog(log)}
+                                    className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                                    title={t('common.view')}
+                                >
+                                    <Icon name="view" className="w-5 h-5" />
+                                </button>
+                            </td>
                         </tr>
                     ))}
                 </tbody>
             </table>
         </div>
+        {viewingLog ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewingLog(null)}>
+                <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('settings.audit.viewTitle')}</h3>
+                    <dl className="space-y-3 text-sm">
+                        <div>
+                            <dt className="text-gray-500 dark:text-gray-400">{t('settings.audit.table.user')}</dt>
+                            <dd className="font-mono text-gray-900 dark:text-white mt-0.5">{viewingLog.user}</dd>
+                        </div>
+                        <div>
+                            <dt className="text-gray-500 dark:text-gray-400">{t('settings.audit.table.action')}</dt>
+                            <dd className="text-gray-900 dark:text-white mt-0.5">{formatAction(viewingLog.action)}</dd>
+                        </div>
+                        <div>
+                            <dt className="text-gray-500 dark:text-gray-400">{t('settings.audit.table.timestamp')}</dt>
+                            <dd className="text-gray-900 dark:text-white mt-0.5">
+                                {new Date(viewingLog.timestamp).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))}
+                            </dd>
+                        </div>
+                    </dl>
+                    <div className="mt-6 flex justify-end">
+                        <button type="button" onClick={() => setViewingLog(null)} className="px-4 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-700">
+                            {t('common.close')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        ) : null}
         {totalPages > 1 && (
             <nav className="flex items-center justify-between pt-4" aria-label="Table navigation">
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400">{t('settings.security.pagination.page')} <span className="font-semibold text-gray-900 dark:text-white">{currentPage}</span> {t('settings.security.pagination.of')} <span className="font-semibold text-gray-900 dark:text-white">{totalPages}</span></span>
@@ -2124,7 +2240,6 @@ const LimitedAdmins: React.FC = () => {
     const [adminToDelete, setAdminToDelete] = useState<LimitedAdmin | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-
     useEffect(() => {
         loadLimitedAdmins();
     }, []);
@@ -2386,7 +2501,14 @@ const LimitedAdmins: React.FC = () => {
                     setAdminToDelete(null);
                 }}
                 title={t('limitedAdmins.deleteConfirm') || 'Delete Limited Admin'}
-                message={t('limitedAdmins.deleteConfirmMessage') || `Are you sure you want to delete ${adminToDelete?.user.first_name} ${adminToDelete?.user.last_name}?`}
+                message={
+                  adminToDelete
+                    ? t('limitedAdmins.deleteConfirmMessage').replace(
+                        '{name}',
+                        `${adminToDelete.user.first_name} ${adminToDelete.user.last_name}`,
+                      )
+                    : ''
+                }
                 type="warning"
                 confirmText={isDeleting ? t('common.deleting') || 'Deleting...' : t('common.delete') || 'Delete'}
                 onConfirm={isDeleting ? undefined : handleDelete}

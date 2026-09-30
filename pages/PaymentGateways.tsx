@@ -69,14 +69,14 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 min-h-[40px]">{gateway.description}</p>
             </div>
-            <div className="mt-6 flex justify-between items-center">
+            <div className="mt-6 flex justify-between items-center gap-2">
                 <span className={`px-3 py-1 text-xs font-medium rounded-full ${currentStatus.bg} ${currentStatus.text_color}`}>
                     {currentStatus.text}
                 </span>
                 <button onClick={onManage} className="flex items-center space-x-2 rtl:space-x-reverse px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 dark:text-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600">
-                    <Icon name="settings" className="w-4 h-4" />
-                    <span>{t('paymentGateways.manage')}</span>
-                </button>
+                        <Icon name="settings" className="w-4 h-4" />
+                        <span>{t('paymentGateways.manage')}</span>
+                    </button>
             </div>
         </div>
     );
@@ -128,9 +128,7 @@ const PaymentGateways: React.FC = () => {
 
     const handleManage = async (gateway: PaymentGateway) => {
         try {
-            // Reload the gateway from API to get latest data including config
             const freshGateway = await getPaymentGatewayAPI(parseInt(gateway.id));
-            // Map API response to frontend format
             const mappedGateway: PaymentGateway = {
                 id: freshGateway.id.toString(),
                 name: freshGateway.name,
@@ -145,7 +143,6 @@ const PaymentGateways: React.FC = () => {
             setIsSettingsModalOpen(true);
         } catch (error) {
             console.error('Error loading gateway details:', error);
-            // Fallback to using the gateway from list if API call fails
             setSelectedGateway(gateway);
             setIsSettingsModalOpen(true);
         }
@@ -319,7 +316,7 @@ const PaymentGateways: React.FC = () => {
                         <GatewayCard 
                             key={gw.id} 
                             gateway={gw}
-                            onManage={() => handleManage(gw)}
+                            onManage={() => void handleManage(gw)}
                             onToggle={(enabled) => handleToggle(gw.id, enabled)}
                         />
                     ))

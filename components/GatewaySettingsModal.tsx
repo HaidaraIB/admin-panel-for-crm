@@ -24,9 +24,10 @@ interface GatewaySettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (gateway: PaymentGateway) => void;
+  readOnly?: boolean;
 }
 
-const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, isOpen, onClose, onSave }) => {
+const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, isOpen, onClose, onSave, readOnly = false }) => {
   const { t } = useI18n();
   const [formData, setFormData] = useState<PaymentGateway['config'] | null>(null);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -176,6 +177,10 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
   };
 
   const handleSave = (e: React.FormEvent) => {
+    if (readOnly) {
+      e.preventDefault();
+      return;
+    }
     e.preventDefault();
     const gatewayNameLower = gateway.name.toLowerCase();
     const isPaytabs = gatewayNameLower.includes('paytabs') || gateway.id.toLowerCase().includes('paytabs');
@@ -299,14 +304,17 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
                 <div className="flex items-center space-x-3 rtl:space-x-reverse">
                     {getGatewayLogo()}
-                    <h2 className="text-xl font-semibold">{gateway.name} {t('paymentGateways.modal.title')}</h2>
+                    <h2 className="text-xl font-semibold">
+                      {gateway.name}{' '}
+                      {readOnly ? t('paymentGateways.viewTitle') : t('paymentGateways.modal.title')}
+                    </h2>
                 </div>
                 <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
                     <Icon name="x" className="w-6 h-6" />
                 </button>
             </div>
             
-            <div className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
+            <fieldset disabled={readOnly} className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0 border-0 m-0 min-w-0">
                 {isPaytabs ? (
                     <>
                         <div>
@@ -735,6 +743,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                 </div>
                 )}
                 
+                {!readOnly && (
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                      <button type="button" onClick={handleTestConnection} disabled={testStatus === 'testing'} className="w-full flex justify-center items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:cursor-wait">
                         {testStatus === 'testing' ? <LoadingSpinner /> : t('paymentGateways.modal.testConnection')}
@@ -760,15 +769,24 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                        </div>
                      )}
                 </div>
-            </div>
+                )}
+            </fieldset>
 
             <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg flex-shrink-0">
-                <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
-                {t('common.cancel')}
-                </button>
-                <button type="submit" className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium">
-                {t('common.save')}
-                </button>
+                {readOnly ? (
+                  <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
+                    {t('common.close')}
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
+                      {t('common.cancel')}
+                    </button>
+                    <button type="submit" className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium">
+                      {t('common.save')}
+                    </button>
+                  </>
+                )}
             </div>
         </form>
       </div>

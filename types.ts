@@ -101,6 +101,10 @@ export interface Plan {
     /** Higher = higher tier; used for upgrade/downgrade rules on the API. */
     tier?: number;
     visible: boolean;
+    subscriptionCount?: number;
+    pendingSubscriptionCount?: number;
+    trialCodeCount?: number;
+    targetPaymentCount?: number;
 }
 
 export enum PaymentStatus {
@@ -224,6 +228,7 @@ export interface GuideCategory {
     name_ar: string;
     slug: string;
     sort_order: number;
+    article_count?: number;
     created_at?: string;
     updated_at?: string;
 }

@@ -1061,6 +1061,12 @@ export const upsertPageHelpVideoAPI = async (payload: {
   });
 };
 
+export const deletePageHelpVideoAPI = async (pageKey: string) => {
+  return apiRequest<void>(`/page-help-videos/${encodeURIComponent(pageKey)}/`, {
+    method: 'DELETE',
+  });
+};
+
 // ==================== Broadcasts APIs ====================
 
 /**

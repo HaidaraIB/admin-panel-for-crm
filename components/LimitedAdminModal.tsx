@@ -18,6 +18,7 @@ interface LimitedAdminModalProps {
   }) => void;
   editingAdmin?: LimitedAdmin | null;
   isLoading?: boolean;
+  readOnly?: boolean;
 }
 
 const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
@@ -26,6 +27,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
   onSave,
   editingAdmin,
   isLoading = false,
+  readOnly = false,
 }) => {
   const { t, language } = useI18n();
   const { showAlert } = useAlert();
@@ -96,6 +98,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     if (!editingAdmin && !formData.password) {
       showAlert(t('limitedAdmins.passwordRequired') || 'Password is required', { variant: 'warning' });
       return;
@@ -119,9 +122,11 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800 z-10">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {editingAdmin 
-              ? t('limitedAdmins.modal.editTitle') || 'Edit Limited Admin'
-              : t('limitedAdmins.modal.addTitle') || 'Add Limited Admin'}
+            {readOnly
+              ? t('limitedAdmins.modal.viewTitle')
+              : editingAdmin
+                ? t('limitedAdmins.modal.editTitle') || 'Edit Limited Admin'
+                : t('limitedAdmins.modal.addTitle') || 'Add Limited Admin'}
           </h2>
           <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
             <Icon name="x" className="w-6 h-6" />
@@ -129,6 +134,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <fieldset disabled={readOnly} className="space-y-6 border-0 p-0 m-0 min-w-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="first_name" className={labelClasses}>
@@ -365,25 +371,34 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
               </label>
             </div>
           </div>
+          </fieldset>
 
           <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <LoadingButton
-              type="button"
-              variant="secondary"
-              className="flex-1"
-              onClick={onClose}
-              disabled={isLoading}
-            >
-              {t('common.cancel')}
-            </LoadingButton>
-            <LoadingButton
-              type="submit"
-              className="flex-1"
-              isLoading={isLoading}
-              loadingText={t('common.saving')}
-            >
-              {t('common.save')}
-            </LoadingButton>
+            {readOnly ? (
+              <LoadingButton type="button" variant="secondary" className="flex-1" onClick={onClose}>
+                {t('common.close')}
+              </LoadingButton>
+            ) : (
+              <>
+                <LoadingButton
+                  type="button"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={onClose}
+                  disabled={isLoading}
+                >
+                  {t('common.cancel')}
+                </LoadingButton>
+                <LoadingButton
+                  type="submit"
+                  className="flex-1"
+                  isLoading={isLoading}
+                  loadingText={t('common.saving')}
+                >
+                  {t('common.save')}
+                </LoadingButton>
+              </>
+            )}
           </div>
         </form>
       </div>

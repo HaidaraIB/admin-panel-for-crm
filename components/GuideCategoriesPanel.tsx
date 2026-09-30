@@ -45,7 +45,6 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<GuideCategory | null>(null);
   const [deleting, setDeleting] = useState(false);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -93,6 +92,8 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
     setEditing(null);
     setForm(emptyForm());
   };
+
+  const categoryHasArticles = (item: GuideCategory) => (item.article_count ?? 0) > 0;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,8 +180,13 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(item)}
-                  className="rounded-full p-1 text-gray-400 hover:bg-white hover:text-red-600 dark:hover:bg-gray-600 dark:hover:text-red-300"
-                  title={t('common.delete') || 'Delete'}
+                  disabled={categoryHasArticles(item)}
+                  className="rounded-full p-1 text-gray-400 hover:bg-white hover:text-red-600 dark:hover:bg-gray-600 dark:hover:text-red-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={
+                    categoryHasArticles(item)
+                      ? t('content.categories.deleteBlockedTooltip')
+                      : t('common.delete') || 'Delete'
+                  }
                 >
                   <Icon name="trash" className="w-3.5 h-3.5" />
                 </button>

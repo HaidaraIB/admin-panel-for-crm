@@ -44,5 +44,11 @@ export function translateAdminApiError(error: unknown, t: (key: string) => strin
   if (e.code === 'validation_error') return t('errors.validationFailed');
   if (e.code === 'permission_denied') return t('errors.permissionPerformAction');
   if (e.code === 'authentication_failed') return t('login.errorInvalidCredentials') || '';
+  if (e.code === 'has_billing') return t('tenants.delete.hasBilling');
+  if (e.code === 'plan_in_use') return t('errors.planInUse');
+  if (e.code === 'deactivate_instead') return t('errors.deactivateInstead');
+  if (e.code === 'disable_instead') return t('errors.disableInstead');
+  if (e.code === 'category_in_use') return t('content.categories.deleteBlocked');
+  if (e.code === 'invalid_status') return t('errors.invalidStatus');
   return '';
 }
