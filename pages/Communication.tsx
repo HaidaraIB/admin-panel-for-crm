@@ -10,6 +10,7 @@ import AlertDialog from '../components/AlertDialog';
 import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getAllCompaniesAPI, sendSmsBroadcastAPI } from '../services/api';
 import PaginationControls from '../components/PaginationControls';
 import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
+import { usePersistedTab } from '../hooks/usePersistedTab';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
@@ -771,15 +772,13 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
 
 const Communication: React.FC = () => {
     const { t, language } = useI18n();
-    const [activeTab, setActiveTab] = useState(() => {
-        return localStorage.getItem('communication_activeTab') || 'new';
-    });
-    
-    // Save active tab to localStorage when it changes
-    useEffect(() => {
-        localStorage.setItem('communication_activeTab', activeTab);
-    }, [activeTab]);
-    const [history, setHistory] = useState<Broadcast[]>([]);
+    const COMM_TABS = ['new', 'sms', 'history'] as const;
+    const [activeTab, setActiveTab] = usePersistedTab(
+        'communication',
+        COMM_TABS,
+        'new',
+        ['communication_activeTab'],
+    ); const [history, setHistory] = useState<Broadcast[]>([]);
     const [historyPage, setHistoryPage] = useState(1);
     const [historyTotalCount, setHistoryTotalCount] = useState(0);
     const [historyPageSize, setHistoryPageSize] = usePersistedPageSize('admin-broadcasts');

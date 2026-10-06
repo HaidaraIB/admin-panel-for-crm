@@ -26,6 +26,7 @@ import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
 import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getPlatformOtpiqSettingsAPI, updatePlatformOtpiqSettingsAPI, getPlatformWhatsAppSettingsAPI, updatePlatformWhatsAppSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getRegistrationEmailRequirementAPI, updateRegistrationEmailRequirementAPI, type PhoneOtpChannel, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
 import { withLatinDigits } from '../utils/latinNumerals';
+import { usePersistedTab } from '../hooks/usePersistedTab';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -2712,35 +2713,33 @@ const SystemSettings: React.FC = () => {
     // Limited Admins tab only for super admin or users with can_manage_limited_admins (not for edit-settings-only)
     const canSeeLimitedAdmins = isSuperAdmin() || hasPermission('can_manage_limited_admins');
 
-    const SETTINGS_TAB_STORAGE_KEY = 'systemSettings.activeTab';
-
-    // Load saved tab from localStorage or default to 'general'
-    const loadSavedTab = (): string => {
-        if (typeof window === 'undefined') return 'general';
-        const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
-        const validTabs = ['general', 'integrations', 'features', 'security', 'twilio', 'platformOtpiq', 'platformWhatsapp', 'registrationOtp', 'loginLockout', 'limitedAdmins', 'audit', 'billing'];
-        if (saved && validTabs.includes(saved)) {
-            return saved;
-        }
-        return 'general';
-    };
-
-    const [activeSetting, setActiveSetting] = useState<string>(loadSavedTab);
+    const SETTINGS_TABS = [
+        'general',
+        'integrations',
+        'features',
+        'security',
+        'twilio',
+        'platformOtpiq',
+        'platformWhatsapp',
+        'registrationOtp',
+        'loginLockout',
+        'limitedAdmins',
+        'audit',
+        'billing',
+    ] as const;
+    const [activeSetting, setActiveSetting] = usePersistedTab(
+        'systemSettings',
+        SETTINGS_TABS,
+        'general',
+        ['systemSettings.activeTab'],
+    );
 
     // If user cannot see Limited Admins, switch away from that tab when they don't have permission
     useEffect(() => {
         if (!canSeeLimitedAdmins && activeSetting === 'limitedAdmins') {
             setActiveSetting('general');
         }
-    }, [canSeeLimitedAdmins, activeSetting]);
-
-    // Save tab to localStorage when it changes
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, activeSetting);
-        }
-    }, [activeSetting]);
-
+    }, [canSeeLimitedAdmins, activeSetting, setActiveSetting]);
     const settingsMenu = [
         { id: 'general', label: t('settings.menu.general') || 'General' },
         { id: 'integrations', label: t('settings.menu.integrations') || 'Integrations' },

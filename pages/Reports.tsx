@@ -17,6 +17,7 @@ import { hasActiveFilters as filtersAreActive } from '../components/filters';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
 import { getChartTheme, renderChartLegend, useIsDarkMode } from '../utils/chartTheme';
+import { usePersistedTab } from '../hooks/usePersistedTab';
 
 const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
@@ -512,14 +513,13 @@ const SubscriberReports: React.FC<{
 
 const Reports: React.FC = () => {
   const { t, language } = useI18n();
-  const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem('reports_activeTab') || 'revenue';
-  });
-  
-  useEffect(() => {
-    localStorage.setItem('reports_activeTab', activeTab);
-  }, [activeTab]);
-  const [filters, setFilters] = useState<ReportsFilters>(reportsFilterDefaults);
+  const REPORT_TABS = ['revenue', 'subscribers'] as const;
+  const [activeTab, setActiveTab] = usePersistedTab(
+    'reports',
+    REPORT_TABS,
+    'revenue',
+    ['reports_activeTab'],
+  );  const [filters, setFilters] = useState<ReportsFilters>(reportsFilterDefaults);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [tabLoading, setTabLoading] = useState(false);

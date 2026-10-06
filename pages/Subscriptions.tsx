@@ -30,6 +30,7 @@ import {
 import { getPaymentsAPI, refundPaymentAPI, cancelPaymentAPI } from '../services/api';
 import PaginationControls from '../components/PaginationControls';
 import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
+import { usePersistedTab } from '../hooks/usePersistedTab';
 import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
@@ -1469,15 +1470,13 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
 
 const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem('subscriptions_activeTab') || 'plans';
-  });
-  
-  // Save active tab to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem('subscriptions_activeTab', activeTab);
-  }, [activeTab]);
-
+  const SUBSCRIPTION_TABS = ['plans', 'trialCodes', 'subscriptions', 'payments', 'invoices'] as const;
+  const [activeTab, setActiveTab] = usePersistedTab(
+    'subscriptions',
+    SUBSCRIPTION_TABS,
+    'plans',
+    ['subscriptions_activeTab'],
+  );
   const tabs = [
     { id: 'plans', label: t('subscriptions.tabs.plans') },
     { id: 'trialCodes', label: t('subscriptions.tabs.trialCodes') },

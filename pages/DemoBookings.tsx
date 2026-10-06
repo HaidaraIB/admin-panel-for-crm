@@ -14,6 +14,7 @@ import DemoBookingsFilterDrawer, {
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
 import { useI18n } from '../context/i18n';
 import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
+import { usePersistedTab } from '../hooks/usePersistedTab';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
 import {
@@ -100,12 +101,13 @@ const BookingDetailRow: React.FC<BookingDetailRowProps> = ({ icon, label, childr
 const DemoBookings: React.FC = () => {
   const { t, language } = useI18n();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('demoBookings.activeTab') || 'reservations');
-
-  useEffect(() => {
-    localStorage.setItem('demoBookings.activeTab', activeTab);
-  }, [activeTab]);
-
+  const DEMO_TABS = ['reservations', 'availability'] as const;
+  const [activeTab, setActiveTab] = usePersistedTab(
+    'demoBookings',
+    DEMO_TABS,
+    'reservations',
+    ['demoBookings.activeTab'],
+  );
   const tabs = [
     { id: 'reservations', label: t('demoBookings.tabs.reservations') },
     { id: 'availability', label: t('demoBookings.tabs.availability') },

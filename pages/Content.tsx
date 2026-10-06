@@ -15,6 +15,7 @@ import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
+import { usePersistedTab } from '../hooks/usePersistedTab';
 import {
   getGuideArticlesAPI,
   getGuideArticleAPI,
@@ -30,15 +31,18 @@ import {
 } from '../services/api';
 
 type TabId = 'guide' | 'news' | 'tutorials';
+const CONTENT_TABS = ['guide', 'news', 'tutorials'] as const;
 
 const Content: React.FC = () => {
   const { t, language } = useI18n();
   const { showAlert } = useAlert();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<TabId>(() => {
-    const saved = localStorage.getItem('content_activeTab');
-    return saved === 'news' || saved === 'guide' || saved === 'tutorials' ? saved : 'guide';
-  });
+  const [activeTab, setActiveTab] = usePersistedTab<TabId>(
+    'content',
+    CONTENT_TABS,
+    'guide',
+    ['content_activeTab'],
+  );
   const [guides, setGuides] = useState<GuideArticle[]>([]);
   const [news, setNews] = useState<NewsPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,10 +65,6 @@ const Content: React.FC = () => {
   const [notifyTarget, setNotifyTarget] = useState<NewsPost | null>(null);
   const [notifying, setNotifying] = useState(false);
   const [categories, setCategories] = useState<GuideCategory[]>([]);
-
-  useEffect(() => {
-    localStorage.setItem('content_activeTab', activeTab);
-  }, [activeTab]);
 
   const loadGuide = useCallback(async () => {
     const res = await getGuideArticlesAPI({ ordering: 'sort_order' });
