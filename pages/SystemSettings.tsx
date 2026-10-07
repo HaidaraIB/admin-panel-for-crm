@@ -56,7 +56,7 @@ const persistSchedule = (schedule: BackupSchedule) => {
     localStorage.setItem(BACKUP_SCHEDULE_STORAGE_KEY, schedule);
 };
 
-type IntegrationPlatformKey = 'meta' | 'meta_inbox' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'mujeb' | 'pbx';
+type IntegrationPlatformKey = 'meta' | 'meta_inbox' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'mujeb';
 type IntegrationPolicyState = Record<IntegrationPlatformKey, {
     global_enabled: boolean;
     global_message: string;
@@ -72,7 +72,6 @@ const DEFAULT_INTEGRATION_POLICIES: IntegrationPolicyState = {
     otpiq: { global_enabled: true, global_message: '', company_overrides: {} },
     openai: { global_enabled: true, global_message: '', company_overrides: {} },
     mujeb: { global_enabled: true, global_message: '', company_overrides: {} },
-    pbx: { global_enabled: true, global_message: '', company_overrides: {} },
 };
 
 type FeaturePolicyKey = 'field_visit';
@@ -441,7 +440,6 @@ const IntegrationsControlSettings: React.FC = () => {
         otpiq: t('settings.integrations.platform.otpiq') || 'OTPIQ (SMS)',
         openai: t('settings.integrations.platform.openai') || 'OpenAI (ChatGPT)',
         mujeb: t('settings.integrations.platform.mujeb') || 'Mujeb',
-        pbx: t('settings.integrations.platform.pbx') || 'PBX / ZYCOO',
     };
     const overrideLabels = {
         allowTitle: t('settings.integrations.allowTitle') || 'Allowed company exceptions',
@@ -472,7 +470,6 @@ const IntegrationsControlSettings: React.FC = () => {
                     otpiq: { ...DEFAULT_INTEGRATION_POLICIES.otpiq, ...(incoming.otpiq || {}), company_overrides: incoming.otpiq?.company_overrides || {} },
                     openai: { ...DEFAULT_INTEGRATION_POLICIES.openai, ...(incoming.openai || {}), company_overrides: incoming.openai?.company_overrides || {} },
                     mujeb: { ...DEFAULT_INTEGRATION_POLICIES.mujeb, ...(incoming.mujeb || {}), company_overrides: incoming.mujeb?.company_overrides || {} },
-                    pbx: { ...DEFAULT_INTEGRATION_POLICIES.pbx, ...(incoming.pbx || {}), company_overrides: incoming.pbx?.company_overrides || {} },
                 });
                 const list = ((companiesResponse?.results || []) as Array<{ id: number; name: string }>).map((c) => ({ id: c.id, name: c.name }));
                 setCompanies(list);
@@ -517,7 +514,7 @@ const IntegrationsControlSettings: React.FC = () => {
                         {t('settings.integrations.help') || 'Configure global and per-company integration activation. When globally disabled, allow exceptions for specific companies. When globally enabled, block specific companies.'}
                     </p>
                     <div className="space-y-4">
-                        {(['meta', 'meta_inbox', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'mujeb', 'pbx'] as IntegrationPlatformKey[]).map((platform) => {
+                        {(['meta', 'meta_inbox', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'mujeb'] as IntegrationPlatformKey[]).map((platform) => {
                             const policy = integrationPolicies[platform];
                             return (
                                 <div key={platform} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">

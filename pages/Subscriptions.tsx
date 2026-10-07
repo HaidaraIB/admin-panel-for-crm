@@ -86,7 +86,6 @@ const CANONICAL_PLAN_FEATURE_KEYS = [
   'integration_openai',
   'integration_api',
   'integration_mujeb',
-  'integration_pbx',
 ] as const;
 
 function sanitizePlanFeatures(raw: unknown): Record<string, boolean> {
