@@ -1491,6 +1491,19 @@ export const updatePlatformWhatsAppSettingsAPI = async (data: {
   });
 };
 
+/** POST /settings/platform-whatsapp/1/send-test-otp/ — send a one-off OTP template (no registration). */
+export const sendPlatformWhatsAppTestOtpAPI = async (phone: string) => {
+  return apiRequest<{
+    phone_suffix: string;
+    otp_code: string;
+    template_name: string;
+    template_lang: string;
+  }>('/settings/platform-whatsapp/1/send-test-otp/', {
+    method: 'POST',
+    body: JSON.stringify({ phone }),
+  });
+};
+
 // ==================== Limited Admins APIs ====================
 
 /**

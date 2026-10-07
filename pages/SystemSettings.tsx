@@ -24,7 +24,8 @@ import { buildUpdateDiff } from '../utils/buildUpdateDiff';
 import { messageFromParsedErrorBody } from '../services/api';
 import LimitedAdminModal from '../components/LimitedAdminModal';
 import AlertDialog from '../components/AlertDialog';
-import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getPlatformOtpiqSettingsAPI, updatePlatformOtpiqSettingsAPI, getPlatformWhatsAppSettingsAPI, updatePlatformWhatsAppSettingsAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getRegistrationEmailRequirementAPI, updateRegistrationEmailRequirementAPI, type PhoneOtpChannel, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
+import PhoneInput from '../components/PhoneInput';
+import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getPlatformOtpiqSettingsAPI, updatePlatformOtpiqSettingsAPI, getPlatformWhatsAppSettingsAPI, updatePlatformWhatsAppSettingsAPI, sendPlatformWhatsAppTestOtpAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getRegistrationEmailRequirementAPI, updateRegistrationEmailRequirementAPI, type PhoneOtpChannel, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
 import { withLatinDigits } from '../utils/latinNumerals';
 import { usePersistedTab } from '../hooks/usePersistedTab';
 
@@ -1606,6 +1607,15 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
+    const [testPhone, setTestPhone] = useState('');
+    const [isSendingTestOtp, setIsSendingTestOtp] = useState(false);
+    const [testOtpResult, setTestOtpResult] = useState<{
+        otp_code: string;
+        phone_suffix: string;
+        template_name: string;
+        template_lang: string;
+    } | null>(null);
+    const [testOtpError, setTestOtpError] = useState<string | null>(null);
 
     useEffect(() => {
         loadSettings();
@@ -1680,6 +1690,23 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
             setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.platformWhatsapp.saveError') });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleSendTestOtp = async () => {
+        setIsSendingTestOtp(true);
+        setTestOtpError(null);
+        setTestOtpResult(null);
+        try {
+            const data = await sendPlatformWhatsAppTestOtpAPI(testPhone.trim());
+            setTestOtpResult(data);
+            addLog('audit.log.platformWhatsappTestOtpSent', {
+                phone: data.phone_suffix ? `…${data.phone_suffix}` : '',
+            });
+        } catch (error: unknown) {
+            setTestOtpError(translateAdminApiError(error, t) || t('settings.platformWhatsapp.testOtpError'));
+        } finally {
+            setIsSendingTestOtp(false);
         }
     };
 
@@ -1793,6 +1820,62 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                                 <FormInput type="text" value={otpTemplateLang} onChange={(e) => setOtpTemplateLang(e.target.value)} />
                             </div>
                         </div>
+                    </div>
+
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {t('settings.platformWhatsapp.sectionTestOtp')}
+                            </h4>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                {t('settings.platformWhatsapp.sectionTestOtpHelp')}
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-end gap-3 max-w-2xl">
+                            <div className="flex-1 min-w-0">
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                                    {t('settings.platformWhatsapp.testOtpPhone')}
+                                </label>
+                                <PhoneInput
+                                    id="platform-whatsapp-test-otp-phone"
+                                    value={testPhone}
+                                    onChange={setTestPhone}
+                                    defaultCountry="IQ"
+                                />
+                            </div>
+                            <LoadingButton
+                                type="button"
+                                onClick={handleSendTestOtp}
+                                isLoading={isSendingTestOtp}
+                                disabled={!testPhone.trim() || isSendingTestOtp}
+                                loadingText={t('settings.platformWhatsapp.testOtpSending')}
+                                className="shrink-0"
+                            >
+                                {t('settings.platformWhatsapp.testOtpSend')}
+                            </LoadingButton>
+                        </div>
+                        {testOtpError ? (
+                            <div className="flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+                                <Icon name="warning" className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>{testOtpError}</span>
+                            </div>
+                        ) : null}
+                        {testOtpResult ? (
+                            <div className="rounded-lg border border-primary-100 bg-primary-50 dark:border-primary-800 dark:bg-primary-900/20 px-4 py-3 text-sm text-primary-900 dark:text-primary-100 space-y-1">
+                                <p>{t('settings.platformWhatsapp.testOtpSuccess')}</p>
+                                <p>
+                                    <span className="text-primary-700/80 dark:text-primary-200/80">
+                                        {t('settings.platformWhatsapp.testOtpCodeLabel')}:{' '}
+                                    </span>
+                                    <code className="font-mono font-semibold tracking-wider" dir="ltr">
+                                        {testOtpResult.otp_code}
+                                    </code>
+                                </p>
+                                <p className="text-xs text-primary-800/70 dark:text-primary-200/70" dir="ltr">
+                                    …{testOtpResult.phone_suffix} · {testOtpResult.template_name} ({testOtpResult.template_lang})
+                                </p>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             )}

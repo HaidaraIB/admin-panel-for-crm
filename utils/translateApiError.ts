@@ -40,6 +40,10 @@ export function translateAdminApiError(error: unknown, t: (key: string) => strin
   if (msg) return translateApiMessage(msg, t);
   if (e.code === 'twilio_otp_not_configured') return t('errors.twilioOtpNotConfigured');
   if (e.code === 'whatsapp_otp_not_configured') return t('errors.whatsappOtpNotConfigured');
+  if (e.code === 'otp_template_not_configured') return t('errors.otpTemplateNotConfigured');
+  if (e.code === 'whatsapp_send_failed') return t('errors.whatsappSendFailed');
+  if (e.code === 'invalid_phone') return t('errors.invalidPhone');
+  if (e.code === 'otp_rate_limited') return t('errors.otpRateLimited');
   if (e.code === 'phone_otp_misconfigured') return t('errors.phoneOtpMisconfigured');
   if (e.code === 'validation_error') return t('errors.validationFailed');
   if (e.code === 'permission_denied') return t('errors.permissionPerformAction');
