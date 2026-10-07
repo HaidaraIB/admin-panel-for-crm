@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import LoadingButton from './LoadingButton';
 import { GuideArticle, GuideCategory, NewsPost } from '../types';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import Icon from './Icon';
 
 export type ContentKind = 'guide' | 'news';
@@ -64,7 +64,7 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
   onSave,
 }) => {
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<ContentFormData>(emptyForm());
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
@@ -151,16 +151,16 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title_en.trim() || !formData.title_ar.trim()) {
-      showAlert(t('content.validation.titlesRequired'), { variant: 'warning' });
+      showToast(t('content.validation.titlesRequired'), { variant: 'warning' });
       return;
     }
     if (!formData.body_en.trim() || !formData.body_ar.trim()) {
-      showAlert(t('content.validation.bodiesRequired'), { variant: 'warning' });
+      showToast(t('content.validation.bodiesRequired'), { variant: 'warning' });
       return;
     }
     const yt = formData.youtube_url.trim();
     if (yt && !YOUTUBE_HOST_RE.test(yt)) {
-      showAlert(t('content.validation.youtubeInvalid'), { variant: 'warning' });
+      showToast(t('content.validation.youtubeInvalid'), { variant: 'warning' });
       return;
     }
     onSave(formData);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LoadingButton from './LoadingButton';
 import { LimitedAdmin } from '../types';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import Icon from './Icon';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -30,7 +30,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
   readOnly = false,
 }) => {
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
@@ -100,7 +100,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
     e.preventDefault();
     if (readOnly) return;
     if (!editingAdmin && !formData.password) {
-      showAlert(t('limitedAdmins.passwordRequired') || 'Password is required', { variant: 'warning' });
+      showToast(t('limitedAdmins.passwordRequired') || 'Password is required', { variant: 'warning' });
       return;
     }
     onSave(formData);

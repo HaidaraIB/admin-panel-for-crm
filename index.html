@@ -382,7 +382,8 @@
           animation-duration: 1.6s;
         }
         .animate-pulse,
-        .animate-ping {
+        .animate-ping,
+        .animate-slide-down {
           animation: none;
         }
       }
@@ -412,7 +413,16 @@
                 '900': 'hsl(var(--color-primary-900) / <alpha-value>)',
                 '950': 'hsl(var(--color-primary-950) / <alpha-value>)',
               },
-            }
+            },
+            animation: {
+              'slide-down': 'slide-down 0.3s ease-out',
+            },
+            keyframes: {
+              'slide-down': {
+                '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+            },
           }
         }
       }

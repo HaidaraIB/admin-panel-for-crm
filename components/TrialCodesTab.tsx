@@ -11,7 +11,6 @@ import {
   type CreateFormState,
 } from './TrialCodeModals';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { useAuditLog } from '../context/AuditLogContext';
 import {
@@ -66,7 +65,6 @@ function mapRedemptionFromApi(row: any): TrialCodeRedemption {
 
 const TrialCodesTab: React.FC = () => {
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
   const { showToast } = useToast();
   const { addLog } = useAuditLog();
 
@@ -176,7 +174,7 @@ const TrialCodesTab: React.FC = () => {
 
   const handleCreate = async (form: CreateFormState) => {
     if (!form.planId) {
-      showAlert(t('trialCodes.errors.planRequired'), { variant: 'error' });
+      showToast(t('trialCodes.errors.planRequired'), { variant: 'error' });
       return;
     }
     setIsSaving(true);
@@ -194,7 +192,7 @@ const TrialCodesTab: React.FC = () => {
       await loadData();
       showToast(t('trialCodes.created'), { variant: 'success' });
     } catch (error: any) {
-      showAlert(translateAdminApiError(error, t) || t('trialCodes.errors.save'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('trialCodes.errors.save'), { variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -202,7 +200,7 @@ const TrialCodesTab: React.FC = () => {
 
   const handleBatch = async (form: BatchFormState) => {
     if (!form.planId || !form.label.trim()) {
-      showAlert(t('trialCodes.errors.batchFields'), { variant: 'error' });
+      showToast(t('trialCodes.errors.batchFields'), { variant: 'error' });
       return;
     }
     setIsSaving(true);
@@ -225,7 +223,7 @@ const TrialCodesTab: React.FC = () => {
         { variant: 'success' }
       );
     } catch (error: any) {
-      showAlert(translateAdminApiError(error, t) || t('trialCodes.errors.save'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('trialCodes.errors.save'), { variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -249,7 +247,7 @@ const TrialCodesTab: React.FC = () => {
     } catch (error: any) {
       const fallback =
         confirmAction.type === 'delete' ? t('trialCodes.errors.delete') : t('trialCodes.errors.save');
-      showAlert(translateAdminApiError(error, t) || fallback, { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || fallback, { variant: 'error' });
     } finally {
       setIsConfirming(false);
     }
@@ -271,7 +269,7 @@ const TrialCodesTab: React.FC = () => {
   const handleExportUnused = async () => {
     const label = exportLabel.trim();
     if (!label) {
-      showAlert(t('trialCodes.errors.exportLabelRequired'), { variant: 'error' });
+      showToast(t('trialCodes.errors.exportLabelRequired'), { variant: 'error' });
       return;
     }
     setIsExporting(true);
@@ -284,7 +282,7 @@ const TrialCodesTab: React.FC = () => {
       a.click();
       URL.revokeObjectURL(url);
     } catch (error: any) {
-      showAlert(translateAdminApiError(error, t) || t('trialCodes.errors.export'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('trialCodes.errors.export'), { variant: 'error' });
     } finally {
       setIsExporting(false);
     }

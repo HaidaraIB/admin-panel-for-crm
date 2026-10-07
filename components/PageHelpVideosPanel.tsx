@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import LoadingButton from './LoadingButton';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import {
@@ -29,7 +28,6 @@ type RowState = {
 
 const PageHelpVideosPanel: React.FC = () => {
   const { t } = useI18n();
-  const { showAlert } = useAlert();
   const { showToast } = useToast();
   const [rows, setRows] = useState<RowState[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +65,7 @@ const PageHelpVideosPanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [showAlert, t]);
+  }, [showToast, t]);
 
   useEffect(() => {
     void load();
@@ -100,7 +98,7 @@ const PageHelpVideosPanel: React.FC = () => {
           r.page_key === pageKey ? { ...r, dirty: false, saving: false } : r,
         ),
       );
-      showAlert(t('content.alerts.saved'), { variant: 'success' });
+      showToast(t('content.alerts.saved'), { variant: 'success' });
       setRows((prev) =>
         prev.map((r) =>
           r.page_key === pageKey ? { ...r, persisted: true } : r,
@@ -110,7 +108,7 @@ const PageHelpVideosPanel: React.FC = () => {
       setRows((prev) =>
         prev.map((r) => (r.page_key === pageKey ? { ...r, saving: false } : r)),
       );
-      showAlert(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
     }
   };
 
@@ -140,9 +138,9 @@ const PageHelpVideosPanel: React.FC = () => {
         ),
       );
       setDeleteTarget(null);
-      showAlert(t('content.tutorials.deleted'), { variant: 'success' });
+      showToast(t('content.tutorials.deleted'), { variant: 'success' });
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.delete'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.delete'), { variant: 'error' });
     } finally {
       setDeleting(false);
     }

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { changePasswordAPI } from '../services/api';
 import { useI18n } from '../context/i18n';
+import { useToast } from '../context/ToastContext';
 import Icon from './Icon';
 
 interface ResetPasswordModalProps {
@@ -11,6 +12,7 @@ interface ResetPasswordModalProps {
 
 const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose }) => {
     const { t, language } = useI18n();
+    const { showToast } = useToast();
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,8 +34,6 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
         setShowNewPassword(newValue);
         setShowConfirmPassword(newValue);
     };
-    const [showSuccess, setShowSuccess] = useState(false);
-
     // Function to translate error messages
     const translateError = (errorMsg: string): string => {
         const errorLower = errorMsg.toLowerCase();
@@ -67,11 +67,6 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
 
     if (!isOpen) return null;
 
-    const handleCloseSuccess = () => {
-        setShowSuccess(false);
-        onClose();
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrors({});
@@ -89,16 +84,12 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
         setIsLoading(true);
         try {
             await changePasswordAPI(currentPassword, newPassword, confirmPassword);
-            setShowSuccess(true);
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
             setErrors({});
-            // Close modal after 2 seconds
-            setTimeout(() => {
-                setShowSuccess(false);
-                onClose();
-            }, 2000);
+            showToast(t('resetPassword.successMessage') || t('resetPassword.success'), { variant: 'success' });
+            onClose();
         } catch (error: any) {
             try {
                 // Try to parse error response as JSON
@@ -129,18 +120,15 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                     if (Object.keys(formattedErrors).length > 0) {
                         setErrors(formattedErrors);
                     } else {
-                        // If no field errors, show as general error
                         const errorMsg = errorData.detail || errorData.message || errorData.error || 'Failed to change password';
-                        setErrors({ general: [translateError(errorMsg)] });
+                        showToast(translateError(errorMsg), { variant: 'error' });
                     }
                 } else {
-                    // If it's a string or other format, show as general error
                     const errorMsg = typeof errorData === 'string' ? errorData : (error.message || 'Failed to change password');
-                    setErrors({ general: [translateError(errorMsg)] });
+                    showToast(translateError(errorMsg), { variant: 'error' });
                 }
             } catch {
-                // If parsing fails, show general error
-                setErrors({ general: [translateError(error.message || 'Failed to change password')] });
+                showToast(translateError(error.message || 'Failed to change password'), { variant: 'error' });
             }
         } finally {
             setIsLoading(false);
@@ -271,11 +259,6 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                 </div>
                             )}
                         </div>
-                        {errors.general && (
-                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
-                                <p className="text-sm text-red-600 dark:text-red-400">{errors.general[0]}</p>
-                            </div>
-                        )}
                     </div>
 
                     <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
@@ -289,29 +272,6 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                 </form>
             </div>
         </div>
-        {showSuccess && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={handleCloseSuccess}>
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md transform transition-all animate-in fade-in zoom-in" onClick={e => e.stopPropagation()}>
-                    <div className="p-8 text-center">
-                        <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
-                            <Icon name="check" className="w-10 h-10 text-green-600 dark:text-green-400" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            {t('resetPassword.success')}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                            {t('resetPassword.successMessage') || 'Your password has been changed successfully.'}
-                        </p>
-                        <button
-                            onClick={handleCloseSuccess}
-                            className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium transition-colors"
-                        >
-                            {t('common.ok') || 'OK'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
     </>
     );
 };

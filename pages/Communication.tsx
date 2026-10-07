@@ -5,6 +5,7 @@ import FilterButton from '../components/FilterButton';
 import RefreshButton from '../components/RefreshButton';
 import { Broadcast } from '../types';
 import { useI18n } from '../context/i18n';
+import { useToast } from '../context/ToastContext';
 import BroadcastViewModal from '../components/BroadcastViewModal';
 import AlertDialog from '../components/AlertDialog';
 import { getBroadcastsAPI, createBroadcastAPI, deleteBroadcastAPI, sendBroadcastAPI, scheduleBroadcastAPI, getBroadcastAPI, getPlansAPI, getAllCompaniesAPI, sendSmsBroadcastAPI } from '../services/api';
@@ -104,6 +105,7 @@ interface NewBroadcastPropsWithPlans extends NewBroadcastProps {
 
 const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated, plans, companies }) => {
     const { t, language } = useI18n();
+    const { showToast } = useToast();
     const [subject, setSubject] = useState('');
     const [content, setContent] = useState('');
     const [targets, setTargets] = useState<string[]>([]);
@@ -112,17 +114,6 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
-    const [alertDialog, setAlertDialog] = useState<{
-        isOpen: boolean;
-        title: string;
-        message: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-    }>({
-        isOpen: false,
-        title: '',
-        message: '',
-        type: 'info',
-    });
 
     const addTarget = (value: string) => {
         if (!value || targets.includes(value)) return;
@@ -137,12 +128,7 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
     const handleSchedule = async () => {
         const effectiveTargets = targets.length > 0 ? targets : ['all'];
         if (!subject || !content || !scheduledDate || !scheduledTime) {
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.validation.title'),
-                message: t('communication.alerts.validation.message'),
-                type: 'warning',
-            });
+            showToast(t('communication.alerts.validation.message'), { variant: 'warning' });
             return;
         }
         
@@ -152,12 +138,7 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
         const now = new Date();
         
         if (scheduledDateTime <= now) {
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.validation.title'),
-                message: t('communication.alerts.schedulePastError'),
-                type: 'warning',
-            });
+            showToast(t('communication.alerts.schedulePastError'), { variant: 'warning' });
             return;
         }
         
@@ -175,12 +156,7 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
             // Schedule the broadcast
             await scheduleBroadcastAPI(broadcast.id, scheduledAt);
             
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.scheduleSuccess.title'),
-                message: t('communication.alerts.scheduleSuccess.message'),
-                type: 'success',
-            });
+            showToast(t('communication.alerts.scheduleSuccess.message'), { variant: 'success' });
             setSubject('');
             setContent('');
             setTargets([]);
@@ -190,12 +166,7 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
         } catch (error: any) {
             console.error('Error scheduling broadcast:', error);
             const msg = error?.message || '';
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.scheduleError.title'),
-                message: /no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (msg || t('communication.alerts.scheduleError.message')),
-                type: 'error',
-            });
+            showToast(/no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (msg || t('communication.alerts.scheduleError.message')), { variant: 'error' });
         } finally {
             setIsSubmitting(false);
         }
@@ -203,12 +174,7 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
 
     const handleSendNow = async () => {
         if (!subject || !content) {
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.validation.title'),
-                message: t('communication.alerts.validation.message'),
-                type: 'warning',
-            });
+            showToast(t('communication.alerts.validation.message'), { variant: 'warning' });
             return;
         }
         const effectiveTargets = targets.length > 0 ? targets : ['all'];
@@ -221,12 +187,7 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
                 broadcast_type: broadcastType,
             });
             await sendBroadcastAPI(broadcast.id);
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.sendSuccess.title'),
-                message: t('communication.alerts.sendSuccess.message'),
-                type: 'success',
-            });
+            showToast(t('communication.alerts.sendSuccess.message'), { variant: 'success' });
             setSubject('');
             setContent('');
             setTargets([]);
@@ -234,12 +195,7 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
         } catch (error: any) {
             console.error('Error sending broadcast:', error);
             const msg = error?.message || '';
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.sendError.title'),
-                message: /no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (msg || t('communication.alerts.sendError.message')),
-                type: 'error',
-            });
+            showToast(/no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (msg || t('communication.alerts.sendError.message')), { variant: 'error' });
         } finally {
             setIsSubmitting(false);
         }
@@ -367,13 +323,6 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
                 </button>
             </div>
         </div>
-        <AlertDialog
-            isOpen={alertDialog.isOpen}
-            onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
-            title={alertDialog.title}
-            message={alertDialog.message}
-            type={alertDialog.type}
-        />
     </div>
 )};
 
@@ -384,16 +333,11 @@ interface SendSMSProps {
 
 const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
     const { t, language } = useI18n();
+    const { showToast } = useToast();
     const [content, setContent] = useState('');
     const [targets, setTargets] = useState<string[]>([]);
     const [targetSelectValue, setTargetSelectValue] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [alertDialog, setAlertDialog] = useState<{
-        isOpen: boolean;
-        title: string;
-        message: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-    }>({ isOpen: false, title: '', message: '', type: 'info' });
 
     const addTarget = (value: string) => {
         if (!value || targets.includes(value)) return;
@@ -407,12 +351,7 @@ const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
 
     const handleSend = async () => {
         if (!content.trim()) {
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.validation.title'),
-                message: t('communication.alerts.validation.message'),
-                type: 'warning',
-            });
+            showToast(t('communication.alerts.validation.message'), { variant: 'warning' });
             return;
         }
         const effectiveTargets = targets.length > 0 ? targets : ['all'];
@@ -420,22 +359,12 @@ const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
         try {
             const result = await sendSmsBroadcastAPI({ targets: effectiveTargets, content: content.trim() });
             const sent = result?.sent_count ?? 0;
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.sendSuccess.title'),
-                message: t('communication.sms.success') + (sent > 0 ? ` (${sent})` : ''),
-                type: 'success',
-            });
+            showToast(t('communication.sms.success') + (sent > 0 ? ` (${sent})` : ''), { variant: 'success' });
             setContent('');
             setTargets([]);
         } catch (error: any) {
             const msg = error?.message || '';
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.sendError.title'),
-                message: /no recipients|No recipients|phone/i.test(msg) ? t('communication.sms.noRecipients') : (msg || t('communication.alerts.sendError.message')),
-                type: 'error',
-            });
+            showToast(/no recipients|No recipients|phone/i.test(msg) ? t('communication.sms.noRecipients') : (msg || t('communication.alerts.sendError.message')), { variant: 'error' });
         } finally {
             setIsSubmitting(false);
         }
@@ -519,13 +448,6 @@ const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
                     </button>
                 </div>
             </div>
-            <AlertDialog
-                isOpen={alertDialog.isOpen}
-                onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
-                title={alertDialog.title}
-                message={alertDialog.message}
-                type={alertDialog.type}
-            />
         </div>
     );
 };
@@ -772,6 +694,7 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
 
 const Communication: React.FC = () => {
     const { t, language } = useI18n();
+    const { showToast } = useToast();
     const COMM_TABS = ['new', 'sms', 'history'] as const;
     const [activeTab, setActiveTab] = usePersistedTab(
         'communication',
@@ -800,17 +723,6 @@ const Communication: React.FC = () => {
         message: '',
         onConfirm: () => {},
     });
-    const [alertDialog, setAlertDialog] = useState<{
-        isOpen: boolean;
-        title: string;
-        message: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-    }>({
-        isOpen: false,
-        title: '',
-        message: '',
-        type: 'info',
-    });
 
     const tabs = [
         { id: 'new', label: t('communication.tabs.new') },
@@ -832,16 +744,11 @@ const Communication: React.FC = () => {
             setLastUpdatedAt(new Date().toISOString());
         } catch (error: any) {
             console.error('Error loading broadcasts:', error);
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.loadError.title'),
-                message: error?.message || t('communication.alerts.loadError.message'),
-                type: 'error',
-            });
+            showToast(error?.message || t('communication.alerts.loadError.message'), { variant: 'error' });
         } finally {
             setIsHistoryLoading(false);
         }
-    }, [historyPage, historyPageSize, t]);
+    }, [historyPage, historyPageSize, showToast, t]);
 
     useEffect(() => {
         loadBroadcasts(historyPage);
@@ -883,12 +790,7 @@ const Communication: React.FC = () => {
             setSelectedBroadcast(mapBroadcastFromApi(response));
         } catch (error: any) {
             console.error('Error loading broadcast:', error);
-            setAlertDialog({
-                isOpen: true,
-                title: t('communication.alerts.viewError.title'),
-                message: error?.message || t('communication.alerts.viewError.message'),
-                type: 'error',
-            });
+            showToast(error?.message || t('communication.alerts.viewError.message'), { variant: 'error' });
         } finally {
             setIsViewLoading(false);
         }
@@ -904,21 +806,11 @@ const Communication: React.FC = () => {
                     await deleteBroadcastAPI(id);
                     await loadBroadcasts();
                     setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                    setAlertDialog({
-                        isOpen: true,
-                        title: t('communication.alerts.deleteSuccess.title'),
-                        message: t('communication.alerts.deleteSuccess.message'),
-                        type: 'success',
-                    });
+                    showToast(t('communication.alerts.deleteSuccess.message'), { variant: 'success' });
                 } catch (error: any) {
                     console.error('Error deleting broadcast:', error);
                     setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                    setAlertDialog({
-                        isOpen: true,
-                        title: t('communication.alerts.deleteError.title'),
-                        message: error?.message || t('communication.alerts.deleteError.message'),
-                        type: 'error',
-                    });
+                    showToast(error?.message || t('communication.alerts.deleteError.message'), { variant: 'error' });
                 }
             },
         });
@@ -985,13 +877,6 @@ const Communication: React.FC = () => {
                 showCancel={true}
                 confirmText={t('common.delete')}
                 onConfirm={confirmDialog.onConfirm}
-            />
-            <AlertDialog
-                isOpen={alertDialog.isOpen}
-                onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
-                title={alertDialog.title}
-                message={alertDialog.message}
-                type={alertDialog.type}
             />
         </div>
     );

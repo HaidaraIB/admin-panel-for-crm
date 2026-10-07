@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import Alert from '../components/Alert';
 import { Link } from 'react-router';
 import { useI18n } from '../context/i18n';
+import { useToast } from '../context/ToastContext';
 import {
   getCompaniesAPI,
   sendAdminTenantWhatsAppAPI,
@@ -58,6 +58,7 @@ function formatSendError(e: unknown, fallback: string): string {
 
 const TenantWhatsAppChat: React.FC = () => {
   const { t, language } = useI18n();
+  const { showToast } = useToast();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatRow[]>([]);
@@ -65,13 +66,11 @@ const TenantWhatsAppChat: React.FC = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const loadTenants = useCallback(async () => {
     setLoadingList(true);
-    setError(null);
     try {
       const res = await getCompaniesAPI();
       const rows = (res.results || []) as Tenant[];
@@ -80,25 +79,24 @@ const TenantWhatsAppChat: React.FC = () => {
         setSelectedId(rows[0].id);
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load companies');
+      showToast(e instanceof Error ? e.message : t('tenantWhatsapp.loadCompaniesError'), { variant: 'error' });
     } finally {
       setLoadingList(false);
     }
-  }, [selectedId]);
+  }, [selectedId, showToast, t]);
 
   const loadMessages = useCallback(async (companyId: number) => {
     setLoadingMessages(true);
-    setError(null);
     try {
       const data = await getAdminTenantWhatsAppMessagesAPI(companyId, { page: 1, page_size: 100 });
       setMessages((data.results || []) as ChatRow[]);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load messages');
+      showToast(e instanceof Error ? e.message : t('tenantWhatsapp.loadMessagesError'), { variant: 'error' });
       setMessages([]);
     } finally {
       setLoadingMessages(false);
     }
-  }, []);
+  }, [showToast, t]);
 
   useEffect(() => {
     void loadTenants();
@@ -118,7 +116,6 @@ const TenantWhatsAppChat: React.FC = () => {
     const text = draft.trim();
     if (!selectedId || !text || sending) return;
     setSending(true);
-    setError(null);
     try {
       await sendAdminTenantWhatsAppAPI(selectedId, text);
       setDraft('');
@@ -127,7 +124,7 @@ const TenantWhatsAppChat: React.FC = () => {
       }
       await loadMessages(selectedId);
     } catch (e: unknown) {
-      setError(formatSendError(e, 'Send failed'));
+      showToast(formatSendError(e, t('tenantWhatsapp.sendFailed')), { variant: 'error' });
     } finally {
       setSending(false);
     }
@@ -155,10 +152,6 @@ const TenantWhatsAppChat: React.FC = () => {
           Settings
         </Link>
       </p>
-
-      {error && (
-        <Alert variant="error" className="mb-4">{error}</Alert>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-1 border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-gray-800 shadow-sm">

@@ -6,8 +6,8 @@ import Icon from '../components/Icon';
 import RefreshButton from '../components/RefreshButton';
 import GatewaySettingsModal from '../components/GatewaySettingsModal';
 import AddGatewayModal from '../components/AddGatewayModal';
-import AlertDialog from '../components/AlertDialog';
 import { useAuditLog } from '../context/AuditLogContext';
+import { useToast } from '../context/ToastContext';
 import GatewayCardSkeleton from '../components/GatewayCardSkeleton';
 import { getPaymentGatewaysAPI, getPaymentGatewayAPI, updatePaymentGatewayAPI, togglePaymentGatewayAPI, createPaymentGatewayAPI } from '../services/api';
 import { buildUpdateDiff } from '../utils/buildUpdateDiff';
@@ -86,18 +86,13 @@ const GatewayCard: React.FC<{ gateway: PaymentGateway, onManage: () => void, onT
 const PaymentGateways: React.FC = () => {
     const { t } = useI18n();
     const { addLog } = useAuditLog();
+    const { showToast } = useToast();
     const [gateways, setGateways] = useState<PaymentGateway[]>([]);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [confirmToggle, setConfirmToggle] = useState<{ gatewayId: string; enabled: boolean; gatewayName: string } | null>(null);
-    const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>({
-        isOpen: false,
-        title: '',
-        message: '',
-        type: 'error',
-    });
 
     useEffect(() => {
         loadGateways();
@@ -178,24 +173,20 @@ const PaymentGateways: React.FC = () => {
                         gatewayName: name,
                     });
                 });
-                setAlertDialog({
-                    isOpen: true,
-                    title: t('paymentGateways.title'),
-                    message: t('paymentGateways.disabledOther').replace(
+                showToast(
+                    t('paymentGateways.disabledOther').replace(
                         '{otherGatewayName}',
                         disabledGateways.join(t('common.listSeparator'))
                     ),
-                    type: 'info',
-                });
+                    { variant: 'info' },
+                );
             }
         } catch (error: any) {
             console.error('Error toggling gateway:', error);
-            setAlertDialog({
-                isOpen: true,
-                title: t('common.error') || 'Error',
-                message: error.message || t('paymentGateways.errors.toggleFailed') || 'Failed to toggle gateway',
-                type: 'error',
-            });
+            showToast(
+                error.message || t('paymentGateways.errors.toggleFailed') || 'Failed to toggle gateway',
+                { variant: 'error' },
+            );
         } finally {
             setConfirmToggle(null);
         }
@@ -228,24 +219,22 @@ const PaymentGateways: React.FC = () => {
                         gatewayName: name,
                     });
                 });
-                setAlertDialog({
-                    isOpen: true,
-                    title: t('paymentGateways.title'),
-                    message: t('paymentGateways.disabledOther').replace(
+                showToast(
+                    t('paymentGateways.disabledOther').replace(
                         '{otherGatewayName}',
                         disabledGateways.join(t('common.listSeparator'))
                     ),
-                    type: 'info',
-                });
+                    { variant: 'info' },
+                );
+            } else {
+                showToast(t('paymentGateways.saveSuccess'), { variant: 'success' });
             }
         } catch (error: any) {
             console.error('Error saving gateway settings:', error);
-            setAlertDialog({
-                isOpen: true,
-                title: t('common.error') || 'Error',
-                message: error.message || t('paymentGateways.errors.saveFailed') || 'Failed to save gateway settings',
-                type: 'error',
-            });
+            showToast(
+                error.message || t('paymentGateways.errors.saveFailed') || 'Failed to save gateway settings',
+                { variant: 'error' },
+            );
         }
     };
 
@@ -271,6 +260,7 @@ const PaymentGateways: React.FC = () => {
         await loadGateways();
         addLog('audit.log.gatewayAdded', { gatewayName: gatewayData.name });
         setIsAddModalOpen(false);
+        showToast(t('paymentGateways.addSuccess'), { variant: 'success' });
         
         // Open settings modal for the new gateway
         setSelectedGateway(newGateway);
@@ -397,13 +387,6 @@ const PaymentGateways: React.FC = () => {
                 </div>
             )}
 
-            <AlertDialog
-                isOpen={alertDialog.isOpen}
-                onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
-                title={alertDialog.title}
-                message={alertDialog.message}
-                type={alertDialog.type}
-            />
         </div>
     );
 };

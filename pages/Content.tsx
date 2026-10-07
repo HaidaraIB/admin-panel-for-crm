@@ -10,7 +10,6 @@ import GuideCategoriesPanel from '../components/GuideCategoriesPanel';
 import AlertDialog from '../components/AlertDialog';
 import { GuideArticle, GuideCategory, NewsPost } from '../types';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
@@ -35,7 +34,6 @@ const CONTENT_TABS = ['guide', 'news', 'tutorials'] as const;
 
 const Content: React.FC = () => {
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedTab<TabId>(
     'content',
@@ -85,7 +83,7 @@ const Content: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [loadGuide, loadNews, showAlert, t]);
+  }, [loadGuide, loadNews, showToast, t]);
 
   useEffect(() => {
     void loadAll();
@@ -107,7 +105,7 @@ const Content: React.FC = () => {
       const detail = await getGuideArticleAPI(item.id);
       setViewingGuide(detail);
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
       setViewOpen(false);
     } finally {
       setViewLoading(false);
@@ -123,7 +121,7 @@ const Content: React.FC = () => {
       const detail = await getNewsPostAPI(item.id);
       setViewingNews(detail);
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
       setViewOpen(false);
     } finally {
       setViewLoading(false);
@@ -143,7 +141,7 @@ const Content: React.FC = () => {
       });
       setEditingGuide(detail);
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
     }
   };
 
@@ -162,7 +160,7 @@ const Content: React.FC = () => {
       });
       setEditingNews(detail);
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.load'), { variant: 'error' });
     }
   };
 
@@ -208,7 +206,7 @@ const Content: React.FC = () => {
         await loadNews();
       }
       setModalOpen(false);
-      showAlert(t('content.alerts.saved'), { variant: 'success' });
+      showToast(t('content.alerts.saved'), { variant: 'success' });
     } catch (error) {
       showToast(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
     } finally {
@@ -226,7 +224,7 @@ const Content: React.FC = () => {
         await loadNews();
       }
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
     }
   };
 
@@ -242,7 +240,7 @@ const Content: React.FC = () => {
         await loadNews();
       }
       setDeleteTarget(null);
-      showAlert(t('content.alerts.deleted'), { variant: 'success' });
+      showToast(t('content.alerts.deleted'), { variant: 'success' });
     } catch (error) {
       showToast(translateAdminApiError(error, t) || t('content.errors.delete'), { variant: 'error' });
     } finally {
@@ -257,9 +255,9 @@ const Content: React.FC = () => {
       await notifyNewsPostAPI(notifyTarget.id, channels);
       setNotifyTarget(null);
       await loadNews();
-      showAlert(t('content.notify.success'), { variant: 'success' });
+      showToast(t('content.notify.success'), { variant: 'success' });
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.notify.error'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('content.notify.error'), { variant: 'error' });
     } finally {
       setNotifying(false);
     }

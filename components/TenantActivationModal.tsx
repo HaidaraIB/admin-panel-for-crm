@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LoadingButton from './LoadingButton';
 import { Tenant } from '../types';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import Icon from './Icon';
 import AlertDialog from './AlertDialog';
@@ -25,7 +25,7 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
   onDeactivate,
 }) => {
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [plans, setPlans] = useState<any[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<number | ''>('');
   const [startDate, setStartDate] = useState<string>('');
@@ -78,22 +78,22 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
         await onDeactivate(tenant.id);
         onClose();
       } catch (error: any) {
-        showAlert(translateAdminApiError(error, t) || t('errors.deactivateTenant'), { variant: 'error' });
+        showToast(translateAdminApiError(error, t) || t('errors.deactivateTenant'), { variant: 'error' });
       } finally {
         setIsLoading(false);
       }
     } else {
       // Activate - need plan and dates
       if (!selectedPlanId) {
-        showAlert(t('tenants.activation.selectPlan') || 'Please select a plan', { variant: 'warning' });
+        showToast(t('tenants.activation.selectPlan') || 'Please select a plan', { variant: 'warning' });
         return;
       }
       if (!startDate || !endDate) {
-        showAlert(t('tenants.activation.selectDates') || 'Please select start and end dates', { variant: 'warning' });
+        showToast(t('tenants.activation.selectDates') || 'Please select start and end dates', { variant: 'warning' });
         return;
       }
       if (new Date(endDate) <= new Date(startDate)) {
-        showAlert(t('tenants.activation.invalidDates') || 'End date must be after start date', { variant: 'warning' });
+        showToast(t('tenants.activation.invalidDates') || 'End date must be after start date', { variant: 'warning' });
         return;
       }
 
@@ -120,7 +120,7 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
       setPendingActivate(null);
       onClose();
     } catch (error: any) {
-      showAlert(translateAdminApiError(error, t) || t('errors.activateTenant'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('errors.activateTenant'), { variant: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +136,7 @@ const TenantActivationModal: React.FC<TenantActivationModalProps> = ({
       await onActivate(tenantId, planId, startDate, endDate);
       onClose();
     } catch (error: any) {
-      showAlert(translateAdminApiError(error, t) || t('errors.activateTenant'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('errors.activateTenant'), { variant: 'error' });
     } finally {
       setIsLoading(false);
     }

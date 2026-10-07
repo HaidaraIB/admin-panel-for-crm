@@ -65,7 +65,7 @@ const ToastItem = ({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
   return (
     <div
       role={toast.variant === 'error' || toast.variant === 'warning' ? 'alert' : 'status'}
-      className={`pointer-events-auto flex w-[min(100vw-2rem,24rem)] items-start gap-3 overflow-hidden rounded-xl border p-3 shadow-xl backdrop-blur-sm ${styles.wrap}`}
+      className={`pointer-events-auto flex w-[min(100vw-2rem,24rem)] items-start gap-3 overflow-hidden rounded-xl border p-3 shadow-xl backdrop-blur-sm animate-slide-down ${styles.wrap}`}
     >
       <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${styles.icon}`}>
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

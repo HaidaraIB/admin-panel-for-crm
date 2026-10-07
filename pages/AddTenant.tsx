@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Alert from '../components/Alert';
 import { useNavigate } from 'react-router';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import Icon from '../components/Icon';
 import PhoneInput from '../components/PhoneInput';
@@ -40,7 +40,7 @@ const slugify = (text: string) =>
 const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
   const navigate = useNavigate();
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
+  const { showToast } = useToast();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -164,7 +164,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
       return;
     }
     if (!planId || !plans.some((p) => String(p.id) === planId)) {
-      showAlert(t('tenants.add.selectPlan') || 'Please select a plan', { variant: 'warning' });
+      showToast(t('tenants.add.selectPlan') || 'Please select a plan', { variant: 'warning' });
       return;
     }
 
@@ -216,7 +216,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
       if (backend?.owner?.phone) next.phone = Array.isArray(backend.owner.phone) ? backend.owner.phone[0] : backend.owner.phone;
       if (backend?.owner?.password) next.password = Array.isArray(backend.owner.password) ? backend.owner.password[0] : backend.owner.password;
       if (Object.keys(next).length > 0) setErrors(next);
-      else showAlert(translateAdminApiError(err, t) || t('errors.createTenantSubdomain'), { variant: 'error' });
+      else showToast(translateAdminApiError(err, t) || t('errors.createTenantSubdomain'), { variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }

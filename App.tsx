@@ -22,7 +22,6 @@ import { Page, Tenant, TenantStatus } from './types';
 import { useAuditLog } from './context/AuditLogContext';
 import { useI18n } from './context/i18n';
 import { useUser } from './context/UserContext';
-import { useAlert } from './context/AlertContext';
 import { useToast } from './context/ToastContext';
 import { translateAdminApiError } from './utils/translateApiError';
 import { buildUpdateDiff } from './utils/buildUpdateDiff';
@@ -52,7 +51,6 @@ const PermissionGuard: React.FC<{ permission: RoutePermission; children: React.R
 
 const App: React.FC = () => {
   const { language, t } = useI18n();
-  const { showAlert } = useAlert();
   const { showToast } = useToast();
   const { user } = useUser();
   const location = useLocation();
@@ -182,12 +180,12 @@ const App: React.FC = () => {
         { variant: 'warning' }
       );
     } else {
-      showAlert(
+      showToast(
         t('connectivity.backOnline'), { variant: 'success' });
     }
 
     previousInternetStatusRef.current = isInternetOnline;
-  }, [isInternetOnline, language, showAlert]);
+  }, [isInternetOnline, language, showToast]);
 
   const loadTenants = async (opts?: { page?: number; search?: string; pageSize?: number }) => {
     const page = opts?.page ?? tenantsPage;
@@ -384,7 +382,7 @@ const App: React.FC = () => {
       await loadTenants({ page: tenantsPage });
     } catch (error: any) {
       console.error('Error updating tenant:', error);
-      showAlert(translateAdminApiError(error, t) || t('errors.updateTenant'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('errors.updateTenant'), { variant: 'error' });
     }
   };
 
@@ -482,7 +480,7 @@ const App: React.FC = () => {
       await loadTenants({ page: tenantsPage });
     } catch (error: any) {
       console.error('Error deleting tenant:', error);
-      showAlert(translateAdminApiError(error, t) || t('errors.deleteTenant'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('errors.deleteTenant'), { variant: 'error' });
       throw error;
     }
   };

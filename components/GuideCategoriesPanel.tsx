@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import LoadingButton from './LoadingButton';
 import { GuideCategory } from '../types';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import {
@@ -35,7 +34,6 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
   onCategoriesChange,
 }) => {
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
   const { showToast } = useToast();
   const [categories, setCategories] = useState<GuideCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +57,7 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [onCategoriesChange, showAlert, t]);
+  }, [onCategoriesChange, showToast, t]);
 
   useEffect(() => {
     void load();
@@ -98,7 +96,7 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name_en.trim() || !form.name_ar.trim()) {
-      showAlert(t('content.categories.namesRequired'), { variant: 'warning' });
+      showToast(t('content.categories.namesRequired'), { variant: 'warning' });
       return;
     }
     setSaving(true);
@@ -117,7 +115,7 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
       setEditing(null);
       setForm(emptyForm());
       await load();
-      showAlert(t('content.alerts.saved'), { variant: 'success' });
+      showToast(t('content.alerts.saved'), { variant: 'success' });
     } catch (error) {
       showToast(translateAdminApiError(error, t) || t('content.errors.save'), {
         variant: 'error',
@@ -135,9 +133,9 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
       setDeleteTarget(null);
       if (editing?.id === deleteTarget.id) closeModal();
       await load();
-      showAlert(t('content.alerts.deleted'), { variant: 'success' });
+      showToast(t('content.alerts.deleted'), { variant: 'success' });
     } catch (error) {
-      showAlert(translateAdminApiError(error, t) || t('content.errors.delete'), {
+      showToast(translateAdminApiError(error, t) || t('content.errors.delete'), {
         variant: 'error',
       });
     } finally {

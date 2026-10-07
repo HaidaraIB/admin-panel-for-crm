@@ -11,7 +11,6 @@ import { useUser } from '../context/UserContext';
 import TenantModal from '../components/TenantModal';
 import TenantActivationModal from '../components/TenantActivationModal';
 import { useAuditLog } from '../context/AuditLogContext';
-import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import TenantsFilterDrawer, { TenantFilters, tenantFilterDefaults } from '../components/TenantsFilterDrawer';
 import PaginationControls from '../components/PaginationControls';
@@ -60,7 +59,6 @@ const Tenants: React.FC<TenantsProps> = ({
     const navigate = useNavigate();
     const { addLog } = useAuditLog();
     const { isSuperAdmin } = useUser();
-    const { showAlert } = useAlert();
   const { showToast } = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
@@ -219,21 +217,21 @@ const Tenants: React.FC<TenantsProps> = ({
                             { variant: 'warning' }
                         );
                     } catch {
-                        showAlert(
+                        showToast(
                             `${t('tenants.impersonate.popupBlocked')} ${url}`,
                             { variant: 'warning' }
                         );
                     }
                 }
             } else if (!CRM_APP_URL) {
-                showAlert(t('tenants.impersonate.noCrmUrl'), { variant: 'warning' });
+                showToast(t('tenants.impersonate.noCrmUrl'), { variant: 'warning' });
             } else {
-                showAlert(t('tenants.impersonate.error'), { variant: 'error' });
+                showToast(t('tenants.impersonate.error'), { variant: 'error' });
             }
             setIsImpersonateConfirmOpen(false);
             setTenantToImpersonate(null);
         } catch (err: any) {
-            showAlert(err?.message || t('tenants.impersonate.error'), { variant: 'error' });
+            showToast(err?.message || t('tenants.impersonate.error'), { variant: 'error' });
         } finally {
             setIsImpersonating(false);
         }
@@ -250,7 +248,7 @@ const Tenants: React.FC<TenantsProps> = ({
         setIsDeleting(true);
         try {
             await onDeleteTenant(tenantToDelete.id);
-            showAlert(t('tenants.delete.success'), { variant: 'success' });
+            showToast(t('tenants.delete.success'), { variant: 'success' });
             setIsDeleteConfirmOpen(false);
             setTenantToDelete(null);
             setDeleteConfirmName('');

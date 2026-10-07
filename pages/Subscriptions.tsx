@@ -31,7 +31,6 @@ import { getPaymentsAPI, refundPaymentAPI, cancelPaymentAPI } from '../services/
 import PaginationControls from '../components/PaginationControls';
 import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
 import { usePersistedTab } from '../hooks/usePersistedTab';
-import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import { buildUpdateDiff } from '../utils/buildUpdateDiff';
@@ -125,7 +124,6 @@ interface SubscriptionsProps {
 const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
-    const { showAlert } = useAlert();
   const { showToast } = useToast();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -241,6 +239,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             }
             await loadPlans();
         handleCloseModal();
+            showToast(t('subscriptions.plans.saveSuccess'), { variant: 'success' });
         } catch (error: any) {
             console.error('Error saving plan:', error);
             showToast(translateAdminApiError(error, t) || t('errors.savePlan'), { variant: 'error' });
@@ -267,9 +266,10 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             await deletePlanAPI(planToDelete.id);
             addLog('audit.log.planDeleted', { planId: planToDelete.id });
             await loadPlans();
+            showToast(t('subscriptions.plans.deleteSuccess'), { variant: 'success' });
         } catch (error: any) {
             console.error('Error deleting plan:', error);
-            showAlert(translateAdminApiError(error, t) || t('errors.deletePlan'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('errors.deletePlan'), { variant: 'error' });
         } finally {
             setIsDeletingPlan(false);
             closeDeleteDialog();
@@ -296,9 +296,10 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             });
             await loadPlans();
             addLog('audit.log.planVisibilityToggled', { planName: planToToggleVisibility.name });
+            showToast(t('subscriptions.plans.visibilitySuccess'), { variant: 'success' });
         } catch (error: any) {
             console.error('Error toggling plan visibility:', error);
-            showAlert(translateAdminApiError(error, t) || t('errors.togglePlanVisibility'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('errors.togglePlanVisibility'), { variant: 'error' });
         } finally {
             setIsTogglingVisibility(false);
             closeVisibilityDialog();
@@ -460,6 +461,7 @@ function isQicardGatewayName(name: string | undefined): boolean {
 
 const PaymentsTab: React.FC = () => {
     const { t, language } = useI18n();
+    const { showToast } = useToast();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
@@ -480,12 +482,6 @@ const PaymentsTab: React.FC = () => {
         confirmText: '',
         onConfirm: () => {},
     });
-    const [actionAlert, setActionAlert] = useState<{
-        isOpen: boolean;
-        title: string;
-        message: string;
-        type: 'success' | 'error';
-    }>({ isOpen: false, title: '', message: '', type: 'success' });
     const [confirmActionLoading, setConfirmActionLoading] = useState(false);
     const [detailsPaymentId, setDetailsPaymentId] = useState<number | null>(null);
 
@@ -592,23 +588,13 @@ const PaymentsTab: React.FC = () => {
                 await cancelPaymentAPI(Number(paymentId));
             }
             setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-            setActionAlert({
-                isOpen: true,
-                title: successMessage,
-                message: '',
-                type: 'success',
-            });
+            showToast(successMessage, { variant: 'success' });
             await loadPayments(currentPage);
         } catch (error: unknown) {
             setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
             const message =
                 error instanceof Error ? error.message : t('subscriptions.payments.actionError');
-            setActionAlert({
-                isOpen: true,
-                title: t('subscriptions.payments.actionError'),
-                message,
-                type: 'error',
-            });
+            showToast(message || t('subscriptions.payments.actionError'), { variant: 'error' });
             await loadPayments(currentPage);
         } finally {
             setConfirmActionLoading(false);
@@ -796,13 +782,6 @@ const PaymentsTab: React.FC = () => {
                 loading={confirmActionLoading}
                 loadingText={t('subscriptions.payments.actionLoading')}
             />
-            <AlertDialog
-                isOpen={actionAlert.isOpen}
-                onClose={() => setActionAlert((prev) => ({ ...prev, isOpen: false }))}
-                title={actionAlert.title}
-                message={actionAlert.message}
-                type={actionAlert.type}
-            />
             <PaymentDetailsModal
                 isOpen={detailsPaymentId != null}
                 paymentId={detailsPaymentId}
@@ -860,7 +839,7 @@ const INVOICE_STATUS_OPTIONS: InvoicePaymentStatus[] = [
 const InvoicesTab: React.FC = () => {
     const { t, language } = useI18n();
     const { logoUrl } = useTheme();
-    const { showAlert } = useAlert();
+  const { showToast } = useToast();
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [downloadingId, setDownloadingId] = useState<number | null>(null);
@@ -952,7 +931,7 @@ const InvoicesTab: React.FC = () => {
             URL.revokeObjectURL(url);
         } catch (error: any) {
             console.error('Failed to download invoice PDF:', error);
-            showAlert(translateAdminApiError(error, t) || t('subscriptions.invoices.pdfError'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('subscriptions.invoices.pdfError'), { variant: 'error' });
         } finally {
             setDownloadingId(null);
         }
@@ -962,10 +941,10 @@ const InvoicesTab: React.FC = () => {
         setSendingId(invoice.numericId);
         try {
             await sendInvoiceEmailAPI(invoice.numericId);
-            showAlert(t('subscriptions.invoices.emailSent'), { variant: 'success' });
+            showToast(t('subscriptions.invoices.emailSent'), { variant: 'success' });
             await loadInvoices(currentPage);
         } catch (error: any) {
-            showAlert(translateAdminApiError(error, t) || t('subscriptions.invoices.emailError'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('subscriptions.invoices.emailError'), { variant: 'error' });
         } finally {
             setSendingId(null);
         }
@@ -1134,7 +1113,7 @@ const SUBSCRIPTION_STATUS_OPTIONS = ['Active', 'Inactive'];
 
 const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1158,7 +1137,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       const data = await getSubscriptionAPI(subId);
       setSubscriptionViewDetail(data as Record<string, unknown>);
     } catch (error: unknown) {
-      showAlert(translateAdminApiError(error, t) || t('errors.loadSubscription'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('errors.loadSubscription'), { variant: 'error' });
       setSubscriptionViewOpen(false);
     } finally {
       setSubscriptionViewLoading(false);
@@ -1222,9 +1201,10 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     try {
       await updateSubscriptionAPI(subscription.id, { is_active: false });
       await loadSubscriptions(currentPage);
+      showToast(t('subscriptions.updateSuccess'), { variant: 'success' });
     } catch (error: any) {
       console.error('Error updating subscription:', error);
-      showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
     }
   };
 
@@ -1244,9 +1224,10 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       await updateSubscriptionAPI(sub.id, { is_active: true });
       setPendingActivateSub(null);
       await loadSubscriptions(currentPage);
+      showToast(t('subscriptions.updateSuccess'), { variant: 'success' });
     } catch (error: any) {
       console.error('Error updating subscription:', error);
-      showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
     } finally {
       setIsTogglingSub(false);
     }
@@ -1261,9 +1242,10 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
     try {
       await updateSubscriptionAPI(sub.id, { is_active: true });
       await loadSubscriptions(currentPage);
+      showToast(t('subscriptions.updateSuccess'), { variant: 'success' });
     } catch (error: any) {
       console.error('Error updating subscription:', error);
-      showAlert(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
+      showToast(translateAdminApiError(error, t) || t('errors.updateSubscription'), { variant: 'error' });
     } finally {
       setIsTogglingSub(false);
     }

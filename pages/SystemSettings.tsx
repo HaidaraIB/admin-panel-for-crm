@@ -16,7 +16,6 @@ import {
     SettingsSectionLayout,
 } from '../components/settings';
 import { useAuditLog } from '../context/AuditLogContext';
-import { useAlert } from '../context/AlertContext';
 import { useToast } from '../context/ToastContext';
 import { useUser } from '../context/UserContext';
 import { translateAdminApiError } from '../utils/translateApiError';
@@ -245,6 +244,7 @@ const CompanyOverrideEditor: React.FC<{
 
 const GeneralSettings: React.FC = () => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [usdToIqdRate, setUsdToIqdRate] = useState<number>(1300);
     const [mobileMinVersionAndroid, setMobileMinVersionAndroid] = useState('');
@@ -255,17 +255,10 @@ const GeneralSettings: React.FC = () => {
     const [mobileStoreUrlIos, setMobileStoreUrlIos] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     useEffect(() => {
         loadSettings();
     }, []);
-
-    useEffect(() => {
-        if (!feedback) return;
-        const timer = setTimeout(() => setFeedback(null), 6000);
-        return () => clearTimeout(timer);
-    }, [feedback]);
 
     const loadSettings = async () => {
         setIsLoading(true);
@@ -281,7 +274,7 @@ const GeneralSettings: React.FC = () => {
             setMobileStoreUrlIos(settings.mobile_store_url_ios || '');
         } catch (error) {
             console.error('Failed to load settings', error);
-            setFeedback({ type: 'error', message: t('settings.general.loadError') || 'Failed to load settings' });
+            showToast(t('settings.general.loadError') || 'Failed to load settings', { variant: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -289,7 +282,6 @@ const GeneralSettings: React.FC = () => {
 
     const handleSaveChanges = async () => {
         setIsSaving(true);
-        setFeedback(null);
         try {
             await updateSystemSettingsAPI({
                 usd_to_iqd_rate: usdToIqdRate,
@@ -301,31 +293,13 @@ const GeneralSettings: React.FC = () => {
                 mobile_store_url_ios: mobileStoreUrlIos.trim(),
             });
             addLog('audit.log.generalSettingsSaved');
-            setFeedback({ type: 'success', message: t('settings.general.saveSuccess') || 'Settings saved successfully!' });
+            showToast(t('settings.general.saveSuccess') || 'Settings saved successfully!', { variant: 'success' });
         } catch (error: any) {
             console.error('Failed to save settings', error);
-            setFeedback({
-                type: 'error',
-                message: translateAdminApiError(error, t) || (error as Error).message || t('settings.general.saveError') || 'Failed to save settings',
-            });
+            showToast(translateAdminApiError(error, t) || (error as Error).message || t('settings.general.saveError') || 'Failed to save settings', { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
-    };
-
-    const renderFeedback = () => {
-        if (!feedback) return null;
-        const isSuccess = feedback.type === 'success';
-        return (
-            <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
-                isSuccess
-                    ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
-                    : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
-            }`}>
-                <Icon name={isSuccess ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                <span>{feedback.message}</span>
-            </div>
-        );
     };
 
     return (
@@ -338,7 +312,6 @@ const GeneralSettings: React.FC = () => {
                 />
             }
         >
-            {renderFeedback()}
 
             {isLoading ? (
                 <div className="flex justify-center py-8">
@@ -453,12 +426,12 @@ const GeneralSettings: React.FC = () => {
 
 const IntegrationsControlSettings: React.FC = () => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [integrationPolicies, setIntegrationPolicies] = useState<IntegrationPolicyState>(DEFAULT_INTEGRATION_POLICIES);
     const [companies, setCompanies] = useState<CompanyOption[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const platformLabels: Record<IntegrationPlatformKey, string> = {
         meta: t('settings.integrations.platform.meta') || 'Meta',
         meta_inbox: t('settings.integrations.platform.metaInbox') || 'Instagram & Messenger Inbox',
@@ -505,7 +478,7 @@ const IntegrationsControlSettings: React.FC = () => {
                 setCompanies(list);
             } catch (error) {
                 console.error('Failed to load integration settings', error);
-                setFeedback({ type: 'error', message: t('settings.integrations.loadError') || 'Failed to load integration settings.' });
+                showToast(t('settings.integrations.loadError') || 'Failed to load integration settings.', { variant: 'error' });
             } finally {
                 setIsLoading(false);
             }
@@ -515,13 +488,12 @@ const IntegrationsControlSettings: React.FC = () => {
 
     const handleSave = async () => {
         setIsSaving(true);
-        setFeedback(null);
         try {
             await updateSystemSettingsAPI({ integration_policies: integrationPolicies });
             addLog('audit.log.generalSettingsSaved');
-            setFeedback({ type: 'success', message: t('settings.integrations.saveSuccess') || 'Integration policies saved.' });
+            showToast(t('settings.integrations.saveSuccess') || 'Integration policies saved.', { variant: 'success' });
         } catch (error: any) {
-            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.integrations.saveError') || 'Failed to save integration policies.' });
+            showToast(translateAdminApiError(error, t) || t('settings.integrations.saveError') || 'Failed to save integration policies.', { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
@@ -537,16 +509,6 @@ const IntegrationsControlSettings: React.FC = () => {
                 />
             }
         >
-            {feedback && (
-                <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
-                    feedback.type === 'success'
-                        ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
-                        : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
-                }`}>
-                    <Icon name={feedback.type === 'success' ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                    <span>{feedback.message}</span>
-                </div>
-            )}
             {isLoading ? (
                 <div className="flex justify-center py-8"><LoadingSpinner /></div>
             ) : (
@@ -607,12 +569,12 @@ const IntegrationsControlSettings: React.FC = () => {
 
 const FeaturesControlSettings: React.FC = () => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [featurePolicies, setFeaturePolicies] = useState<FeaturePolicyState>(DEFAULT_FEATURE_POLICIES);
     const [companies, setCompanies] = useState<CompanyOption[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const featureLabels: Record<FeaturePolicyKey, string> = {
         field_visit: t('settings.features.platform.fieldVisit') || 'Field visit (الزيارة الميدانية)',
     };
@@ -647,7 +609,7 @@ const FeaturesControlSettings: React.FC = () => {
                 setCompanies(list);
             } catch (error) {
                 console.error('Failed to load feature settings', error);
-                setFeedback({ type: 'error', message: t('settings.features.loadError') || 'Failed to load feature settings.' });
+                showToast(t('settings.features.loadError') || 'Failed to load feature settings.', { variant: 'error' });
             } finally {
                 setIsLoading(false);
             }
@@ -657,13 +619,12 @@ const FeaturesControlSettings: React.FC = () => {
 
     const handleSave = async () => {
         setIsSaving(true);
-        setFeedback(null);
         try {
             await updateSystemSettingsAPI({ feature_policies: featurePolicies });
             addLog('audit.log.generalSettingsSaved');
-            setFeedback({ type: 'success', message: t('settings.features.saveSuccess') || 'Feature policies saved.' });
+            showToast(t('settings.features.saveSuccess') || 'Feature policies saved.', { variant: 'success' });
         } catch (error: any) {
-            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.features.saveError') || 'Failed to save feature policies.' });
+            showToast(translateAdminApiError(error, t) || t('settings.features.saveError') || 'Failed to save feature policies.', { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
@@ -679,16 +640,6 @@ const FeaturesControlSettings: React.FC = () => {
                 />
             }
         >
-            {feedback && (
-                <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
-                    feedback.type === 'success'
-                        ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
-                        : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
-                }`}>
-                    <Icon name={feedback.type === 'success' ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                    <span>{feedback.message}</span>
-                </div>
-            )}
             {isLoading ? (
                 <div className="flex justify-center py-8"><LoadingSpinner /></div>
             ) : (
@@ -749,6 +700,7 @@ const FeaturesControlSettings: React.FC = () => {
 
 const SecurityBackups: React.FC = () => {
     const { t, language } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [backupStatus, setBackupStatus] = useState<'idle' | 'in-progress'>('idle');
     const [backups, setBackups] = useState<SystemBackup[]>([]);
@@ -757,7 +709,6 @@ const SecurityBackups: React.FC = () => {
     const [totalBackups, setTotalBackups] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [restoringId, setRestoringId] = useState<string | null>(null);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [scheduleSaving, setScheduleSaving] = useState(false);
     const [confirmBackupAction, setConfirmBackupAction] = useState<{ type: 'delete' | 'restore'; backup: SystemBackup } | null>(null);
     const [backupToView, setBackupToView] = useState<SystemBackup | null>(null);
@@ -794,7 +745,7 @@ const SecurityBackups: React.FC = () => {
             setTotalBackups(response.count || 0);
         } catch (error) {
             console.error('Failed to load backups', error);
-            setFeedback({ type: 'error', message: t('settings.security.loadError') });
+            showToast(t('settings.security.loadError'), { variant: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -814,12 +765,6 @@ const SecurityBackups: React.FC = () => {
     useEffect(() => {
         persistSchedule(backupSchedule);
     }, [backupSchedule]);
-
-    useEffect(() => {
-        if (!feedback) return;
-        const timer = setTimeout(() => setFeedback(null), 6000);
-        return () => clearTimeout(timer);
-    }, [feedback]);
 
     const scheduleOptions = useMemo(
         () => ([
@@ -846,17 +791,16 @@ const SecurityBackups: React.FC = () => {
 
     const handleBackupNow = async () => {
         if (backupStatus === 'in-progress') return;
-        setFeedback(null);
         setBackupStatus('in-progress');
         try {
             const newBackup = await createSystemBackupAPI();
             addLog('audit.log.backupManual', { backupId: newBackup.id });
-            setFeedback({ type: 'success', message: t('settings.security.backupCompleted') });
+            showToast(t('settings.security.backupCompleted'), { variant: 'success' });
             setCurrentPage(1);
             await loadBackups(1);
         } catch (error) {
             console.error('Failed to create backup', error);
-            setFeedback({ type: 'error', message: t('settings.security.backupFailedMessage') });
+            showToast(t('settings.security.backupFailedMessage'), { variant: 'error' });
         } finally {
                 setBackupStatus('idle');
         }
@@ -865,16 +809,15 @@ const SecurityBackups: React.FC = () => {
     const handleScheduleChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
         const newSchedule = event.target.value as BackupSchedule;
         setScheduleSaving(true);
-        setFeedback(null);
         try {
             await updateSystemSettingsAPI({ backup_schedule: newSchedule });
             setBackupSchedule(newSchedule);
             persistSchedule(newSchedule);
             addLog('audit.log.backupScheduleUpdated', { schedule: t(`settings.security.schedule.${newSchedule}`) });
-            setFeedback({ type: 'success', message: t('settings.security.scheduleSaved') || 'Backup schedule updated.' });
+            showToast(t('settings.security.scheduleSaved') || 'Backup schedule updated.', { variant: 'success' });
         } catch (error: any) {
             console.error('Failed to update backup schedule', error);
-            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.security.scheduleSaveError') || 'Failed to save backup schedule.' });
+            showToast(translateAdminApiError(error, t) || t('settings.security.scheduleSaveError') || 'Failed to save backup schedule.', { variant: 'error' });
         } finally {
             setScheduleSaving(false);
         }
@@ -888,11 +831,11 @@ const SecurityBackups: React.FC = () => {
         try {
             await deleteSystemBackupAPI(backup.id);
             addLog('audit.log.backupDeleted', { backupId: backup.id });
-            setFeedback({ type: 'success', message: t('settings.security.backupDeletedMessage') });
+            showToast(t('settings.security.backupDeletedMessage'), { variant: 'success' });
             await loadBackups(currentPage);
         } catch (error) {
             console.error('Failed to delete backup', error);
-            setFeedback({ type: 'error', message: t('settings.security.deleteError') });
+            showToast(t('settings.security.deleteError'), { variant: 'error' });
         } finally {
             setConfirmBackupAction(null);
         }
@@ -929,7 +872,7 @@ const SecurityBackups: React.FC = () => {
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Failed to download backup', error);
-            setFeedback({ type: 'error', message: t('settings.security.downloadError') });
+            showToast(t('settings.security.downloadError'), { variant: 'error' });
         }
     };
 
@@ -944,28 +887,13 @@ const SecurityBackups: React.FC = () => {
         try {
             await restoreSystemBackupAPI(backup.id);
             addLog('audit.log.backupRestored', { backupId: backup.id });
-            setFeedback({ type: 'success', message: `${t('settings.security.restoreSuccess')} ${backup.id}` });
+            showToast(`${t('settings.security.restoreSuccess')} ${backup.id}`, { variant: 'success' });
         } catch (error) {
             console.error('Failed to restore backup', error);
-            setFeedback({ type: 'error', message: t('settings.security.restoreError') });
+            showToast(t('settings.security.restoreError'), { variant: 'error' });
         } finally {
             setRestoringId(null);
         }
-    };
-
-    const renderFeedback = () => {
-        if (!feedback) return null;
-        const isSuccess = feedback.type === 'success';
-        return (
-            <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
-                isSuccess
-                    ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
-                    : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
-            }`}>
-                <Icon name={isSuccess ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                <span>{feedback.message}</span>
-            </div>
-        );
     };
     
     return (
@@ -981,7 +909,6 @@ const SecurityBackups: React.FC = () => {
                 />
             }
         >
-            {renderFeedback()}
 
             <div>
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('settings.security.schedule')}</label>
@@ -1233,6 +1160,7 @@ export interface PlatformTwilioSettingsData {
 
 const TwilioSmsSettings: React.FC = () => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [accountSid, setAccountSid] = useState('');
     const [twilioNumber, setTwilioNumber] = useState('');
@@ -1242,19 +1170,12 @@ const TwilioSmsSettings: React.FC = () => {
     const [isEnabled, setIsEnabled] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
 
     useEffect(() => {
         loadSettings();
     }, []);
-
-    useEffect(() => {
-        if (!feedback) return;
-        const timer = setTimeout(() => setFeedback(null), 6000);
-        return () => clearTimeout(timer);
-    }, [feedback]);
 
     const loadSettings = async () => {
         setIsLoading(true);
@@ -1275,7 +1196,7 @@ const TwilioSmsSettings: React.FC = () => {
             }
         } catch (error) {
             console.error('Failed to load Twilio settings', error);
-            setFeedback({ type: 'error', message: t('settings.twilio.loadError') || 'Failed to load Twilio settings' });
+            showToast(t('settings.twilio.loadError') || 'Failed to load Twilio settings', { variant: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -1283,7 +1204,6 @@ const TwilioSmsSettings: React.FC = () => {
 
     const handleSave = async () => {
         setIsSaving(true);
-        setFeedback(null);
         setFieldErrors({});
         try {
             const next: Record<string, unknown> = {
@@ -1295,12 +1215,12 @@ const TwilioSmsSettings: React.FC = () => {
             if (authToken.trim()) next.auth_token = authToken.trim();
             const diff = buildUpdateDiff(loadedSettings ?? {}, next);
             if (Object.keys(diff).length === 0) {
-                setFeedback({ type: 'success', message: t('settings.twilio.saveSuccess') || 'Twilio settings saved.' });
+                showToast(t('settings.twilio.saveSuccess') || 'Twilio settings saved.', { variant: 'success' });
                 return;
             }
             await updatePlatformTwilioSettingsAPI(diff);
             addLog('audit.log.twilioSettingsSaved');
-            setFeedback({ type: 'success', message: t('settings.twilio.saveSuccess') || 'Twilio settings saved.' });
+            showToast(t('settings.twilio.saveSuccess') || 'Twilio settings saved.', { variant: 'success' });
             setAuthToken('');
             setLoadedSettings({
                 account_sid: accountSid.trim(),
@@ -1311,25 +1231,10 @@ const TwilioSmsSettings: React.FC = () => {
         } catch (error: any) {
             console.error('Failed to save Twilio settings', error);
             setFieldErrors(fieldErrorsFromApi(error));
-            setFeedback({ type: 'error', message: error?.message || t('settings.twilio.saveError') || 'Failed to save Twilio settings' });
+            showToast(error?.message || t('settings.twilio.saveError') || 'Failed to save Twilio settings', { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
-    };
-
-    const renderFeedback = () => {
-        if (!feedback) return null;
-        const isSuccess = feedback.type === 'success';
-        return (
-            <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
-                isSuccess
-                    ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
-                    : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
-            }`}>
-                <Icon name={isSuccess ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                <span>{feedback.message}</span>
-            </div>
-        );
     };
 
     return (
@@ -1343,7 +1248,6 @@ const TwilioSmsSettings: React.FC = () => {
                 />
             }
         >
-            {renderFeedback()}
             {isLoading ? (
                 <div className="flex justify-center py-8">
                     <LoadingSpinner />
@@ -1441,25 +1345,19 @@ const TwilioSmsSettings: React.FC = () => {
 
 const PlatformOtpiqSettingsPanel: React.FC = () => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [apiKey, setApiKey] = useState('');
     const [showApiKey, setShowApiKey] = useState(false);
     const [senderId, setSenderId] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
 
     useEffect(() => {
         loadSettings();
     }, []);
-
-    useEffect(() => {
-        if (!feedback) return;
-        const timer = setTimeout(() => setFeedback(null), 6000);
-        return () => clearTimeout(timer);
-    }, [feedback]);
 
     const loadSettings = async () => {
         setIsLoading(true);
@@ -1474,7 +1372,7 @@ const PlatformOtpiqSettingsPanel: React.FC = () => {
             }
         } catch (error) {
             console.error('Failed to load OTPIQ settings', error);
-            setFeedback({ type: 'error', message: t('settings.otpiq.loadError') });
+            showToast(t('settings.otpiq.loadError'), { variant: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -1482,7 +1380,6 @@ const PlatformOtpiqSettingsPanel: React.FC = () => {
 
     const handleSave = async () => {
         setIsSaving(true);
-        setFeedback(null);
         setFieldErrors({});
         try {
             const next: Record<string, unknown> = {
@@ -1491,37 +1388,22 @@ const PlatformOtpiqSettingsPanel: React.FC = () => {
             if (apiKey.trim()) next.api_key = apiKey.trim();
             const diff = buildUpdateDiff(loadedSettings ?? {}, next);
             if (Object.keys(diff).length === 0) {
-                setFeedback({ type: 'success', message: t('settings.otpiq.saveSuccess') });
+                showToast(t('settings.otpiq.saveSuccess'), { variant: 'success' });
                 return;
             }
             await updatePlatformOtpiqSettingsAPI(diff);
             addLog('audit.log.otpiqSettingsSaved');
-            setFeedback({ type: 'success', message: t('settings.otpiq.saveSuccess') });
+            showToast(t('settings.otpiq.saveSuccess'), { variant: 'success' });
             setApiKey('');
             setLoadedSettings({
                 sender_id: senderId.trim(),
             });
         } catch (error: any) {
             setFieldErrors(fieldErrorsFromApi(error));
-            setFeedback({ type: 'error', message: error?.message || t('settings.otpiq.saveError') });
+            showToast(error?.message || t('settings.otpiq.saveError'), { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
-    };
-
-    const renderFeedback = () => {
-        if (!feedback) return null;
-        const isSuccess = feedback.type === 'success';
-        return (
-            <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
-                isSuccess
-                    ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
-                    : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
-            }`}>
-                <Icon name={isSuccess ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                <span>{feedback.message}</span>
-            </div>
-        );
     };
 
     return (
@@ -1535,7 +1417,6 @@ const PlatformOtpiqSettingsPanel: React.FC = () => {
                 />
             }
         >
-            {renderFeedback()}
             {isLoading ? (
                 <div className="flex justify-center py-8">
                     <LoadingSpinner />
@@ -1593,6 +1474,7 @@ const PlatformOtpiqSettingsPanel: React.FC = () => {
 
 const PlatformWhatsAppSettingsPanel: React.FC = () => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [phoneNumberId, setPhoneNumberId] = useState('');
     const [accessToken, setAccessToken] = useState('');
@@ -1604,7 +1486,6 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
     const [adminTemplateLang, setAdminTemplateLang] = useState('en');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown> | null>(null);
     const [testPhone, setTestPhone] = useState('');
@@ -1615,17 +1496,10 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
         template_name: string;
         template_lang: string;
     } | null>(null);
-    const [testOtpError, setTestOtpError] = useState<string | null>(null);
 
     useEffect(() => {
         loadSettings();
     }, []);
-
-    useEffect(() => {
-        if (!feedback) return;
-        const timer = setTimeout(() => setFeedback(null), 6000);
-        return () => clearTimeout(timer);
-    }, [feedback]);
 
     const loadSettings = async () => {
         setIsLoading(true);
@@ -1648,7 +1522,7 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
             });
         } catch (error) {
             console.error('Failed to load Platform WhatsApp settings', error);
-            setFeedback({ type: 'error', message: t('settings.platformWhatsapp.loadError') });
+            showToast(t('settings.platformWhatsapp.loadError'), { variant: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -1656,7 +1530,6 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
 
     const handleSave = async () => {
         setIsSaving(true);
-        setFeedback(null);
         setFieldErrors({});
         try {
             const next: Record<string, unknown> = {
@@ -1670,12 +1543,12 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
             if (accessToken.trim()) next.access_token = accessToken.trim();
             const diff = buildUpdateDiff(loadedSettings ?? {}, next);
             if (Object.keys(diff).length === 0) {
-                setFeedback({ type: 'success', message: t('settings.platformWhatsapp.saveSuccess') });
+                showToast(t('settings.platformWhatsapp.saveSuccess'), { variant: 'success' });
                 return;
             }
             await updatePlatformWhatsAppSettingsAPI(diff);
             addLog('audit.log.platformWhatsappSaved');
-            setFeedback({ type: 'success', message: t('settings.platformWhatsapp.saveSuccess') });
+            showToast(t('settings.platformWhatsapp.saveSuccess'), { variant: 'success' });
             setAccessToken('');
             setLoadedSettings({
                 phone_number_id: phoneNumberId.trim(),
@@ -1687,7 +1560,7 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
             });
         } catch (error: any) {
             setFieldErrors(fieldErrorsFromApi(error));
-            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.platformWhatsapp.saveError') });
+            showToast(translateAdminApiError(error, t) || t('settings.platformWhatsapp.saveError'), { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
@@ -1695,7 +1568,6 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
 
     const handleSendTestOtp = async () => {
         setIsSendingTestOtp(true);
-        setTestOtpError(null);
         setTestOtpResult(null);
         try {
             const data = await sendPlatformWhatsAppTestOtpAPI(testPhone.trim());
@@ -1703,8 +1575,12 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
             addLog('audit.log.platformWhatsappTestOtpSent', {
                 phone: data.phone_suffix ? `…${data.phone_suffix}` : '',
             });
+            showToast(t('settings.platformWhatsapp.testOtpSuccess'), { variant: 'success' });
         } catch (error: unknown) {
-            setTestOtpError(translateAdminApiError(error, t) || t('settings.platformWhatsapp.testOtpError'));
+            showToast(
+                translateAdminApiError(error, t) || t('settings.platformWhatsapp.testOtpError'),
+                { variant: 'error' },
+            );
         } finally {
             setIsSendingTestOtp(false);
         }
@@ -1721,16 +1597,6 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                 />
             }
         >
-            {feedback && (
-                <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
-                    feedback.type === 'success'
-                        ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
-                        : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
-                }`}>
-                    <Icon name={feedback.type === 'success' ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                    <span>{feedback.message}</span>
-                </div>
-            )}
             {isLoading ? (
                 <div className="flex justify-center py-8"><LoadingSpinner /></div>
             ) : (
@@ -1854,15 +1720,8 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
                                 {t('settings.platformWhatsapp.testOtpSend')}
                             </LoadingButton>
                         </div>
-                        {testOtpError ? (
-                            <div className="flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
-                                <Icon name="warning" className="w-4 h-4 mt-0.5 shrink-0" />
-                                <span>{testOtpError}</span>
-                            </div>
-                        ) : null}
                         {testOtpResult ? (
                             <div className="rounded-lg border border-primary-100 bg-primary-50 dark:border-primary-800 dark:bg-primary-900/20 px-4 py-3 text-sm text-primary-900 dark:text-primary-100 space-y-1">
-                                <p>{t('settings.platformWhatsapp.testOtpSuccess')}</p>
                                 <p>
                                     <span className="text-primary-700/80 dark:text-primary-200/80">
                                         {t('settings.platformWhatsapp.testOtpCodeLabel')}:{' '}
@@ -1885,13 +1744,13 @@ const PlatformWhatsAppSettingsPanel: React.FC = () => {
 
 const RegistrationOtpSettings: React.FC = () => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [phoneOtpRequired, setPhoneOtpRequired] = useState(false);
     const [emailVerificationRequired, setEmailVerificationRequired] = useState(false);
     const [phoneOtpChannel, setPhoneOtpChannel] = useState<PhoneOtpChannel>('whatsapp');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const loadSettings = async () => {
         setIsLoading(true);
@@ -1907,7 +1766,7 @@ const RegistrationOtpSettings: React.FC = () => {
                 setPhoneOtpChannel(ch);
             }
         } catch (error: any) {
-            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.registrationOtp.loadError') });
+            showToast(translateAdminApiError(error, t) || t('settings.registrationOtp.loadError'), { variant: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -1917,15 +1776,8 @@ const RegistrationOtpSettings: React.FC = () => {
         loadSettings();
     }, []);
 
-    useEffect(() => {
-        if (!feedback) return;
-        const timer = setTimeout(() => setFeedback(null), 6000);
-        return () => clearTimeout(timer);
-    }, [feedback]);
-
     const handleSave = async () => {
         setIsSaving(true);
-        setFeedback(null);
         try {
             const [data, emailData] = await Promise.all([
                 updatePhoneOtpRequirementAPI(
@@ -1956,9 +1808,9 @@ const RegistrationOtpSettings: React.FC = () => {
             addLog('audit.log.registrationEmailVerificationUpdated', {
                 state: emailVerificationRequired ? t('common.enabled') : t('common.disabled'),
             });
-            setFeedback({ type: 'success', message: t('settings.registrationOtp.saveSuccess') });
+            showToast(t('settings.registrationOtp.saveSuccess'), { variant: 'success' });
         } catch (error: any) {
-            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.registrationOtp.saveError') });
+            showToast(translateAdminApiError(error, t) || t('settings.registrationOtp.saveError'), { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
@@ -1975,16 +1827,6 @@ const RegistrationOtpSettings: React.FC = () => {
                 />
             }
         >
-            {feedback && (
-                <div className={`flex items-start gap-3 px-4 py-3 rounded-lg border text-sm ${
-                    feedback.type === 'success'
-                        ? 'bg-primary-50 text-primary-900 border-primary-100 dark:bg-primary-900/20 dark:text-primary-100 dark:border-primary-800'
-                        : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800'
-                }`}>
-                    <Icon name={feedback.type === 'success' ? 'check' : 'warning'} className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                    <span>{feedback.message}</span>
-                </div>
-            )}
             {isLoading ? (
                 <div className="flex justify-center py-8"><LoadingSpinner /></div>
             ) : (
@@ -2078,13 +1920,13 @@ const RegistrationOtpSettings: React.FC = () => {
 
 const LoginLockoutSettings: React.FC = () => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const { addLog } = useAuditLog();
     const [enabled, setEnabled] = useState(true);
     const [maxAttempts, setMaxAttempts] = useState(5);
     const [durationMinutes, setDurationMinutes] = useState(15);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const loadSettings = async () => {
         setIsLoading(true);
@@ -2094,7 +1936,7 @@ const LoginLockoutSettings: React.FC = () => {
             setMaxAttempts(Math.max(1, Number(data.login_max_failed_attempts) || 5));
             setDurationMinutes(Math.max(1, Number(data.login_lockout_duration_minutes) || 15));
         } catch (error: any) {
-            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.loginLockout.loadError') });
+            showToast(translateAdminApiError(error, t) || t('settings.loginLockout.loadError'), { variant: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -2104,17 +1946,10 @@ const LoginLockoutSettings: React.FC = () => {
         loadSettings();
     }, []);
 
-    useEffect(() => {
-        if (!feedback) return;
-        const timer = setTimeout(() => setFeedback(null), 6000);
-        return () => clearTimeout(timer);
-    }, [feedback]);
-
     const handleSave = async () => {
         const attempts = Math.max(1, Math.floor(Number(maxAttempts) || 1));
         const minutes = Math.max(1, Math.floor(Number(durationMinutes) || 1));
         setIsSaving(true);
-        setFeedback(null);
         try {
             const data = await updateSystemSettingsAPI({
                 login_lockout_enabled: enabled,
@@ -2129,9 +1964,9 @@ const LoginLockoutSettings: React.FC = () => {
                 attempts: String(attempts),
                 minutes: String(minutes),
             });
-            setFeedback({ type: 'success', message: t('settings.loginLockout.saveSuccess') });
+            showToast(t('settings.loginLockout.saveSuccess'), { variant: 'success' });
         } catch (error: any) {
-            setFeedback({ type: 'error', message: translateAdminApiError(error, t) || t('settings.loginLockout.saveError') });
+            showToast(translateAdminApiError(error, t) || t('settings.loginLockout.saveError'), { variant: 'error' });
         } finally {
             setIsSaving(false);
         }
@@ -2148,11 +1983,6 @@ const LoginLockoutSettings: React.FC = () => {
                 />
             }
         >
-            {feedback && (
-                <div className={`p-3 rounded-md text-sm ${feedback.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'}`}>
-                    {feedback.message}
-                </div>
-            )}
             {isLoading ? (
                 <div className="flex items-center gap-2 text-gray-500"><LoadingSpinner /><span>{t('common.loading') || 'Loading...'}</span></div>
             ) : (
@@ -2314,7 +2144,6 @@ const AuditLog: React.FC = () => {
 const LimitedAdmins: React.FC = () => {
     const { t, language } = useI18n();
     const { addLog } = useAuditLog();
-    const { showAlert } = useAlert();
     const { showToast } = useToast();
     const [limitedAdmins, setLimitedAdmins] = useState<LimitedAdmin[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -2400,6 +2229,7 @@ const LimitedAdmins: React.FC = () => {
             }
             await loadLimitedAdmins();
             handleCloseModal();
+            showToast(t('limitedAdmins.saveSuccess'), { variant: 'success' });
         } catch (error: any) {
             console.error('Error saving limited admin:', error);
             showToast(translateAdminApiError(error, t) || t('errors.saveLimitedAdmin'), { variant: 'error' });
@@ -2413,9 +2243,10 @@ const LimitedAdmins: React.FC = () => {
             await toggleLimitedAdminActiveAPI(admin.id);
             addLog('audit.log.limitedAdminToggled', { adminName: `${admin.user.first_name} ${admin.user.last_name}` });
             await loadLimitedAdmins();
+            showToast(t('limitedAdmins.toggleSuccess'), { variant: 'success' });
         } catch (error: any) {
             console.error('Error toggling limited admin:', error);
-            showAlert(translateAdminApiError(error, t) || t('errors.toggleLimitedAdmin'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('errors.toggleLimitedAdmin'), { variant: 'error' });
         }
     };
 
@@ -2428,9 +2259,10 @@ const LimitedAdmins: React.FC = () => {
             await loadLimitedAdmins();
             setIsDeleteDialogOpen(false);
             setAdminToDelete(null);
+            showToast(t('limitedAdmins.deleteSuccess'), { variant: 'success' });
         } catch (error: any) {
             console.error('Error deleting limited admin:', error);
-            showAlert(translateAdminApiError(error, t) || t('errors.deleteLimitedAdmin'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('errors.deleteLimitedAdmin'), { variant: 'error' });
         } finally {
             setIsDeleting(false);
         }
@@ -2605,7 +2437,7 @@ const LimitedAdmins: React.FC = () => {
 
 const BillingInvoiceSettings: React.FC = () => {
     const { t } = useI18n();
-    const { showAlert } = useAlert();
+    const { showToast } = useToast();
     const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
     const ALLOWED_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']);
     const [loading, setLoading] = useState(true);
@@ -2657,11 +2489,11 @@ const BillingInvoiceSettings: React.FC = () => {
             setLogoFile(null);
             setFieldErrors({});
         } catch {
-            showAlert(t('settings.billing.loadError'), { variant: 'error' });
+            showToast(t('settings.billing.loadError'), { variant: 'error' });
         } finally {
             setLoading(false);
         }
-    }, [showAlert, t]);
+    }, [showToast, t]);
 
     useEffect(() => {
         load();
@@ -2687,7 +2519,7 @@ const BillingInvoiceSettings: React.FC = () => {
         const errors = { issuerEmail: emailError, logo: logoError };
         setFieldErrors(errors);
         if (errors.issuerEmail || errors.logo) {
-            showAlert(t('settings.billing.validation.fixErrors') || 'Please fix validation errors before saving.', { variant: 'error' });
+            showToast(t('settings.billing.validation.fixErrors') || 'Please fix validation errors before saving.', { variant: 'error' });
             return;
         }
 
@@ -2703,10 +2535,10 @@ const BillingInvoiceSettings: React.FC = () => {
             fd.append('payment_instructions', paymentInstructions);
             if (logoFile) fd.append('logo', logoFile);
             await updateBillingSettingsAPI(fd);
-            showAlert(t('settings.billing.saveSuccess'), { variant: 'success' });
+            showToast(t('settings.billing.saveSuccess'), { variant: 'success' });
             await load();
         } catch (error: any) {
-            showAlert(translateAdminApiError(error, t) || t('settings.billing.saveError'), { variant: 'error' });
+            showToast(translateAdminApiError(error, t) || t('settings.billing.saveError'), { variant: 'error' });
         } finally {
             setSaving(false);
         }

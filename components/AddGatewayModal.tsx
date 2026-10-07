@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useI18n } from '../context/i18n';
+import { useToast } from '../context/ToastContext';
 import Icon from './Icon';
 import LoadingButton from './LoadingButton';
 
@@ -12,9 +13,9 @@ interface AddGatewayModalProps {
 
 const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSave }) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset form when modal opens/closes
@@ -22,7 +23,6 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
     if (isOpen) {
       setName('');
       setDescription('');
-      setError(null);
       setIsSubmitting(false);
     }
   }, [isOpen]);
@@ -31,10 +31,9 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     
     if (!name) {
-      setError(t('paymentGateways.addModal.nameRequired') || 'Please select a payment gateway');
+      showToast(t('paymentGateways.addModal.nameRequired') || 'Please select a payment gateway', { variant: 'warning' });
       return;
     }
 
@@ -44,10 +43,7 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
       // Reset form on success
       setName('');
       setDescription('');
-      setError(null);
     } catch (err: any) {
-      // Error will be handled by parent component
-      // But we can show a local error if needed
       let errorMessage = err.message || t('paymentGateways.errors.createFailed') || 'Failed to create payment gateway';
       
       // Parse field-specific errors
@@ -56,7 +52,7 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
         errorMessage = nameError || errorMessage;
       }
       
-      setError(errorMessage);
+      showToast(errorMessage, { variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -93,7 +89,6 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
                     type="button"
                     onClick={() => {
                       setName(gateway.value);
-                      setError(null); // Clear error when user selects a gateway
                     }}
                     className={`flex items-center gap-3 rtl:gap-3 p-4 border-2 rounded-lg transition-all ${
                       name === gateway.value
@@ -120,14 +115,6 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
               {!name && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('paymentGateways.addModal.selectGateway')}</p>
               )}
-              {error && (
-                <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                  <div className="flex items-start space-x-2 rtl:space-x-reverse">
-                    <Icon name="x" className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-700 dark:text-red-300 break-words">{error}</p>
-                  </div>
-                </div>
-              )}
             </div>
             <div>
               <label htmlFor="gatewayDescription" className={labelClasses}>{t('paymentGateways.addModal.description')}</label>
@@ -136,7 +123,6 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
                 value={description} 
                 onChange={(e) => {
                   setDescription(e.target.value);
-                  setError(null); // Clear error when user types
                 }} 
                 className={inputClasses} 
                 rows={3}

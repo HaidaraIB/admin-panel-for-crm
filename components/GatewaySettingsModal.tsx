@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PaymentGateway, PaymentGatewayStatus } from '../types';
 import { useI18n } from '../context/i18n';
+import { useToast } from '../context/ToastContext';
 import Icon from './Icon';
 import LoadingSpinner from './LoadingSpinner';
 import { testPaymentGatewayConnectionAPI } from '../services/api';
@@ -29,9 +30,9 @@ interface GatewaySettingsModalProps {
 
 const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, isOpen, onClose, onSave, readOnly = false }) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<PaymentGateway['config'] | null>(null);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [testMessage, setTestMessage] = useState<string>('');
   const [testPassed, setTestPassed] = useState<boolean>(false); // Track if test passed, persists through input changes
   const [showServerKey, setShowServerKey] = useState(false);
   const [showClientKey, setShowClientKey] = useState(false);
@@ -62,7 +63,6 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         apiBaseUrl: config.apiBaseUrl || '',
       });
       setTestStatus('idle'); // Reset test status when modal opens or gateway changes
-      setTestMessage(''); // Reset test message
       setTestPassed(false); // Reset test passed flag
       // Reset all visibility states
       setShowServerKey(false);
@@ -90,6 +90,12 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     }
   };
 
+  const failTest = (message: string) => {
+    setTestStatus('error');
+    setTestPassed(false);
+    showToast(message, { variant: 'error' });
+  };
+
   const handleTestConnection = async () => {
     setTestStatus('testing');
     
@@ -102,44 +108,45 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       const isQicard = gatewayNameLower.includes('qicard') || gatewayNameLower.includes('qi card') || gatewayNameLower.includes('qi-card');
       const isFib = gatewayNameLower.includes('fib') || gatewayNameLower.includes('first iraqi');
       const isAlqaseh = isAlqasehName(gatewayNameLower);
+      const missingCredentials = t('paymentGateways.modal.credentialsRequired') || t('paymentGateways.modal.connectionError');
 
       if (isPaytabs) {
         if (!formData.profileId || !formData.serverKey || !formData.clientKey) {
-          setTestStatus('error');
+          failTest(missingCredentials);
           return;
         }
       } else if (isZaincash) {
         if (!formData.clientId || !formData.clientSecret) {
-          setTestStatus('error');
+          failTest(missingCredentials);
           return;
         }
         if (formData.environment === 'live' && !formData.baseUrl) {
-          setTestMessage(t('paymentGateways.modal.zaincashBaseUrlRequired'));
-          setTestStatus('error');
+          failTest(t('paymentGateways.modal.zaincashBaseUrlRequired'));
           return;
         }
       } else if (isStripe) {
         if (!formData.secretKey) {
-          setTestStatus('error');
+          failTest(missingCredentials);
           return;
         }
       } else if (isQicard) {
         if (!formData.terminalId || !formData.username || !formData.password) {
-          setTestStatus('error');
+          failTest(missingCredentials);
           return;
         }
       } else if (isFib || isAlqaseh) {
         if (!formData.clientId || !formData.clientSecret) {
-          if (isAlqaseh) {
-            setTestMessage(t('paymentGateways.modal.alqasehCredentialsRequired'));
-          }
-          setTestStatus('error');
+          failTest(
+            isAlqaseh
+              ? t('paymentGateways.modal.alqasehCredentialsRequired')
+              : missingCredentials,
+          );
           return;
         }
       } else {
         // Generic gateways
         if (!formData.publishableKey || !formData.secretKey) {
-          setTestStatus('error');
+          failTest(missingCredentials);
           return;
         }
       }
@@ -148,31 +155,26 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
       if (isZaincash || isStripe || isQicard || isFib || isAlqaseh) {
         try {
           const result = await testPaymentGatewayConnectionAPI(parseInt(gateway.id), formData);
-          setTestMessage(result.message || '');
           if (result.success) {
             setTestStatus('success');
-            setTestPassed(true); // Mark test as passed
+            setTestPassed(true);
+            showToast(result.message || t('paymentGateways.modal.connectionSuccess'), { variant: 'success' });
           } else {
-            setTestStatus('error');
-            setTestPassed(false);
+            failTest(result.message || t('paymentGateways.modal.connectionError'));
           }
         } catch (error: any) {
           console.error('Test connection error:', error);
-          setTestMessage(error.message || 'Connection failed, please check your keys.');
-          setTestStatus('error');
-          setTestPassed(false);
+          failTest(error.message || t('paymentGateways.modal.connectionError'));
         }
       } else {
         // For other gateways (PayTabs, etc.), just validate fields are present
-        // (Could add actual API tests for PayTabs later)
-        setTestMessage('Credentials validated (no API test available for this gateway)');
         setTestStatus('success');
         setTestPassed(true);
+        showToast(t('paymentGateways.modal.credentialsValidated'), { variant: 'success' });
       }
     } catch (error: any) {
       console.error('Test connection error:', error);
-      setTestMessage(error.message || 'Connection failed, please check your keys.');
-      setTestStatus('error');
+      failTest(error.message || t('paymentGateways.modal.connectionError'));
     }
   };
 
@@ -748,26 +750,6 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                      <button type="button" onClick={handleTestConnection} disabled={testStatus === 'testing'} className="w-full flex justify-center items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:cursor-wait">
                         {testStatus === 'testing' ? <LoadingSpinner /> : t('paymentGateways.modal.testConnection')}
                      </button>
-                     {testStatus === 'success' && (
-                       <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-                         <div className="flex items-start space-x-2 rtl:space-x-reverse">
-                           <span className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5">✅</span>
-                           <p className="text-sm text-green-700 dark:text-green-300 break-words overflow-wrap-anywhere">
-                             {testMessage || t('paymentGateways.modal.connectionSuccess')}
-                           </p>
-                         </div>
-                       </div>
-                     )}
-                     {testStatus === 'error' && (
-                       <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md max-h-32 overflow-y-auto">
-                         <div className="flex items-start space-x-2 rtl:space-x-reverse">
-                           <span className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5">❌</span>
-                           <p className="text-sm text-red-700 dark:text-red-300 break-words overflow-wrap-anywhere leading-relaxed">
-                             {testMessage || t('paymentGateways.modal.connectionError')}
-                           </p>
-                         </div>
-                       </div>
-                     )}
                 </div>
                 )}
             </fieldset>

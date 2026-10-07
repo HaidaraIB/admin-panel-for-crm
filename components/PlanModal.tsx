@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plan } from '../types';
 import { useI18n } from '../context/i18n';
-import { useAlert } from '../context/AlertContext';
+import { useToast } from '../context/ToastContext';
 import Icon from './Icon';
 import LoadingButton from './LoadingButton';
 import { NumberInput } from './NumberInput';
@@ -66,7 +66,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
   readOnly = false,
 }) => {
   const { t, language } = useI18n();
-  const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState(planToEdit || emptyPlan);
 
   useEffect(() => {
@@ -221,7 +221,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
     if (readOnly) return;
     const errorKey = validatePlanForm();
     if (errorKey) {
-      showAlert(t(errorKey), { variant: 'warning' });
+      showToast(t(errorKey), { variant: 'warning' });
       return;
     }
     onSave({
