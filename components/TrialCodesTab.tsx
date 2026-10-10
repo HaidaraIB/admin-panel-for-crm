@@ -27,6 +27,7 @@ import AlertDialog from './AlertDialog';
 import PaginationControls from './PaginationControls';
 import { usePersistedPageSize } from '../hooks/usePersistedPageSize';
 import { translateAdminApiError } from '../utils/translateApiError';
+import IconButton from './IconButton';
 
 function mapTrialCodeFromApi(row: any): TrialCode {
   return {
@@ -173,10 +174,6 @@ const TrialCodesTab: React.FC = () => {
   };
 
   const handleCreate = async (form: CreateFormState) => {
-    if (!form.planId) {
-      showToast(t('trialCodes.errors.planRequired'), { variant: 'error' });
-      return;
-    }
     setIsSaving(true);
     try {
       await createTrialCodeAPI({
@@ -192,17 +189,13 @@ const TrialCodesTab: React.FC = () => {
       await loadData();
       showToast(t('trialCodes.created'), { variant: 'success' });
     } catch (error: any) {
-      showToast(translateAdminApiError(error, t) || t('trialCodes.errors.save'), { variant: 'error' });
+      throw error;
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleBatch = async (form: BatchFormState) => {
-    if (!form.planId || !form.label.trim()) {
-      showToast(t('trialCodes.errors.batchFields'), { variant: 'error' });
-      return;
-    }
     setIsSaving(true);
     try {
       const result = await generateTrialCodeBatchAPI({
@@ -223,7 +216,7 @@ const TrialCodesTab: React.FC = () => {
         { variant: 'success' }
       );
     } catch (error: any) {
-      showToast(translateAdminApiError(error, t) || t('trialCodes.errors.save'), { variant: 'error' });
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -294,9 +287,9 @@ const TrialCodesTab: React.FC = () => {
   };
 
   const toolbarBtnBase =
-    'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-semibold whitespace-nowrap';
+    'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-semibold whitespace-nowrap';
   const toolbarFieldBase =
-    'h-9 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm';
+    'h-10 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm';
 
   return (
     <div>
@@ -440,33 +433,12 @@ const TrialCodesTab: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void openDetail(tc)}
-                          className="p-2 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-colors rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                          title={t('trialCodes.viewRedemptions')}
-                        >
-                          <Icon name="eye" className="h-5 w-5 shrink-0" />
-                        </button>
+                        <IconButton icon="eye" label={t('trialCodes.viewRedemptions')} onClick={() => void openDetail(tc)} />
                         {tc.isActive && (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmAction({ type: 'deactivate', code: tc })}
-                            className="p-2 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 transition-colors rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                            title={t('trialCodes.deactivate')}
-                          >
-                            <Icon name="ban" className="h-5 w-5 shrink-0" />
-                          </button>
+                          <IconButton icon="ban" label={t('trialCodes.deactivate')} tone="warning" onClick={() => setConfirmAction({ type: 'deactivate', code: tc })} />
                         )}
                         {tc.redeemedCount === 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmAction({ type: 'delete', code: tc })}
-                            className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
-                            title={t('trialCodes.delete')}
-                          >
-                            <Icon name="trash" className="h-5 w-5 shrink-0" />
-                          </button>
+                          <IconButton icon="trash" label={t('trialCodes.delete')} tone="danger" onClick={() => setConfirmAction({ type: 'delete', code: tc })} />
                         )}
                       </div>
                     </td>

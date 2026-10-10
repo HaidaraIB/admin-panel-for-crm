@@ -39,6 +39,7 @@ const canDeleteDemoBooking = (status: string) => status === 'pending' || status 
 import DemoBookingStatusCell, {
   DEMO_BOOKING_STATUS_BADGE_CLASS,
 } from '../components/DemoBookingStatusCell';
+import IconButton from '../components/IconButton';
 
 const STATUS_OPTIONS = [
   { value: 'pending', labelKey: 'demoBookings.status.pending', className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100' },
@@ -377,26 +378,9 @@ const ReservationsTab: React.FC<{
                     </td>
                     <td className="px-4 py-3">
                       <div className={`inline-flex items-center gap-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <button
-                          type="button"
-                          onClick={() => setSelected(b)}
-                          className="inline-flex items-center justify-center p-1.5 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none"
-                          title={t('demoBookings.viewDetails')}
-                          aria-label={t('demoBookings.viewDetails')}
-                        >
-                          <Icon name="eye" className="w-5 h-5" />
-                        </button>
+                        <IconButton icon="eye" label={t('demoBookings.viewDetails')} onClick={() => setSelected(b)} />
                         {canDeleteDemoBooking(b.status) ? (
-                          <button
-                            type="button"
-                            onClick={() => setBookingToDelete(b)}
-                            disabled={deletingId === b.id}
-                            className="inline-flex items-center justify-center p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 focus:outline-none disabled:opacity-50"
-                            title={t('demoBookings.delete')}
-                            aria-label={t('demoBookings.delete')}
-                          >
-                            <Icon name="trash" className="w-5 h-5" />
-                          </button>
+                          <IconButton icon="trash" label={t('demoBookings.delete')} tone="danger" onClick={() => setBookingToDelete(b)} disabled={deletingId === b.id} />
                         ) : null}
                       </div>
                     </td>
@@ -550,22 +534,8 @@ const ReservationsTab: React.FC<{
               {formatBookingDateTime(bookingToDelete.starts_at, displayTimezone, language)}
             </p>
             <div className={`flex gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <button
-                type="button"
-                onClick={() => setBookingToDelete(null)}
-                disabled={!!deletingId}
-                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleDeleteConfirm()}
-                disabled={!!deletingId}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50"
-              >
-                {deletingId ? '...' : t('common.delete')}
-              </button>
+              <LoadingButton variant="secondary" className="flex-1" onClick={() => setBookingToDelete(null)} disabled={!!deletingId}>{t('common.cancel')}</LoadingButton>
+              <LoadingButton variant="danger" className="flex-1" onClick={() => void handleDeleteConfirm()} disabled={!!deletingId} isLoading={!!deletingId}>{t('common.delete')}</LoadingButton>
             </div>
           </div>
         </div>
@@ -866,13 +836,7 @@ const AvailabilityTab: React.FC<{
                 {b.date}
                 {b.reason ? ` — ${b.reason}` : ''}
               </span>
-              <button
-                type="button"
-                className="text-red-600 dark:text-red-400 hover:underline"
-                onClick={() => setBlockedToDelete({ id: b.id, date: b.date })}
-              >
-                {t('tickets.delete')}
-              </button>
+              <IconButton icon="trash" label={t('common.delete')} tone="danger" onClick={() => setBlockedToDelete({ id: b.id, date: b.date })} />
             </li>
           ))}
         </ul>

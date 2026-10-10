@@ -3,7 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Plan } from '../types';
 import { useI18n } from '../context/i18n';
 import { useToast } from '../context/ToastContext';
+import { translateAdminApiError } from '../utils/translateApiError';
 import Icon from './Icon';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import LoadingButton from './LoadingButton';
 import { NumberInput } from './NumberInput';
 import { Checkbox } from './Checkbox';
@@ -66,10 +68,16 @@ const PlanModal: React.FC<PlanModalProps> = ({
 }) => {
   const { t, language } = useI18n();
   const { showToast } = useToast();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const [formData, setFormData] = useState(planToEdit || emptyPlan);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setFormData(planToEdit ? { ...planToEdit } : { ...emptyPlan });
+    setErrors({});
   }, [planToEdit, isOpen]);
 
   if (!isOpen) return null;
@@ -165,71 +173,45 @@ const PlanModal: React.FC<PlanModalProps> = ({
     }));
   };
 
-  const validatePlanForm = (): string | null => {
-    const name = formData.name.trim();
-    const nameAr = (formData.nameAr || '').trim();
-    const description = (formData.features || '').trim();
-    const arabicScript = /[\u0600-\u06FF]/;
-    const latinLetters = /[A-Za-z]/;
+  const catalogValues = () => ({
+    name: formData.name,
+    name_ar: formData.nameAr || '',
+    description: formData.features || '',
+    description_ar: formData.featuresAr || '',
+    monthly_price: formData.priceMonthly,
+    yearly_price: formData.priceYearly,
+    trial_days: formData.trialDays,
+  });
 
-    // Align with API: Plan.name required; Plan.description required (non-blank after strip).
-    if (!name) {
-      return 'subscriptions.plans.validation.nameEnglishRequired';
-    }
-    if (arabicScript.test(name)) {
-      return 'subscriptions.plans.invalidEnglishName';
-    }
-    if (!latinLetters.test(name)) {
-      return 'subscriptions.plans.validation.nameEnglishLatin';
-    }
-
-    // API: name_ar is optional (blank=True).
-    if (nameAr) {
-      if (latinLetters.test(nameAr)) {
-        return 'subscriptions.plans.invalidArabicName';
-      }
-      if (!arabicScript.test(nameAr)) {
-        return 'subscriptions.plans.validation.nameArabicScript';
-      }
-    }
-
-    if (!description) {
-      return 'subscriptions.plans.validation.descriptionRequired';
-    }
-
-    if (formData.type === 'Trial') {
-      const td = Number(formData.trialDays);
-      if (!Number.isFinite(td) || td < 1) {
-        return 'subscriptions.plans.validation.trialDaysMin';
-      }
-    }
-
-    if (formData.type === 'Paid') {
-      const pm = Number(formData.priceMonthly);
-      const py = Number(formData.priceYearly);
-      if (!Number.isFinite(pm) || !Number.isFinite(py) || pm <= 0 || py <= 0) {
-        return 'subscriptions.plans.validation.paidPricesPositive';
-      }
-    }
-
-    return null;
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('plan.upsert', catalogValues(), translate);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (readOnly) return;
-    const errorKey = validatePlanForm();
-    if (errorKey) {
-      showToast(t(errorKey), { variant: 'warning' });
-      return;
+    const next = catalogFieldErrors('plan.upsert', catalogValues(), translate);
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    try {
+      await onSave({
+        ...formData,
+        name: formData.name.trim(),
+        nameAr: (formData.nameAr || '').trim(),
+        features: (formData.features || '').trim(),
+        featuresAr: (formData.featuresAr || '').trim(),
+      });
+    } catch (error) {
+      const serverErrors = serverFieldErrors(error, 'plan.upsert', translate);
+      if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
+      else showToast(translateAdminApiError(error, t) || t('errors.savePlan'), { variant: 'error' });
     }
-    onSave({
-      ...formData,
-      name: formData.name.trim(),
-      nameAr: (formData.nameAr || '').trim(),
-      features: (formData.features || '').trim(),
-      featuresAr: (formData.featuresAr || '').trim(),
-    });
   };
 
   const inputClasses = "w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500";
@@ -253,6 +235,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
           </div>
 
           <fieldset disabled={readOnly} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto border-0 m-0 min-w-0">
+            {errors._general && <p className="text-sm text-red-600 dark:text-red-400">{errors._general}</p>}
             <div>
               <label htmlFor="planName" className={labelClasses}>{t('subscriptions.plans.planName')}</label>
               <input
@@ -260,11 +243,13 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                onBlur={() => blurField('name')}
+                className={`${inputClasses} ${errors.name ? 'border-red-500' : ''} ${language === 'ar' ? 'text-right' : 'text-left'}`}
                 dir="auto"
                 placeholder={t('subscriptions.plans.planNamePlaceholder') || ''}
                 required
               />
+              {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
             </div>
             <div>
               <label htmlFor="planNameAr" className={labelClasses}>{t('subscriptions.plans.planNameAr')}</label>
@@ -273,10 +258,12 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 name="nameAr"
                 value={formData.nameAr || ''}
                 onChange={handleInputChange}
-                className={`${inputClasses} ${formData.nameAr ? 'text-right' : (language === 'ar' ? 'text-right' : 'text-left')}`}
+                onBlur={() => blurField('nameAr')}
+                className={`${inputClasses} ${errors.nameAr ? 'border-red-500' : ''} ${formData.nameAr ? 'text-right' : (language === 'ar' ? 'text-right' : 'text-left')}`}
                 dir="auto"
                 placeholder={t('subscriptions.plans.planNameArPlaceholder') || ''}
               />
+              {errors.nameAr && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.nameAr}</p>}
             </div>
 
             <div>
@@ -328,7 +315,8 @@ const PlanModal: React.FC<PlanModalProps> = ({
             {formData.type === 'Trial' && (
               <div>
                 <label htmlFor="trialDays" className={labelClasses}>{t('subscriptions.plans.trialDuration')}</label>
-                <NumberInput id="trialDays" name="trialDays" value={formData.trialDays} onChange={handleInputChange} min={1} step={1} />
+                <NumberInput id="trialDays" name="trialDays" value={formData.trialDays} onChange={handleInputChange} onBlur={() => blurField('trialDays')} min={1} step={1} />
+                {errors.trialDays && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.trialDays}</p>}
               </div>
             )}
 
@@ -337,11 +325,13 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 <h3 className="font-medium mb-3">{t('subscriptions.plans.pricing')}</h3>
                   <div>
                     <label htmlFor="priceMonthly" className={labelClasses}>{t('subscriptions.plans.priceMonthly')}</label>
-                    <NumberInput id="priceMonthly" name="priceMonthly" value={formData.priceMonthly} onChange={handleInputChange} min={0} step={0.1} />
+                    <NumberInput id="priceMonthly" name="priceMonthly" value={formData.priceMonthly} onChange={handleInputChange} onBlur={() => blurField('monthlyPrice')} min={0} step={0.1} />
+                    {errors.monthlyPrice && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.monthlyPrice}</p>}
                 </div>
                   <div>
                     <label htmlFor="priceYearly" className={labelClasses}>{t('subscriptions.plans.priceYearly')}</label>
-                    <NumberInput id="priceYearly" name="priceYearly" value={formData.priceYearly} onChange={handleInputChange} min={0} step={0.1} />
+                    <NumberInput id="priceYearly" name="priceYearly" value={formData.priceYearly} onChange={handleInputChange} onBlur={() => blurField('yearlyPrice')} min={0} step={0.1} />
+                    {errors.yearlyPrice && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.yearlyPrice}</p>}
                     <p className="text-xs text-gray-500 mt-1">{t('subscriptions.plans.yearlyDiscount')}</p>
                   </div>
               </div>
@@ -553,12 +543,13 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 name="features"
                 value={formData.features}
                 onChange={handleInputChange}
+                onBlur={() => blurField('description')}
                 rows={4}
-                className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                className={`${inputClasses} ${errors.description ? 'border-red-500' : ''} ${language === 'ar' ? 'text-right' : 'text-left'}`}
                 dir="auto"
                 placeholder={t('subscriptions.plans.featuresPlaceholder')}
-                required
               ></textarea>
+              {errors.description && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description}</p>}
             </div>
             <div>
               <label htmlFor="featuresAr" className={labelClasses}>{t('subscriptions.plans.featuresAr')}</label>
@@ -567,11 +558,13 @@ const PlanModal: React.FC<PlanModalProps> = ({
                 name="featuresAr"
                 value={formData.featuresAr || ''}
                 onChange={handleInputChange}
+                onBlur={() => blurField('descriptionAr')}
                 rows={4}
-                className={`${inputClasses} ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                className={`${inputClasses} ${errors.descriptionAr ? 'border-red-500' : ''} ${language === 'ar' ? 'text-right' : 'text-left'}`}
                 dir="auto"
                 placeholder={t('subscriptions.plans.featuresArPlaceholder')}
               ></textarea>
+              {errors.descriptionAr && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.descriptionAr}</p>}
             </div>
           </fieldset>
 

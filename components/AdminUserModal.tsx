@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useI18n } from '../context/i18n';
-import Icon from './Icon';
+import { catalogFieldErrors } from '../forms';
 
 interface AdminUserModalProps {
   isOpen: boolean;
@@ -12,16 +12,23 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ isOpen, onClose, onSave
   const { t } = useI18n();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name && email) {
-      onSave({ name, email });
-      setName('');
-      setEmail('');
-    }
+    const next = catalogFieldErrors('admin_user.upsert', { name, email }, translate);
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    onSave({ name, email });
+    setName('');
+    setEmail('');
+    setErrors({});
   };
 
   const inputClasses = "w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500";
@@ -45,11 +52,12 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ isOpen, onClose, onSave
                 id="adminName" 
                 type="text" 
                 value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                className={inputClasses} 
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => setErrors(catalogFieldErrors('admin_user.upsert', { name, email }, translate))}
+                className={`${inputClasses} ${errors.name ? 'border-red-500' : ''}`}
                 placeholder={t('settings.admins.modal.namePlaceholder')}
-                required 
               />
+              {errors.name ? <p className="mt-1 text-sm text-red-600" role="alert">{errors.name}</p> : null}
             </div>
             <div>
               <label htmlFor="adminEmail" className={labelClasses}>{t('settings.admins.table.email')}</label>
@@ -57,11 +65,12 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ isOpen, onClose, onSave
                 id="adminEmail" 
                 type="email" 
                 value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-                className={inputClasses} 
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => setErrors(catalogFieldErrors('admin_user.upsert', { name, email }, translate))}
+                className={`${inputClasses} ${errors.email ? 'border-red-500' : ''}`}
                 placeholder={t('settings.admins.modal.emailPlaceholder')}
-                required 
               />
+              {errors.email ? <p className="mt-1 text-sm text-red-600" role="alert">{errors.email}</p> : null}
             </div>
           </div>
 

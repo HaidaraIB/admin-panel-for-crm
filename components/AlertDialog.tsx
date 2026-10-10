@@ -126,7 +126,7 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
                 type="button"
                 onClick={handleCancel}
                 disabled={isBusy}
-                className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-10 px-4 rounded-lg bg-gray-200 dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {cancelText || t('common.cancel') || 'Cancel'}
               </button>
@@ -136,7 +136,7 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
               onClick={handleConfirm}
               disabled={isBusy}
               aria-busy={loading || undefined}
-              className={`relative px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-wait min-w-[7rem] ${
+              className={`relative h-10 px-4 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-wait min-w-[7rem] ${
                 type === 'error' || type === 'warning'
                   ? 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 disabled:hover:bg-red-600'
                   : type === 'success'

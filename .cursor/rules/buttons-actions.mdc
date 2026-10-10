@@ -1,0 +1,32 @@
+---
+description: Buttons, row actions, delete affordances and control heights — one look across the admin panel
+globs: "**/pages/**/*.tsx,**/components/**/*.tsx"
+alwaysApply: false
+---
+
+# Buttons and actions (admin panel)
+
+Same rules as CRM-project's `buttons-actions.mdc`, with this app's primitives.
+
+## Control height is 40px
+`FormInput` / `FormSelect` (`components/settings/FormFields.tsx`), `NumberInput`, `PhoneInput`, `FilterSelect` / `FilterInput`, `FilterButton`, `RefreshButton` and `LoadingButton` (`md` / `toolbar`) are all `h-10`. `LoadingButton size="sm"` (32px) is for tables and compact lists. Field + button rows use `items-center` (no labels) or `items-end` (labeled) — never padding overrides to force alignment.
+
+## Deleting an item in a repeated set → `IconButton`
+```tsx
+<IconButton icon="trash" tone="danger" label={t('common.delete')} onClick={...} />
+```
+- `icon` is an `Icon` name. `size="sm"` in tables/lists, `size="md"` next to form fields.
+- View/edit use the default `neutral` tone; reversible risky actions (deactivate, impersonate) use `warning`.
+- No red text links ("Delete" with `hover:underline`) and no "×  Remove" text buttons for row deletes.
+
+## Deleting the record itself → `LoadingButton variant="danger" icon="trash"`
+
+## Confirming
+Persisted deletes always confirm with `AlertDialog` (`type="warning"`, `showCancel`). When a dialog needs custom content (type-to-confirm, record summary), keep it but use `LoadingButton` `secondary` / `danger` for its buttons.
+
+## Chips / tags
+Remove-from-chip is a real `<button>` with `Icon name="x"` and an `aria-label`, never a clickable `<span>`.
+
+## Don'ts
+- No raw `<button className="bg-red-600 …">` / `bg-primary-600 …` — use `LoadingButton` / `IconButton`.
+- Don't mix `rounded`, `rounded-md`, `rounded-lg` on fields in the same row; fields are `rounded-md`.

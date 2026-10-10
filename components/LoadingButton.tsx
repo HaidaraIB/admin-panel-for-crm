@@ -12,7 +12,7 @@ interface LoadingButtonProps {
   children: React.ReactNode;
   className?: string;
   variant?: 'primary' | 'secondary' | 'danger';
-  /** `toolbar` matches RefreshButton / FilterButton height (`h-9`). */
+  /** `md` and `toolbar` are the 40px control height (matches fields, RefreshButton, FilterButton); `sm` is 32px for tables. */
   size?: 'sm' | 'md' | 'toolbar';
   icon?: string;
   title?: string;
@@ -31,10 +31,10 @@ const LoadingButton: React.FC<LoadingButtonProps> = ({
   icon,
   title,
 }) => {
-  const baseClasses = "rounded-lg text-sm font-semibold shadow-sm transition-colors duration-200 inline-flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-60";
+  const baseClasses = "shrink-0 whitespace-nowrap rounded-lg text-sm font-semibold shadow-sm transition-colors duration-200 inline-flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-60";
 
   const sizeClasses =
-    size === 'sm' ? 'px-3 py-1.5' : size === 'toolbar' ? 'h-9 px-4 py-0' : 'px-5 py-2.5';
+    size === 'sm' ? 'h-8 px-3' : size === 'toolbar' ? 'h-10 px-4' : 'h-10 px-5';
 
   const variantClasses = {
     primary: "bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-600 dark:hover:bg-primary-700 focus:ring-primary-500",

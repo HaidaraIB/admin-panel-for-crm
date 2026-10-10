@@ -14,7 +14,7 @@ type RefreshButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'c
 };
 
 /**
- * Shared refresh control sized to match `FilterButton` (`h-9`).
+ * Shared refresh control sized to match `FilterButton` (`h-10`).
  */
 const RefreshButton: React.FC<RefreshButtonProps> = ({
   children,
@@ -39,7 +39,7 @@ const RefreshButton: React.FC<RefreshButtonProps> = ({
         title={tooltip}
         aria-label={t('common.refresh')}
         aria-busy={loading || undefined}
-        className={`inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${className}`}
+        className={`inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${className}`}
         {...props}
       >
         <Icon name="refresh" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -54,7 +54,7 @@ const RefreshButton: React.FC<RefreshButtonProps> = ({
       title={tooltip}
       aria-label={t('common.refresh')}
       aria-busy={loading || undefined}
-      className={`inline-flex h-9 items-center justify-center gap-1.5 px-3 text-sm font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-900 dark:text-white shadow-sm hover:border-primary-400 dark:hover:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`inline-flex h-10 items-center justify-center gap-1.5 px-3 text-sm font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-gray-900 dark:text-white shadow-sm hover:border-primary-400 dark:hover:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       {...props}
     >
       <Icon name="refresh" className={`w-4 h-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />

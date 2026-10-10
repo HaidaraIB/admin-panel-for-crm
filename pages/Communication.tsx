@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Icon from '../components/Icon';
+import FieldError from '../components/FieldError';
 import FilterButton from '../components/FilterButton';
 import RefreshButton from '../components/RefreshButton';
 import { Broadcast } from '../types';
@@ -15,11 +16,14 @@ import { usePersistedTab } from '../hooks/usePersistedTab';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
+import { translateAdminApiError } from '../utils/translateApiError';
 import CommunicationFilterDrawer, {
   CommunicationFilters,
   communicationFilterDefaults,
 } from '../components/CommunicationFilterDrawer';
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
+import IconButton from '../components/IconButton';
 
 const dateInRange = (dateStr: string | undefined | null, fromDate: string, toDate: string): boolean => {
     if (!fromDate && !toDate) return true;
@@ -105,9 +109,14 @@ interface NewBroadcastPropsWithPlans extends NewBroadcastProps {
 
 const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated, plans, companies }) => {
     const { t, language } = useI18n();
+    const translate = (key: string) => {
+        const value = t(key);
+        return value && value !== key ? value : undefined;
+    };
     const { showToast } = useToast();
     const [subject, setSubject] = useState('');
     const [content, setContent] = useState('');
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [targets, setTargets] = useState<string[]>([]);
     const [targetSelectValue, setTargetSelectValue] = useState('');
     const [broadcastType, setBroadcastType] = useState<'email' | 'push'>('email');
@@ -125,9 +134,37 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
         setTargets((prev) => prev.filter((t) => t !== value));
     };
 
+    const catalogValues = () => ({ subject, content });
+
+    const blurField = (field: string) => {
+        const next = catalogFieldErrors('broadcast.create', catalogValues(), translate);
+        setErrors((prev) => {
+            const copy = { ...prev };
+            if (next[field]) copy[field] = next[field];
+            else delete copy[field];
+            return copy;
+        });
+    };
+
+    const validateBroadcast = () => {
+        const next = catalogFieldErrors('broadcast.create', catalogValues(), translate);
+        setErrors(next);
+        return Object.keys(next).length === 0;
+    };
+
+    const applyServerErrors = (error: unknown) => {
+        const serverErrors = serverFieldErrors(error, 'broadcast.create', translate);
+        if (Object.keys(serverErrors).length > 0) {
+            setErrors((prev) => ({ ...prev, ...serverErrors }));
+            return true;
+        }
+        return false;
+    };
+
     const handleSchedule = async () => {
         const effectiveTargets = targets.length > 0 ? targets : ['all'];
-        if (!subject || !content || !scheduledDate || !scheduledTime) {
+        if (!validateBroadcast()) return;
+        if (!scheduledDate || !scheduledTime) {
             showToast(t('communication.alerts.validation.message'), { variant: 'warning' });
             return;
         }
@@ -165,18 +202,17 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
             onBroadcastCreated();
         } catch (error: any) {
             console.error('Error scheduling broadcast:', error);
-            const msg = error?.message || '';
-            showToast(/no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (msg || t('communication.alerts.scheduleError.message')), { variant: 'error' });
+            if (!applyServerErrors(error)) {
+                const msg = error?.message || '';
+                showToast(/no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (translateAdminApiError(error, t) || msg || t('communication.alerts.scheduleError.message')), { variant: 'error' });
+            }
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleSendNow = async () => {
-        if (!subject || !content) {
-            showToast(t('communication.alerts.validation.message'), { variant: 'warning' });
-            return;
-        }
+        if (!validateBroadcast()) return;
         const effectiveTargets = targets.length > 0 ? targets : ['all'];
         setIsSubmitting(true);
         try {
@@ -194,8 +230,10 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
             onBroadcastCreated();
         } catch (error: any) {
             console.error('Error sending broadcast:', error);
-            const msg = error?.message || '';
-            showToast(/no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (msg || t('communication.alerts.sendError.message')), { variant: 'error' });
+            if (!applyServerErrors(error)) {
+                const msg = error?.message || '';
+                showToast(/no recipients|No recipients/i.test(msg) ? t('communication.alerts.noRecipients') : (translateAdminApiError(error, t) || msg || t('communication.alerts.sendError.message')), { variant: 'error' });
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -255,15 +293,17 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
                 {targets.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                         {targets.map((tgt) => (
-                            <span
+                            <button
+                                type="button"
                                 key={tgt}
                                 onClick={() => removeTarget(tgt)}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200 cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
                                 title={t('communication.new.target.removeTag')}
+                                aria-label={`${t('communication.new.target.removeTag')}: ${getTargetDisplayLabel(tgt, plans, companies, language, t)}`}
                             >
                                 {getTargetDisplayLabel(tgt, plans, companies, language, t)}
                                 <Icon name="x" className="w-3.5 h-3.5" />
-                            </span>
+                            </button>
                         ))}
                     </div>
                 )}
@@ -278,7 +318,9 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
                     className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
+                    onBlur={() => blurField('title')}
                 />
+                <FieldError>{errors.title || errors.subject}</FieldError>
             </div>
             <div>
                 <label className="block text-sm font-medium mb-1">{t('communication.new.content')}</label>
@@ -287,7 +329,10 @@ const NewBroadcast: React.FC<NewBroadcastPropsWithPlans> = ({ onBroadcastCreated
                     className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
+                    onBlur={() => blurField('body')}
                 />
+                <FieldError>{errors.body || errors.content || errors.message}</FieldError>
+                <FieldError>{errors._general}</FieldError>
             </div>
             <div>
                 <label className="block text-sm font-medium mb-1">{t('communication.new.scheduleDateTime')}</label>
@@ -333,11 +378,16 @@ interface SendSMSProps {
 
 const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
     const { t, language } = useI18n();
+    const translate = (key: string) => {
+        const value = t(key);
+        return value && value !== key ? value : undefined;
+    };
     const { showToast } = useToast();
     const [content, setContent] = useState('');
     const [targets, setTargets] = useState<string[]>([]);
     const [targetSelectValue, setTargetSelectValue] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const addTarget = (value: string) => {
         if (!value || targets.includes(value)) return;
@@ -350,10 +400,11 @@ const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
     };
 
     const handleSend = async () => {
-        if (!content.trim()) {
-            showToast(t('communication.alerts.validation.message'), { variant: 'warning' });
-            return;
-        }
+        // `broadcast.create` models the same "content is required" rule this
+        // SMS broadcast needs — reused here rather than hand-rolling it again.
+        const next = catalogFieldErrors('broadcast.create', { content }, translate);
+        setErrors(next);
+        if (Object.keys(next).length > 0) return;
         const effectiveTargets = targets.length > 0 ? targets : ['all'];
         setIsSubmitting(true);
         try {
@@ -362,7 +413,13 @@ const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
             showToast(t('communication.sms.success') + (sent > 0 ? ` (${sent})` : ''), { variant: 'success' });
             setContent('');
             setTargets([]);
+            setErrors({});
         } catch (error: any) {
+            const serverErrors = serverFieldErrors(error, 'broadcast.create', translate);
+            if (Object.keys(serverErrors).length > 0) {
+                setErrors(serverErrors);
+                return;
+            }
             const msg = error?.message || '';
             showToast(/no recipients|No recipients|phone/i.test(msg) ? t('communication.sms.noRecipients') : (msg || t('communication.alerts.sendError.message')), { variant: 'error' });
         } finally {
@@ -413,15 +470,17 @@ const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
                     {targets.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                             {targets.map((tgt) => (
-                                <span
+                                <button
+                                    type="button"
                                     key={tgt}
                                     onClick={() => removeTarget(tgt)}
-                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200 cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
                                     title={t('communication.new.target.removeTag')}
+                                    aria-label={`${t('communication.new.target.removeTag')}: ${getTargetDisplayLabel(tgt, plans, companies, language, t)}`}
                                 >
                                     {getTargetDisplayLabel(tgt, plans, companies, language, t)}
                                     <Icon name="x" className="w-3.5 h-3.5" />
-                                </span>
+                                </button>
                             ))}
                         </div>
                     )}
@@ -435,8 +494,12 @@ const SendSMS: React.FC<SendSMSProps> = ({ plans, companies }) => {
                         rows={6}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"
                         value={content}
-                        onChange={(e) => setContent(e.target.value)}
+                        onChange={(e) => {
+                            setContent(e.target.value);
+                            if (errors.content) setErrors((prev) => { const next = { ...prev }; delete next.content; return next; });
+                        }}
                     />
+                    <FieldError>{errors.content}</FieldError>
                 </div>
                 <div className={`flex justify-end ${language === 'ar' ? 'gap-4' : 'gap-2'}`}>
                     <button
@@ -656,13 +719,9 @@ const History: React.FC<HistoryProps> = ({ history, onView, onDelete, onRefresh,
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-2">
-                                            <button onClick={() => onView(item)} className="p-1 text-blue-600 hover:text-blue-800" title={t('communication.history.actions.view')}>
-                                                <Icon name="view" className="w-5 h-5" />
-                                            </button>
+                                            <IconButton icon="view" label={t('communication.history.actions.view')} onClick={() => onView(item)} />
                                             {(getDisplayStatus(item) === 'scheduled' || item.status === 'draft') && (
-                                                <button onClick={() => onDelete(item.id)} className="p-1 text-red-600 hover:text-red-800" title={t('communication.history.actions.delete')}>
-                                                    <Icon name="trash" className="w-5 h-5" />
-                                                </button>
+                                                <IconButton icon="trash" label={t('communication.history.actions.delete')} tone="danger" onClick={() => onDelete(item.id)} />
                                             )}
                                         </div>
                                     </td>
@@ -728,7 +787,7 @@ const Communication: React.FC = () => {
         { id: 'new', label: t('communication.tabs.new') },
         { id: 'sms', label: t('communication.tabs.sms') },
         { id: 'history', label: t('communication.tabs.history') },
-    ];
+    ] as const;
 
     const loadBroadcasts = useCallback(async (page = historyPage) => {
         setIsHistoryLoading(true);

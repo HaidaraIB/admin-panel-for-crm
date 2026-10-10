@@ -9,7 +9,8 @@ import Icon from '../components/Icon';
 import PhoneInput from '../components/PhoneInput';
 import { Tenant } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { registerCompanyAPI, getPlansAPI, checkRegistrationAvailabilityAPI, type ApiError } from '../services/api';
+import { registerCompanyAPI, getPlansAPI, checkRegistrationAvailabilityAPI } from '../services/api';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 
 interface AddTenantProps {
   onSave: (tenant: Omit<Tenant, 'id'>) => void;
@@ -21,25 +22,16 @@ interface PlanOption {
   name_ar?: string;
 }
 
-/** DRF-style nested validation payload from registration endpoint */
-type RegisterValidationErrors = {
-  company?: { name?: string | string[]; domain?: string | string[] };
-  owner?: {
-    first_name?: string | string[];
-    last_name?: string | string[];
-    email?: string | string[];
-    username?: string | string[];
-    phone?: string | string[];
-    password?: string | string[];
-  };
-};
-
 const slugify = (text: string) =>
   text.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
 const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
   const navigate = useNavigate();
   const { t, language } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const { showToast } = useToast();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -68,6 +60,40 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
   const [planId, setPlanId] = useState<string>('');
   const [loadingPlans, setLoadingPlans] = useState(true);
 
+  const companyFields = ['company.name', 'company.domain', 'company.specialization'];
+  const ownerFields = [
+    'owner.first_name',
+    'owner.last_name',
+    'owner.email',
+    'owner.username',
+    'owner.phone',
+    'owner.password',
+  ];
+
+  const catalogValues = () => ({
+    company: {
+      name: companyName,
+      domain: companyDomain,
+      specialization,
+    },
+    owner: {
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      username,
+      password,
+      phone,
+    },
+  });
+
+  const pickErrors = (all: Record<string, string>, keys: string[]) => {
+    const next: Record<string, string> = {};
+    for (const key of keys) {
+      if (all[key]) next[key] = all[key];
+    }
+    return next;
+  };
+
   const clearFieldError = (field: string) => {
     if (errors[field]) {
       setErrors((prev) => {
@@ -78,30 +104,25 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
     }
   };
 
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('tenant.create', catalogValues(), translate);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
+
   const validateStep1 = (): boolean => {
-    const next: Record<string, string> = {};
-    if (!companyName.trim()) next.companyName = t('validation.requiredFields') || 'Required';
-    if (!companyDomain.trim()) next.companyDomain = t('validation.requiredFields') || 'Required';
-    else if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*$/.test(companyDomain))
-      next.companyDomain = t('tenants.add.subdomainTaken') || 'Invalid domain format';
+    const next = pickErrors(catalogFieldErrors('tenant.create', catalogValues(), translate), companyFields);
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const validateStep2 = (): boolean => {
-    const next: Record<string, string> = {};
-    if (!firstName.trim()) next.firstName = t('validation.requiredFields') || 'Required';
-    if (!lastName.trim()) next.lastName = t('validation.requiredFields') || 'Required';
-    if (!email.trim()) next.email = t('validation.requiredFields') || 'Required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = t('validation.invalidEmail') || 'Invalid email';
-    if (!username.trim()) next.username = t('validation.requiredFields') || 'Required';
-    else if (username.length < 3) next.username = t('validation.minLength') || 'At least 3 characters';
-    const p = phone.trim();
-    if (!p) next.phone = t('validation.requiredFields') || 'Required';
-    else if (!/^\+[1-9]\d{8,14}$/.test(p)) next.phone = t('validation.invalidPhone') || 'Invalid phone';
-    if (!password.trim()) next.password = t('validation.requiredFields') || 'Required';
-    else if (password.length < 8) next.password = t('validation.passwordMinLength') || 'At least 8 characters';
-    if (password !== confirmPassword) next.confirmPassword = t('tenants.add.passwordsDoNotMatch') || 'Passwords do not match';
+    const next = pickErrors(catalogFieldErrors('tenant.create', catalogValues(), translate), ownerFields);
+    if (password !== confirmPassword) next.confirmPassword = t('tenants.add.passwordsDoNotMatch');
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -117,18 +138,12 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
       await checkRegistrationAvailabilityAPI(fields);
       return true;
     } catch (err: unknown) {
-      const e = err as ApiError;
-      const backend =
-        e.details && typeof e.details === 'object' && !Array.isArray(e.details)
-          ? (e.details as Record<string, unknown>)
-          : e.fields || (err as { errors?: Record<string, unknown> }).errors || {};
-      const next: Record<string, string> = {};
-      if (backend.company_domain) next.companyDomain = Array.isArray(backend.company_domain) ? backend.company_domain[0] : backend.company_domain;
-      if (backend.email) next.email = Array.isArray(backend.email) ? backend.email[0] : backend.email;
-      if (backend.username) next.username = Array.isArray(backend.username) ? backend.username[0] : backend.username;
-      if (backend.phone) next.phone = Array.isArray(backend.phone) ? backend.phone[0] : backend.phone;
-      if (Object.keys(next).length > 0) setErrors((e) => ({ ...e, ...next }));
-      else if (e.message) setErrors((prev) => ({ ...prev, general: e.message }));
+      const serverErrors = serverFieldErrors(err, 'tenant.create', translate);
+      if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
+      else {
+        const message = (err as { message?: string }).message;
+        if (message) setErrors((prev) => ({ ...prev, _general: message }));
+      }
       return false;
     } finally {
       setStepCheckLoading(false);
@@ -154,6 +169,12 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
       setErrors({});
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const leavePage = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
+    else navigate('/tenants');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -197,26 +218,14 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
         created_at: new Date().toISOString(),
       });
     } catch (err: unknown) {
-      const e = err as ApiError;
-      const rawDetails =
-        e.details && typeof e.details === 'object' && !Array.isArray(e.details)
-          ? (e.details as Record<string, unknown>)
-          : undefined;
-      const backend = (rawDetails ||
-        e.fields ||
-        (err as { errors?: unknown }).errors ||
-        err) as RegisterValidationErrors | undefined;
-      const next: Record<string, string> = {};
-      if (backend?.company?.name) next.companyName = Array.isArray(backend.company.name) ? backend.company.name[0] : backend.company.name;
-      if (backend?.company?.domain) next.companyDomain = Array.isArray(backend.company.domain) ? backend.company.domain[0] : backend.company.domain;
-      if (backend?.owner?.first_name) next.firstName = Array.isArray(backend.owner.first_name) ? backend.owner.first_name[0] : backend.owner.first_name;
-      if (backend?.owner?.last_name) next.lastName = Array.isArray(backend.owner.last_name) ? backend.owner.last_name[0] : backend.owner.last_name;
-      if (backend?.owner?.email) next.email = Array.isArray(backend.owner.email) ? backend.owner.email[0] : backend.owner.email;
-      if (backend?.owner?.username) next.username = Array.isArray(backend.owner.username) ? backend.owner.username[0] : backend.owner.username;
-      if (backend?.owner?.phone) next.phone = Array.isArray(backend.owner.phone) ? backend.owner.phone[0] : backend.owner.phone;
-      if (backend?.owner?.password) next.password = Array.isArray(backend.owner.password) ? backend.owner.password[0] : backend.owner.password;
-      if (Object.keys(next).length > 0) setErrors(next);
-      else showToast(translateAdminApiError(err, t) || t('errors.createTenantSubdomain'), { variant: 'error' });
+      const serverErrors = serverFieldErrors(err, 'tenant.create', translate);
+      if (Object.keys(serverErrors).length > 0) {
+        setErrors(serverErrors);
+        if (ownerFields.some((key) => serverErrors[key])) setCurrentStep(2);
+        else if (companyFields.some((key) => serverErrors[key])) setCurrentStep(1);
+      } else {
+        showToast(translateAdminApiError(err, t) || t('errors.createTenantSubdomain'), { variant: 'error' });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -264,7 +273,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
       <div className="flex items-center gap-3 mb-6">
         <button
           type="button"
-          onClick={() => navigate('/tenants')}
+          onClick={leavePage}
           aria-label={t('common.back')}
           className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
         >
@@ -292,8 +301,8 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
               ))}
             </div>
 
-            {errors.general && (
-              <Alert variant="error" className="mb-4">{errors.general}</Alert>
+            {errors._general && (
+              <Alert variant="error" className="mb-4">{errors._general}</Alert>
             )}
 
             {/* Step 1: Company */}
@@ -306,12 +315,15 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                     id="companyName"
                     type="text"
                     placeholder={t('tenants.add.companyNamePlaceholder')}
-                    className={`${inputClasses} ${errors.companyName ? 'border-red-500' : ''}`}
+                    className={`${inputClasses} ${errors['company.name'] ? 'border-red-500' : ''}`}
                     value={companyName}
-                    onChange={(e) => { setCompanyName(e.target.value); clearFieldError('companyName'); }}
-                    onBlur={handleCompanyNameBlur}
+                    onChange={(e) => { setCompanyName(e.target.value); clearFieldError('company.name'); }}
+                    onBlur={() => {
+                      handleCompanyNameBlur();
+                      blurField('company.name');
+                    }}
                   />
-                  {errors.companyName && <p className={errorClasses}>{errors.companyName}</p>}
+                  {errors['company.name'] && <p className={errorClasses}>{errors['company.name']}</p>}
                 </div>
                 <div>
                   <label htmlFor="companyDomain" className={labelClasses}>{t('tenants.table.subdomain')} <span className="text-red-500">*</span></label>
@@ -319,12 +331,13 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                     id="companyDomain"
                     type="text"
                     placeholder={t('tenants.add.subdomainPlaceholder')}
-                    className={`${inputClasses} ${errors.companyDomain ? 'border-red-500' : ''}`}
+                    className={`${inputClasses} ${errors['company.domain'] ? 'border-red-500' : ''}`}
                     value={companyDomain}
-                    onChange={(e) => setCompanyDomain(slugify(e.target.value))}
+                    onChange={(e) => { setCompanyDomain(slugify(e.target.value)); clearFieldError('company.domain'); }}
+                    onBlur={() => blurField('company.domain')}
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('tenants.add.domainHint')}</p>
-                  {errors.companyDomain && <p className={errorClasses}>{errors.companyDomain}</p>}
+                  {errors['company.domain'] && <p className={errorClasses}>{errors['company.domain']}</p>}
                 </div>
                 <div>
                   <label htmlFor="specialization" className={labelClasses}>{t('tenants.modal.specialization')} <span className="text-red-500">*</span></label>
@@ -332,7 +345,8 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                     id="specialization"
                     className={inputClasses}
                     value={specialization}
-                    onChange={(e) => setSpecialization(e.target.value as 'real_estate' | 'services' | 'products' | 'medical')}
+                    onChange={(e) => { setSpecialization(e.target.value as 'real_estate' | 'services' | 'products' | 'medical'); clearFieldError('company.specialization'); }}
+                    onBlur={() => blurField('company.specialization')}
                     dir={language === 'ar' ? 'rtl' : 'ltr'}
                   >
                     <option value="real_estate">{t('specialization.real_estate')}</option>
@@ -340,6 +354,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                     <option value="products">{t('specialization.products')}</option>
                     <option value="medical">{t('specialization.medical')}</option>
                   </select>
+                  {errors['company.specialization'] && <p className={errorClasses}>{errors['company.specialization']}</p>}
                 </div>
               </div>
             )}
@@ -351,24 +366,24 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="firstName" className={labelClasses}>{t('limitedAdmins.modal.firstName')} <span className="text-red-500">*</span></label>
-                    <input id="firstName" type="text" placeholder={t('tenants.add.adminNamePlaceholder')} className={`${inputClasses} ${errors.firstName ? 'border-red-500' : ''}`} value={firstName} onChange={(e) => { setFirstName(e.target.value); clearFieldError('firstName'); }} />
-                    {errors.firstName && <p className={errorClasses}>{errors.firstName}</p>}
+                    <input id="firstName" type="text" placeholder={t('tenants.add.adminNamePlaceholder')} className={`${inputClasses} ${errors['owner.first_name'] ? 'border-red-500' : ''}`} value={firstName} onChange={(e) => { setFirstName(e.target.value); clearFieldError('owner.first_name'); }} onBlur={() => blurField('owner.first_name')} />
+                    {errors['owner.first_name'] && <p className={errorClasses}>{errors['owner.first_name']}</p>}
                   </div>
                   <div>
                     <label htmlFor="lastName" className={labelClasses}>{t('limitedAdmins.modal.lastName')} <span className="text-red-500">*</span></label>
-                    <input id="lastName" type="text" placeholder={t('tenants.add.adminNamePlaceholder')} className={`${inputClasses} ${errors.lastName ? 'border-red-500' : ''}`} value={lastName} onChange={(e) => { setLastName(e.target.value); clearFieldError('lastName'); }} />
-                    {errors.lastName && <p className={errorClasses}>{errors.lastName}</p>}
+                    <input id="lastName" type="text" placeholder={t('tenants.add.adminNamePlaceholder')} className={`${inputClasses} ${errors['owner.last_name'] ? 'border-red-500' : ''}`} value={lastName} onChange={(e) => { setLastName(e.target.value); clearFieldError('owner.last_name'); }} onBlur={() => blurField('owner.last_name')} />
+                    {errors['owner.last_name'] && <p className={errorClasses}>{errors['owner.last_name']}</p>}
                   </div>
                 </div>
                 <div>
                   <label htmlFor="email" className={labelClasses}>{t('tenants.add.adminEmail')} <span className="text-red-500">*</span></label>
-                  <input id="email" type="email" placeholder={t('tenants.add.adminEmailPlaceholder')} className={`${inputClasses} ${errors.email ? 'border-red-500' : ''}`} value={email} onChange={(e) => { setEmail(e.target.value); clearFieldError('email'); }} />
-                  {errors.email && <p className={errorClasses}>{errors.email}</p>}
+                  <input id="email" type="email" placeholder={t('tenants.add.adminEmailPlaceholder')} className={`${inputClasses} ${errors['owner.email'] ? 'border-red-500' : ''}`} value={email} onChange={(e) => { setEmail(e.target.value); clearFieldError('owner.email'); }} onBlur={() => blurField('owner.email')} />
+                  {errors['owner.email'] && <p className={errorClasses}>{errors['owner.email']}</p>}
                 </div>
                 <div>
                   <label htmlFor="username" className={labelClasses}>{t('limitedAdmins.modal.username')} <span className="text-red-500">*</span></label>
-                  <input id="username" type="text" placeholder="e.g. admin" className={`${inputClasses} ${errors.username ? 'border-red-500' : ''}`} value={username} onChange={(e) => { setUsername(e.target.value); clearFieldError('username'); }} />
-                  {errors.username && <p className={errorClasses}>{errors.username}</p>}
+                  <input id="username" type="text" placeholder="e.g. admin" className={`${inputClasses} ${errors['owner.username'] ? 'border-red-500' : ''}`} value={username} onChange={(e) => { setUsername(e.target.value); clearFieldError('owner.username'); }} onBlur={() => blurField('owner.username')} />
+                  {errors['owner.username'] && <p className={errorClasses}>{errors['owner.username']}</p>}
                 </div>
                 <div>
                   <label htmlFor="phone" className={labelClasses}>{t('tenants.modal.phone')} <span className="text-red-500">*</span></label>
@@ -377,13 +392,14 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                     value={phone}
                     onChange={(v) => {
                       setPhone(v);
-                      clearFieldError('phone');
+                      clearFieldError('owner.phone');
                     }}
+                    onBlur={() => blurField('owner.phone')}
                     placeholder=""
-                    error={!!errors.phone}
+                    error={!!errors['owner.phone']}
                     defaultCountry="IQ"
                   />
-                  {errors.phone && <p className={errorClasses}>{errors.phone}</p>}
+                  {errors['owner.phone'] && <p className={errorClasses}>{errors['owner.phone']}</p>}
                 </div>
                 <div>
                   <label htmlFor="password" className={labelClasses}>{t('tenants.add.password')} <span className="text-red-500">*</span></label>
@@ -392,9 +408,10 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                       <input
                         id="password"
                         type={passwordVisible ? 'text' : 'password'}
-                        className={`${inputClasses} pr-10 ${errors.password ? 'border-red-500' : ''}`}
+                        className={`${inputClasses} pr-10 ${errors['owner.password'] ? 'border-red-500' : ''}`}
                         value={password}
-                        onChange={(e) => { setPassword(e.target.value); clearFieldError('password'); }}
+                        onChange={(e) => { setPassword(e.target.value); clearFieldError('owner.password'); }}
+                        onBlur={() => blurField('owner.password')}
                       />
                       <button type="button" className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400" onClick={() => { setPasswordVisible(!passwordVisible); setConfirmPasswordVisible(!passwordVisible); }}>
                         <Icon name={passwordVisible ? 'eye-off' : 'eye'} className="w-5 h-5" />
@@ -404,7 +421,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                       {t('tenants.add.generate')}
                     </button>
                   </div>
-                  {errors.password && <p className={errorClasses}>{errors.password}</p>}
+                  {errors['owner.password'] && <p className={errorClasses}>{errors['owner.password']}</p>}
                 </div>
                 <div>
                   <label htmlFor="confirmPassword" className={labelClasses}>{t('tenants.add.confirmPassword')} <span className="text-red-500">*</span></label>
@@ -415,6 +432,14 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                       className={`${inputClasses} pr-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
                       value={confirmPassword}
                       onChange={(e) => { setConfirmPassword(e.target.value); clearFieldError('confirmPassword'); }}
+                      onBlur={() => {
+                        setErrors((prev) => {
+                          const copy = { ...prev };
+                          if (password !== confirmPassword) copy.confirmPassword = t('tenants.add.passwordsDoNotMatch');
+                          else delete copy.confirmPassword;
+                          return copy;
+                        });
+                      }}
                     />
                     <button type="button" className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400" onClick={() => { setConfirmPasswordVisible(!confirmPasswordVisible); setPasswordVisible(!confirmPasswordVisible); }}>
                       <Icon name={confirmPasswordVisible ? 'eye-off' : 'eye'} className="w-5 h-5" />
@@ -465,7 +490,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ onSave }) => {
                   </button>
                 ) : (
                   <>
-                    <button type="button" onClick={() => navigate('/tenants')} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
+                    <button type="button" onClick={leavePage} className="px-6 py-2 bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 font-medium">
                       {t('common.cancel')}
                     </button>
                     <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">

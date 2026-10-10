@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { useI18n } from '../context/i18n';
 import { useToast } from '../context/ToastContext';
+import { translateAdminApiError } from '../utils/translateApiError';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import Icon from './Icon';
 import LoadingButton from './LoadingButton';
 
@@ -11,11 +13,25 @@ interface AddGatewayModalProps {
   onSave: (gateway: { name: string; description: string }) => Promise<void>;
 }
 
+const PROVIDER_BY_NAME: Record<string, string> = {
+  PayTabs: 'paytabs',
+  Stripe: 'stripe',
+  'Zain Cash': 'zaincash',
+  QiCard: 'qicard',
+  FIB: 'fib',
+  'Al Qaseh': 'alqaseh',
+};
+
 const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSave }) => {
   const { t } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const { showToast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset form when modal opens/closes
@@ -23,36 +39,45 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
     if (isOpen) {
       setName('');
       setDescription('');
+      setErrors({});
       setIsSubmitting(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
+  const catalogValues = () => ({
+    name,
+    provider: PROVIDER_BY_NAME[name] || '',
+  });
+
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('payment_gateway.create', catalogValues(), translate);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!name) {
-      showToast(t('paymentGateways.addModal.nameRequired') || 'Please select a payment gateway', { variant: 'warning' });
-      return;
-    }
+
+    const next = catalogFieldErrors('payment_gateway.create', catalogValues(), translate);
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
 
     setIsSubmitting(true);
     try {
       await onSave({ name, description });
-      // Reset form on success
       setName('');
       setDescription('');
-    } catch (err: any) {
-      let errorMessage = err.message || t('paymentGateways.errors.createFailed') || 'Failed to create payment gateway';
-      
-      // Parse field-specific errors
-      if (err.fields && err.fields.name) {
-        const nameError = Array.isArray(err.fields.name) ? err.fields.name[0] : err.fields.name;
-        errorMessage = nameError || errorMessage;
-      }
-      
-      showToast(errorMessage, { variant: 'error' });
+      setErrors({});
+    } catch (err: unknown) {
+      const serverErrors = serverFieldErrors(err, 'payment_gateway.create', translate);
+      if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
+      else showToast(translateAdminApiError(err, t) || t('paymentGateways.errors.createFailed'), { variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +100,15 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
           <div className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
             <div>
               <label className={labelClasses}>{t('paymentGateways.addModal.name')}</label>
-              <div className="grid grid-cols-1 gap-3 mt-2">
+              <div
+                className="grid grid-cols-1 gap-3 mt-2"
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    blurField('name');
+                    blurField('provider');
+                  }
+                }}
+              >
                 {[
                   { value: 'PayTabs', logo: '/paytabs_logo.png', label: 'PayTabs' },
                   { value: 'Stripe', logo: '/stripe_logo.png', label: 'Stripe' },
@@ -89,6 +122,12 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
                     type="button"
                     onClick={() => {
                       setName(gateway.value);
+                      setErrors((prev) => {
+                        const copy = { ...prev };
+                        delete copy.name;
+                        delete copy.provider;
+                        return copy;
+                      });
                     }}
                     className={`flex items-center gap-3 rtl:gap-3 p-4 border-2 rounded-lg transition-all ${
                       name === gateway.value
@@ -115,6 +154,10 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
               {!name && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('paymentGateways.addModal.selectGateway')}</p>
               )}
+              {(errors.name || errors.provider) && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name || errors.provider}</p>
+              )}
+              {errors._general && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors._general}</p>}
             </div>
             <div>
               <label htmlFor="gatewayDescription" className={labelClasses}>{t('paymentGateways.addModal.description')}</label>
@@ -137,7 +180,6 @@ const AddGatewayModal: React.FC<AddGatewayModalProps> = ({ isOpen, onClose, onSa
             </LoadingButton>
             <LoadingButton
               type="submit"
-              disabled={!name}
               isLoading={isSubmitting}
               loadingText={t('common.saving')}
             >

@@ -4,7 +4,7 @@ import { resolveInputDir } from '../../utils/inputAutoDir';
 
 /** Shared settings-page field tokens (matches General / Integrations, not filter drawers). */
 export const SETTINGS_FIELD_CLASS =
-  'w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed';
+  'w-full px-3 py-2 border border-gray-300 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed';
 
 export const FormInput = forwardRef<
   HTMLInputElement,
@@ -22,7 +22,7 @@ export const FormInput = forwardRef<
         value={value}
         defaultValue={defaultValue}
         dir={resolvedDir}
-        className={`${SETTINGS_FIELD_CLASS} ${className}`.trim()}
+        className={`h-10 ${SETTINGS_FIELD_CLASS} ${rest['aria-invalid'] ? 'border-red-500 dark:border-red-500' : ''} ${className}`.trim()}
         {...rest}
       />
     </div>
@@ -43,7 +43,7 @@ export const FormTextarea = forwardRef<
       value={value}
       defaultValue={defaultValue}
       dir={resolvedDir}
-      className={`${SETTINGS_FIELD_CLASS} ${className}`.trim()}
+      className={`${SETTINGS_FIELD_CLASS} ${rest['aria-invalid'] ? 'border-red-500 dark:border-red-500' : ''} ${className}`.trim()}
       {...rest}
     />
   );
@@ -59,7 +59,7 @@ export const FormSelect = forwardRef<
     <select
       ref={ref}
       dir={dir ?? (language === 'ar' ? 'rtl' : 'ltr')}
-      className={`${SETTINGS_FIELD_CLASS} ${className}`.trim()}
+      className={`h-10 ${SETTINGS_FIELD_CLASS} ${className}`.trim()}
       {...rest}
     >
       {children}

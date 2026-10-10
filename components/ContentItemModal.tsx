@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import LoadingButton from './LoadingButton';
 import { GuideArticle, GuideCategory, NewsPost } from '../types';
 import { useI18n } from '../context/i18n';
-import { useToast } from '../context/ToastContext';
+import { catalogFieldErrors } from '../forms';
 import Icon from './Icon';
 
 export type ContentKind = 'guide' | 'news';
@@ -30,12 +30,10 @@ interface ContentItemModalProps {
   categories?: GuideCategory[];
   initialBody?: { body_en: string; body_ar: string; summary_en?: string; summary_ar?: string };
   isLoading?: boolean;
+  serverErrors?: Record<string, string>;
   onClose: () => void;
   onSave: (data: ContentFormData) => void;
 }
-
-const YOUTUBE_HOST_RE =
-  /^(https?:\/\/)?(www\.|m\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\b/i;
 
 const emptyForm = (): ContentFormData => ({
   title_en: '',
@@ -60,13 +58,18 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
   categories = [],
   initialBody,
   isLoading = false,
+  serverErrors,
   onClose,
   onSave,
 }) => {
   const { t, language } = useI18n();
-  const { showToast } = useToast();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const [formData, setFormData] = useState<ContentFormData>(emptyForm());
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isOpen) return;
@@ -106,7 +109,14 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
       setFormData(emptyForm());
       setCoverPreview(null);
     }
+    setErrors({});
   }, [isOpen, kind, editingGuide, editingNews, initialBody]);
+
+  useEffect(() => {
+    if (serverErrors && Object.keys(serverErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...serverErrors }));
+    }
+  }, [serverErrors]);
 
   if (!isOpen) return null;
 
@@ -148,21 +158,39 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
     }
   };
 
+  const formId = kind === 'guide' ? 'guide_article.upsert' : 'news_post.upsert';
+
+  const catalogValues = () =>
+    kind === 'guide'
+      ? {
+          title_en: formData.title_en,
+          title_ar: formData.title_ar,
+          body_en: formData.body_en,
+          body_ar: formData.body_ar,
+          youtube_url: formData.youtube_url,
+        }
+      : {
+          title_en: formData.title_en,
+          title_ar: formData.title_ar,
+          body_en: formData.body_en,
+          body_ar: formData.body_ar,
+        };
+
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors(formId, catalogValues(), translate);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title_en.trim() || !formData.title_ar.trim()) {
-      showToast(t('content.validation.titlesRequired'), { variant: 'warning' });
-      return;
-    }
-    if (!formData.body_en.trim() || !formData.body_ar.trim()) {
-      showToast(t('content.validation.bodiesRequired'), { variant: 'warning' });
-      return;
-    }
-    const yt = formData.youtube_url.trim();
-    if (yt && !YOUTUBE_HOST_RE.test(yt)) {
-      showToast(t('content.validation.youtubeInvalid'), { variant: 'warning' });
-      return;
-    }
+    const next = catalogFieldErrors(formId, catalogValues(), translate);
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
     onSave(formData);
   };
 
@@ -197,6 +225,7 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {errors._general && <p className="text-sm text-red-600 dark:text-red-400">{errors._general}</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>{t('content.fields.titleEn')}</label>
@@ -204,9 +233,11 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
                 name="title_en"
                 value={formData.title_en}
                 onChange={handleChange}
-                className={inputClasses}
+                onBlur={() => blurField('title')}
+                className={`${inputClasses} ${errors.title ? 'border-red-500' : ''}`}
                 dir="ltr"
               />
+              {errors.title && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>}
             </div>
             <div>
               <label className={labelClasses}>{t('content.fields.titleAr')}</label>
@@ -214,9 +245,11 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
                 name="title_ar"
                 value={formData.title_ar}
                 onChange={handleChange}
-                className={inputClasses}
+                onBlur={() => blurField('titleAr')}
+                className={`${inputClasses} ${errors.titleAr ? 'border-red-500' : ''}`}
                 dir="rtl"
               />
+              {errors.titleAr && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.titleAr}</p>}
             </div>
           </div>
 
@@ -254,10 +287,12 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
                 name="body_en"
                 value={formData.body_en}
                 onChange={handleChange}
+                onBlur={() => blurField('body')}
                 rows={8}
-                className={inputClasses}
+                className={`${inputClasses} ${errors.body ? 'border-red-500' : ''}`}
                 dir="ltr"
               />
+              {errors.body && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.body}</p>}
             </div>
             <div>
               <label className={labelClasses}>{t('content.fields.bodyAr')}</label>
@@ -265,10 +300,12 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
                 name="body_ar"
                 value={formData.body_ar}
                 onChange={handleChange}
+                onBlur={() => blurField('bodyAr')}
                 rows={8}
-                className={inputClasses}
+                className={`${inputClasses} ${errors.bodyAr ? 'border-red-500' : ''}`}
                 dir="rtl"
               />
+              {errors.bodyAr && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.bodyAr}</p>}
             </div>
           </div>
 
@@ -323,10 +360,14 @@ const ContentItemModal: React.FC<ContentItemModalProps> = ({
               name="youtube_url"
               value={formData.youtube_url}
               onChange={handleChange}
-              className={inputClasses}
+              onBlur={() => {
+                if (kind === 'guide') blurField('youtubeUrl');
+              }}
+              className={`${inputClasses} ${errors.youtubeUrl ? 'border-red-500' : ''}`}
               dir="ltr"
               placeholder="https://www.youtube.com/watch?v=..."
             />
+            {errors.youtubeUrl && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.youtubeUrl}</p>}
           </div>
 
           <div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Icon from '../components/Icon';
+import LoadingButton from '../components/LoadingButton';
 import FilterButton from '../components/FilterButton';
 import RefreshButton from '../components/RefreshButton';
 import { useI18n } from '../context/i18n';
@@ -17,6 +18,7 @@ import SupportTicketsFilterDrawer, {
   supportTicketsFilterDefaults,
 } from '../components/SupportTicketsFilterDrawer';
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
+import IconButton from '../components/IconButton';
 
 const STATUS_OPTIONS = [
   { value: 'open', labelKey: 'tickets.status.open', className: 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100 border-amber-300 dark:border-amber-700' },
@@ -278,25 +280,8 @@ const SupportTickets: React.FC = () => {
                     </td>
                     <td className="px-6 py-3">
                       <div className={`inline-flex items-center gap-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTicket(ticket)}
-                          className="inline-flex items-center justify-center p-1.5 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none"
-                          title={t('tickets.viewDetails') || 'View details'}
-                          aria-label={t('tickets.viewDetails') || 'View details'}
-                        >
-                          <Icon name="eye" className="w-5 h-5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTicketToDelete(ticket)}
-                          disabled={deletingId === ticket.id}
-                          className="inline-flex items-center justify-center p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 focus:outline-none disabled:opacity-50"
-                          title={t('tickets.delete') || 'Delete'}
-                          aria-label={t('tickets.delete') || 'Delete'}
-                        >
-                          <Icon name="trash" className="w-5 h-5" />
-                        </button>
+                        <IconButton icon="eye" label={t('tickets.viewDetails') || 'View details'} onClick={() => setSelectedTicket(ticket)} />
+                        <IconButton icon="trash" label={t('tickets.delete') || 'Delete'} tone="danger" onClick={() => setTicketToDelete(ticket)} disabled={deletingId === ticket.id} />
                       </div>
                     </td>
                   </tr>
@@ -451,14 +436,9 @@ const SupportTickets: React.FC = () => {
               )}
             </div>
             <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setTicketToDelete(selectedTicket)}
-                className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 ${isRtl ? 'flex-row-reverse' : ''}`}
-              >
-                <Icon name="trash" className="w-4 h-4" />
+              <LoadingButton variant="danger" icon="trash" onClick={() => setTicketToDelete(selectedTicket)}>
                 {t('tickets.delete') || 'Delete'}
-              </button>
+              </LoadingButton>
             </div>
           </div>
         </div>
@@ -486,22 +466,8 @@ const SupportTickets: React.FC = () => {
               #{ticketToDelete.id} — {ticketToDelete.title}
             </p>
             <div className={`flex gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <button
-                type="button"
-                onClick={() => setTicketToDelete(null)}
-                disabled={!!deletingId}
-                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                disabled={!!deletingId}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50"
-              >
-                {deletingId ? '...' : t('common.delete')}
-              </button>
+              <LoadingButton variant="secondary" className="flex-1" onClick={() => setTicketToDelete(null)} disabled={!!deletingId}>{t('common.cancel')}</LoadingButton>
+              <LoadingButton variant="danger" className="flex-1" onClick={handleDeleteConfirm} disabled={!!deletingId} isLoading={!!deletingId}>{t('common.delete')}</LoadingButton>
             </div>
           </div>
         </div>

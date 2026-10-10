@@ -12,6 +12,7 @@ import { GuideArticle, GuideCategory, NewsPost } from '../types';
 import { useI18n } from '../context/i18n';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
+import { serverFieldErrors } from '../forms';
 import { ADMIN_PAGE_TAB_ACTIVE, ADMIN_PAGE_TAB_INACTIVE } from '../utils/pageTabNavClasses';
 import { withLatinDigits } from '../utils/latinNumerals';
 import { usePersistedTab } from '../hooks/usePersistedTab';
@@ -28,12 +29,17 @@ import {
   deleteNewsPostAPI,
   notifyNewsPostAPI,
 } from '../services/api';
+import IconButton from '../components/IconButton';
 
 type TabId = 'guide' | 'news' | 'tutorials';
 const CONTENT_TABS = ['guide', 'news', 'tutorials'] as const;
 
 const Content: React.FC = () => {
   const { t, language } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedTab<TabId>(
     'content',
@@ -45,6 +51,7 @@ const Content: React.FC = () => {
   const [news, setNews] = useState<NewsPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [itemServerErrors, setItemServerErrors] = useState<Record<string, string>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
@@ -208,7 +215,10 @@ const Content: React.FC = () => {
       setModalOpen(false);
       showToast(t('content.alerts.saved'), { variant: 'success' });
     } catch (error) {
-      showToast(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
+      const formId = activeTab === 'news' ? 'news_post.upsert' : 'guide_article.upsert';
+      const serverErrors = serverFieldErrors(error, formId, translate);
+      if (Object.keys(serverErrors).length > 0) setItemServerErrors(serverErrors);
+      else showToast(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -399,36 +409,15 @@ const Content: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="inline-flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => void openViewGuide(item)}
-                            className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
-                            title={t('common.view') || 'View'}
-                          >
-                            <Icon name="view" className="w-5 h-5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void openEditGuide(item)}
-                            className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                            title={t('common.edit') || 'Edit'}
-                          >
-                            <Icon name="edit" className="w-5 h-5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
+                          <IconButton icon="view" label={t('common.view') || 'View'} onClick={() => void openViewGuide(item)} />
+                          <IconButton icon="edit" label={t('common.edit') || 'Edit'} onClick={() => void openEditGuide(item)} />
+                          <IconButton icon="trash" label={t('common.delete') || 'Delete'} tone="danger" onClick={() =>
                               setDeleteTarget({
                                 kind: 'guide',
                                 id: item.id,
                                 title: displayTitle(item.title_en, item.title_ar),
                               })
-                            }
-                            className="p-2 text-red-600 hover:text-red-800 dark:text-red-400"
-                            title={t('common.delete') || 'Delete'}
-                          >
-                            <Icon name="trash" className="w-5 h-5" />
-                          </button>
+                            } />
                         </div>
                       </td>
                     </tr>
@@ -498,53 +487,20 @@ const Content: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="inline-flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => void openViewNews(item)}
-                              className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
-                              title={t('common.view') || 'View'}
-                            >
-                              <Icon name="view" className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!item.is_published}
-                              onClick={() => setNotifyTarget(item)}
-                              className={`p-2 rounded-md ${
-                                item.is_published
-                                  ? 'text-violet-600 hover:text-violet-800 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-900/30'
-                                  : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                              }`}
-                              title={
+                            <IconButton icon="view" label={t('common.view') || 'View'} onClick={() => void openViewNews(item)} />
+                            <IconButton icon="bell" label={
                                 item.is_published
                                   ? t('content.notify.action')
                                   : t('content.notify.publishFirst')
-                              }
-                            >
-                              <Icon name="bell" className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void openEditNews(item)}
-                              className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                              title={t('common.edit') || 'Edit'}
-                            >
-                              <Icon name="edit" className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
+                              } onClick={() => setNotifyTarget(item)} disabled={!item.is_published} />
+                            <IconButton icon="edit" label={t('common.edit') || 'Edit'} onClick={() => void openEditNews(item)} />
+                            <IconButton icon="trash" label={t('common.delete') || 'Delete'} tone="danger" onClick={() =>
                                 setDeleteTarget({
                                   kind: 'news',
                                   id: item.id,
                                   title: displayTitle(item.title_en, item.title_ar),
                                 })
-                              }
-                              className="p-2 text-red-600 hover:text-red-800 dark:text-red-400"
-                              title={t('common.delete') || 'Delete'}
-                            >
-                              <Icon name="trash" className="w-5 h-5" />
-                            </button>
+                              } />
                           </div>
                         </td>
                       </tr>
@@ -565,8 +521,15 @@ const Content: React.FC = () => {
         categories={categories}
         initialBody={detailBodies || undefined}
         isLoading={saving}
-        onClose={() => setModalOpen(false)}
-        onSave={(data) => void handleSave(data)}
+        serverErrors={itemServerErrors}
+        onClose={() => {
+          setItemServerErrors({});
+          setModalOpen(false);
+        }}
+        onSave={(data) => {
+          setItemServerErrors({});
+          void handleSave(data);
+        }}
       />
 
       <ContentViewModal

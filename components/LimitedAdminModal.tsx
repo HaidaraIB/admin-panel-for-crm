@@ -3,6 +3,8 @@ import LoadingButton from './LoadingButton';
 import { LimitedAdmin } from '../types';
 import { useI18n } from '../context/i18n';
 import { useToast } from '../context/ToastContext';
+import { translateAdminApiError } from '../utils/translateApiError';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import Icon from './Icon';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -15,7 +17,7 @@ interface LimitedAdminModalProps {
     password?: string;
     first_name: string;
     last_name: string;
-  }) => void;
+  }) => void | Promise<void>;
   editingAdmin?: LimitedAdmin | null;
   isLoading?: boolean;
   readOnly?: boolean;
@@ -30,7 +32,12 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
   readOnly = false,
 }) => {
   const { t, language } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const { showToast } = useToast();
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
@@ -92,18 +99,45 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
         can_manage_limited_admins: false,
       });
     }
+    setErrors({});
   }, [editingAdmin, isOpen]);
+
+  const catalogValues = () => ({
+    username: formData.username,
+    email: formData.email,
+    password: formData.password,
+    first_name: formData.first_name,
+    last_name: formData.last_name,
+  });
+
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('limited_admin.create', catalogValues(), translate);
+    if (editingAdmin && !formData.password) delete next.password;
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (readOnly) return;
-    if (!editingAdmin && !formData.password) {
-      showToast(t('limitedAdmins.passwordRequired') || 'Password is required', { variant: 'warning' });
-      return;
+    const next = catalogFieldErrors('limited_admin.create', catalogValues(), translate);
+    if (editingAdmin && !formData.password) delete next.password;
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    try {
+      await onSave(formData);
+    } catch (error) {
+      const serverErrors = serverFieldErrors(error, 'limited_admin.create', translate);
+      if (editingAdmin && !formData.password) delete serverErrors.password;
+      if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
+      else showToast(translateAdminApiError(error, t) || t('errors.saveLimitedAdmin'), { variant: 'error' });
     }
-    onSave(formData);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,6 +168,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {errors._general && <p className="text-sm text-red-600 dark:text-red-400">{errors._general}</p>}
           <fieldset disabled={readOnly} className="space-y-6 border-0 p-0 m-0 min-w-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -146,9 +181,11 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
                 type="text"
                 value={formData.first_name}
                 onChange={handleChange}
-                className={inputClasses}
+                onBlur={() => blurField('firstName')}
+                className={`${inputClasses} ${errors.firstName ? 'border-red-500' : ''}`}
                 required
               />
+              {errors.firstName && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.firstName}</p>}
             </div>
             <div>
               <label htmlFor="last_name" className={labelClasses}>
@@ -160,9 +197,11 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
                 type="text"
                 value={formData.last_name}
                 onChange={handleChange}
-                className={inputClasses}
+                onBlur={() => blurField('lastName')}
+                className={`${inputClasses} ${errors.lastName ? 'border-red-500' : ''}`}
                 required
               />
+              {errors.lastName && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.lastName}</p>}
             </div>
             <div>
               <label htmlFor="username" className={labelClasses}>
@@ -174,10 +213,12 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
                 type="text"
                 value={formData.username}
                 onChange={handleChange}
-                className={inputClasses}
+                onBlur={() => blurField('username')}
+                className={`${inputClasses} ${errors.username ? 'border-red-500' : ''}`}
                 required
                 disabled={!!editingAdmin}
               />
+              {errors.username && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.username}</p>}
             </div>
             <div>
               <label htmlFor="email" className={labelClasses}>
@@ -189,10 +230,12 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={inputClasses}
+                onBlur={() => blurField('email')}
+                className={`${inputClasses} ${errors.email ? 'border-red-500' : ''}`}
                 required
                 disabled={!!editingAdmin}
               />
+              {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
             </div>
             {!editingAdmin && (
               <div className="md:col-span-2">
@@ -206,7 +249,8 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={handleChange}
-                    className={`${inputClasses} pr-10 ${language === 'ar' ? 'pl-10 pr-3' : 'pl-3'}`}
+                    onBlur={() => blurField('password')}
+                    className={`${inputClasses} pr-10 ${errors.password ? 'border-red-500' : ''} ${language === 'ar' ? 'pl-10 pr-3' : 'pl-3'}`}
                     required
                     autoComplete="new-password"
                   />
@@ -220,6 +264,7 @@ const LimitedAdminModal: React.FC<LimitedAdminModalProps> = ({
                     <Icon name={showPassword ? 'eye-off' : 'eye'} className="w-5 h-5" />
                   </button>
                 </div>
+                {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
               </div>
             )}
           </div>

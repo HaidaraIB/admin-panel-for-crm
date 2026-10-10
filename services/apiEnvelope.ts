@@ -5,6 +5,8 @@
 /** API error with optional field-level errors (unified envelope or legacy DRF) */
 export interface ApiError extends Error {
   fields?: Record<string, string | string[]>;
+  fieldIssues?: Record<string, { code: string; params?: Record<string, unknown>; message?: string }[]>;
+  nonField?: { code: string; params?: Record<string, unknown>; message?: string }[];
   code?: string;
   status?: number;
   details?: unknown;
@@ -46,7 +48,7 @@ function buildFieldErrorsFromValidationDetails(
 export function parseErrorPayload(
   errorData: unknown,
   httpStatus: number
-): { message: string; code?: string; fields?: Record<string, string | string[]>; details?: unknown } {
+): { message: string; code?: string; fields?: Record<string, string | string[]>; fieldIssues?: ApiError['fieldIssues']; nonField?: ApiError['nonField']; details?: unknown } {
   const fallback = `API Error: ${httpStatus}`;
   if (errorData === null || errorData === undefined) {
     return { message: fallback };
@@ -65,13 +67,17 @@ export function parseErrorPayload(
     const code = err.code != null ? String(err.code) : undefined;
     const details = err.details;
     const fields = buildFieldErrorsFromValidationDetails(details);
+    const fieldIssues = err.fields && typeof err.fields === 'object' && !Array.isArray(err.fields)
+      ? (err.fields as ApiError['fieldIssues'])
+      : undefined;
+    const nonField = Array.isArray(err.non_field) ? (err.non_field as ApiError['nonField']) : undefined;
     if (details && typeof details === 'object' && !Array.isArray(details)) {
       const nf = (details as Record<string, unknown>).non_field_errors;
       if (Array.isArray(nf) && nf.length) {
         message = nf.map(String).join(' ');
       }
     }
-    return { message, code, fields, details };
+    return { message, code, fields, fieldIssues, nonField, details };
   }
 
   if (typeof d.detail === 'string') {
@@ -106,12 +112,14 @@ export function parseErrorPayload(
 }
 
 export function throwApiError(status: number, errorData: unknown): never {
-  const { message, code, fields, details } = parseErrorPayload(errorData, status);
+  const { message, code, fields, fieldIssues, nonField, details } = parseErrorPayload(errorData, status);
   const error = new Error(message || `API Error: ${status}`) as ApiError;
   error.status = status;
   if (code) error.code = code;
   if (details !== undefined) error.details = details;
   if (fields && Object.keys(fields).length > 0) error.fields = fields;
+  if (fieldIssues && Object.keys(fieldIssues).length > 0) error.fieldIssues = fieldIssues;
+  if (nonField && nonField.length > 0) error.nonField = nonField;
   throw error;
 }
 

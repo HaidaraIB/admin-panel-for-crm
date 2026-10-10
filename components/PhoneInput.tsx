@@ -33,6 +33,7 @@ interface PhoneInputProps {
   className?: string;
   error?: boolean;
   defaultCountry?: string;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
 }
 
 export const PhoneInput: React.FC<PhoneInputProps> = ({
@@ -43,6 +44,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   className = '',
   error = false,
   defaultCountry = 'IQ',
+  onBlur,
 }) => {
   const { language, t } = useI18n();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -109,13 +111,13 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   return (
     <div className={`relative ${className}`} dir="ltr">
       <div
-        className={`flex items-center border rounded-md ${
+        className={`flex h-10 items-stretch border rounded-md ${
           error
             ? 'border-red-500 dark:border-red-500'
             : 'border-gray-300 dark:border-gray-600'
-        } bg-gray-50 dark:bg-gray-700 focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500`}
+        } bg-gray-50 dark:bg-gray-800 focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500`}
       >
-        <div className="relative flex-shrink-0" ref={dropdownRef}>
+        <div className="relative flex flex-shrink-0" ref={dropdownRef}>
           <button
             type="button"
             aria-label={t('phoneInput.searchCountries')}
@@ -126,7 +128,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
               e.stopPropagation();
               setIsDropdownOpen((open) => !open);
             }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-2 border-r border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors whitespace-nowrap rounded-l-md"
+            className="inline-flex h-full items-center gap-1.5 px-2.5 border-r border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors whitespace-nowrap rounded-l-md"
           >
             <CountryFlag code={selectedCountry.code} size="sm" />
             <span className="text-sm font-medium leading-none text-gray-700 dark:text-gray-300 tabular-nums">
@@ -219,7 +221,8 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
           onChange={handlePhoneChange}
           placeholder={placeholder}
           dir="ltr"
-          className="flex-1 px-3 py-2 bg-transparent border-0 focus:outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 min-w-0 text-left rounded-r-md"
+          onBlur={onBlur}
+          className="h-full flex-1 px-3 bg-transparent border-0 focus:outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 min-w-0 text-left rounded-r-md"
         />
       </div>
     </div>

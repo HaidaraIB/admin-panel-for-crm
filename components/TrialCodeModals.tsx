@@ -6,6 +6,9 @@ import { Checkbox } from './Checkbox';
 import { NumberInput } from './NumberInput';
 import { Plan, TrialCode, TrialCodeRedemption } from '../types';
 import { useI18n } from '../context/i18n';
+import { useToast } from '../context/ToastContext';
+import { translateAdminApiError } from '../utils/translateApiError';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import { withLatinDigits } from '../utils/latinNumerals';
 
 const inputClasses =
@@ -51,7 +54,7 @@ const emptyBatchForm = (defaultPlanId: number): BatchFormState => ({
 interface TrialCodeCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (form: CreateFormState) => void;
+  onSave: (form: CreateFormState) => void | Promise<void>;
   isLoading?: boolean;
   paidPlans: Plan[];
 }
@@ -64,20 +67,55 @@ export const TrialCodeCreateModal: React.FC<TrialCodeCreateModalProps> = ({
   paidPlans,
 }) => {
   const { t } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
+  const { showToast } = useToast();
   const defaultPlanId = paidPlans[0]?.id ?? 0;
   const [formData, setFormData] = useState<CreateFormState>(() => emptyCreateForm(defaultPlanId));
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
       setFormData(emptyCreateForm(paidPlans[0]?.id ?? 0));
+      setErrors({});
     }
   }, [isOpen, paidPlans]);
 
+  const catalogValues = () => ({
+    code: formData.autoGenerate ? '' : formData.code,
+    trial_days: formData.trialDays,
+  });
+
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('trial_code.create', catalogValues(), translate);
+    if (formData.autoGenerate) delete next.code;
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
+
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const next = catalogFieldErrors('trial_code.create', catalogValues(), translate);
+    if (formData.autoGenerate) delete next.code;
+    if (!formData.planId) next.plan = t('trialCodes.errors.planRequired');
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    try {
+      await onSave(formData);
+    } catch (error) {
+      const serverErrors = serverFieldErrors(error, 'trial_code.create', translate);
+      if (formData.autoGenerate) delete serverErrors.code;
+      if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
+      else showToast(translateAdminApiError(error, t) || t('trialCodes.errors.save'), { variant: 'error' });
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -112,6 +150,7 @@ export const TrialCodeCreateModal: React.FC<TrialCodeCreateModalProps> = ({
           </div>
 
           <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+            {errors._general && <p className="text-sm text-red-600 dark:text-red-400">{errors._general}</p>}
             <Checkbox
               id="trialCodeAutoGenerate"
               checked={formData.autoGenerate}
@@ -129,9 +168,11 @@ export const TrialCodeCreateModal: React.FC<TrialCodeCreateModalProps> = ({
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))
                   }
-                  className={`${inputClasses} font-mono`}
+                  onBlur={() => blurField('code')}
+                  className={`${inputClasses} font-mono ${errors.code ? 'border-red-500' : ''}`}
                   maxLength={32}
                 />
+                {errors.code && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.code}</p>}
               </div>
             )}
 
@@ -153,13 +194,14 @@ export const TrialCodeCreateModal: React.FC<TrialCodeCreateModalProps> = ({
                 name="planId"
                 value={formData.planId}
                 onChange={handleInputChange}
-                className={inputClasses}
+                className={`${inputClasses} ${errors.plan ? 'border-red-500' : ''}`}
                 required
               >
                 {paidPlans.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+              {errors.plan && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.plan}</p>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -170,9 +212,11 @@ export const TrialCodeCreateModal: React.FC<TrialCodeCreateModalProps> = ({
                   name="trialDays"
                   value={formData.trialDays}
                   onChange={handleNumberChange}
+                  onBlur={() => blurField('trialDays')}
                   min={1}
                   max={365}
                 />
+                {errors.trialDays && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.trialDays}</p>}
               </div>
               <div>
                 <label htmlFor="trialCodeMaxUses" className={labelClasses}>{t('trialCodes.fieldMaxUses')}</label>
@@ -216,7 +260,7 @@ export const TrialCodeCreateModal: React.FC<TrialCodeCreateModalProps> = ({
 interface TrialCodeBatchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (form: BatchFormState) => void;
+  onSave: (form: BatchFormState) => void | Promise<void>;
   isLoading?: boolean;
   paidPlans: Plan[];
 }
@@ -229,21 +273,54 @@ export const TrialCodeBatchModal: React.FC<TrialCodeBatchModalProps> = ({
   paidPlans,
 }) => {
   const { t } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<BatchFormState>(() =>
     emptyBatchForm(paidPlans[0]?.id ?? 0)
   );
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
       setFormData(emptyBatchForm(paidPlans[0]?.id ?? 0));
+      setErrors({});
     }
   }, [isOpen, paidPlans]);
 
+  const catalogValues = () => ({
+    label: formData.label,
+    quantity: formData.quantity,
+    trial_days: formData.trialDays,
+    plan: formData.planId || '',
+  });
+
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('trial_code.batch', catalogValues(), translate);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
+
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const next = catalogFieldErrors('trial_code.batch', catalogValues(), translate);
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    try {
+      await onSave(formData);
+    } catch (error) {
+      const serverErrors = serverFieldErrors(error, 'trial_code.batch', translate);
+      if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
+      else showToast(translateAdminApiError(error, t) || t('trialCodes.errors.save'), { variant: 'error' });
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -278,6 +355,7 @@ export const TrialCodeBatchModal: React.FC<TrialCodeBatchModalProps> = ({
           </div>
 
           <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+            {errors._general && <p className="text-sm text-red-600 dark:text-red-400">{errors._general}</p>}
             <div>
               <label htmlFor="batchLabel" className={labelClasses}>{t('trialCodes.fieldLabel')}</label>
               <input
@@ -285,9 +363,11 @@ export const TrialCodeBatchModal: React.FC<TrialCodeBatchModalProps> = ({
                 name="label"
                 value={formData.label}
                 onChange={handleInputChange}
-                className={inputClasses}
+                onBlur={() => blurField('label')}
+                className={`${inputClasses} ${errors.label ? 'border-red-500' : ''}`}
                 required
               />
+              {errors.label && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.label}</p>}
             </div>
 
             <div>
@@ -297,13 +377,15 @@ export const TrialCodeBatchModal: React.FC<TrialCodeBatchModalProps> = ({
                 name="planId"
                 value={formData.planId}
                 onChange={handleInputChange}
-                className={inputClasses}
+                onBlur={() => blurField('plan')}
+                className={`${inputClasses} ${errors.plan ? 'border-red-500' : ''}`}
                 required
               >
                 {paidPlans.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+              {errors.plan && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.plan}</p>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -314,9 +396,11 @@ export const TrialCodeBatchModal: React.FC<TrialCodeBatchModalProps> = ({
                   name="trialDays"
                   value={formData.trialDays}
                   onChange={handleNumberChange}
+                  onBlur={() => blurField('trialDays')}
                   min={1}
                   max={365}
                 />
+                {errors.trialDays && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.trialDays}</p>}
               </div>
               <div>
                 <label htmlFor="batchQuantity" className={labelClasses}>{t('trialCodes.fieldQuantity')}</label>
@@ -325,9 +409,11 @@ export const TrialCodeBatchModal: React.FC<TrialCodeBatchModalProps> = ({
                   name="quantity"
                   value={formData.quantity}
                   onChange={handleNumberChange}
+                  onBlur={() => blurField('quantity')}
                   min={1}
                   max={500}
                 />
+                {errors.quantity && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.quantity}</p>}
               </div>
             </div>
 

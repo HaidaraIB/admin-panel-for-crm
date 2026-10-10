@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { changePasswordAPI } from '../services/api';
 import { useI18n } from '../context/i18n';
 import { useToast } from '../context/ToastContext';
+import { translateAdminApiError } from '../utils/translateApiError';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import Icon from './Icon';
 
 interface ResetPasswordModalProps {
@@ -12,11 +14,15 @@ interface ResetPasswordModalProps {
 
 const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose }) => {
     const { t, language } = useI18n();
+    const translate = (key: string) => {
+        const value = t(key);
+        return value && value !== key ? value : undefined;
+    };
     const { showToast } = useToast();
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [errors, setErrors] = useState<{[key: string]: string[]}>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
@@ -34,52 +40,29 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
         setShowNewPassword(newValue);
         setShowConfirmPassword(newValue);
     };
-    // Function to translate error messages
-    const translateError = (errorMsg: string): string => {
-        const errorLower = errorMsg.toLowerCase();
-        
-        // Map common Django password validation errors
-        if (errorLower.includes('too similar') || errorLower.includes('similar to the username')) {
-            return t('resetPassword.errors.tooSimilar');
-        }
-        if (errorLower.includes('too common') || errorLower.includes('common')) {
-            return t('resetPassword.errors.tooCommon');
-        }
-        if (errorLower.includes('too short') || errorLower.includes('at least')) {
-            return t('resetPassword.errors.minLength');
-        }
-        if (errorLower.includes('entirely numeric') || errorLower.includes('numeric')) {
-            return t('resetPassword.errors.entirelyNumeric');
-        }
-        if (errorLower.includes('do not match') || errorLower.includes('match')) {
-            return t('resetPassword.passwordMismatch');
-        }
-        if (errorLower.includes('required')) {
-            return t('resetPassword.errors.required');
-        }
-        if (errorLower.includes('incorrect')) {
-            return t('resetPassword.errors.incorrect');
-        }
-        
-        // Return original message if no translation found
-        return errorMsg;
+    const catalogValues = () => ({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+    });
+
+    const blurField = (field: string) => {
+        const next = catalogFieldErrors('auth.change_password', catalogValues(), translate);
+        setErrors((prev) => {
+            const copy = { ...prev };
+            if (next[field]) copy[field] = next[field];
+            else delete copy[field];
+            return copy;
+        });
     };
 
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setErrors({});
-        
-        if (newPassword !== confirmPassword) {
-            setErrors({ confirm_password: [t('resetPassword.passwordMismatch') || 'Passwords do not match'] });
-            return;
-        }
-
-        if (newPassword.length < 8) {
-            setErrors({ new_password: [t('resetPassword.errors.minLength')] });
-            return;
-        }
+        const next = catalogFieldErrors('auth.change_password', catalogValues(), translate);
+        setErrors(next);
+        if (Object.keys(next).length > 0) return;
 
         setIsLoading(true);
         try {
@@ -90,46 +73,10 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
             setErrors({});
             showToast(t('resetPassword.successMessage') || t('resetPassword.success'), { variant: 'success' });
             onClose();
-        } catch (error: any) {
-            try {
-                // Try to parse error response as JSON
-                let errorData: any;
-                if (typeof error.message === 'string') {
-                    try {
-                        errorData = JSON.parse(error.message);
-                    } catch {
-                        // If it's not JSON, check if it's already an object
-                        errorData = error.message;
-                    }
-                } else {
-                    errorData = error.message;
-                }
-                
-                if (typeof errorData === 'object' && errorData !== null && !Array.isArray(errorData)) {
-                    // Handle API validation errors (field-specific errors)
-                    const formattedErrors: {[key: string]: string[]} = {};
-                    Object.keys(errorData).forEach(key => {
-                        if (Array.isArray(errorData[key])) {
-                            // Translate each error message
-                            formattedErrors[key] = errorData[key].map((err: string) => translateError(err));
-                        } else if (typeof errorData[key] === 'string') {
-                            formattedErrors[key] = [translateError(errorData[key])];
-                        }
-                    });
-                    
-                    if (Object.keys(formattedErrors).length > 0) {
-                        setErrors(formattedErrors);
-                    } else {
-                        const errorMsg = errorData.detail || errorData.message || errorData.error || 'Failed to change password';
-                        showToast(translateError(errorMsg), { variant: 'error' });
-                    }
-                } else {
-                    const errorMsg = typeof errorData === 'string' ? errorData : (error.message || 'Failed to change password');
-                    showToast(translateError(errorMsg), { variant: 'error' });
-                }
-            } catch {
-                showToast(translateError(error.message || 'Failed to change password'), { variant: 'error' });
-            }
+        } catch (error: unknown) {
+            const serverErrors = serverFieldErrors(error, 'auth.change_password', translate);
+            if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
+            else showToast(translateAdminApiError(error, t) || t('resetPassword.errors.incorrect'), { variant: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -151,6 +98,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                     </div>
 
                     <div className="p-8 space-y-6">
+                        {errors._general && <p className="text-sm text-red-500">{errors._general}</p>}
                         <div>
                             <label htmlFor="currentPassword" className={labelClasses}>{t('resetPassword.currentPassword')}</label>
                             <div className="relative">
@@ -160,15 +108,16 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                     value={currentPassword} 
                                     onChange={(e) => {
                                         setCurrentPassword(e.target.value);
-                                        if (errors.current_password) {
+                                        if (errors.currentPassword) {
                                             setErrors(prev => {
                                                 const newErrors = {...prev};
-                                                delete newErrors.current_password;
+                                                delete newErrors.currentPassword;
                                                 return newErrors;
                                             });
                                         }
-                                    }} 
-                                    className={`${inputClasses} ${language === 'ar' ? 'pe-10' : 'ps-10'} ${errors.current_password ? 'border-red-500 focus:ring-red-500' : ''}`} 
+                                    }}
+                                    onBlur={() => blurField('currentPassword')}
+                                    className={`${inputClasses} ${language === 'ar' ? 'pe-10' : 'ps-10'} ${errors.currentPassword ? 'border-red-500 focus:ring-red-500' : ''}`} 
                                     required 
                                 />
                                 <button
@@ -179,12 +128,8 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                     <Icon name={showCurrentPassword ? "eye-off" : "eye"} className="w-5 h-5" />
                                 </button>
                             </div>
-                            {errors.current_password && (
-                                <div className="mt-1 space-y-1">
-                                    {errors.current_password.map((err, idx) => (
-                                        <p key={idx} className="text-sm text-red-500">{err}</p>
-                                    ))}
-                                </div>
+                            {errors.currentPassword && (
+                                <p className="mt-1 text-sm text-red-500">{errors.currentPassword}</p>
                             )}
                         </div>
                         <div>
@@ -196,15 +141,16 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                     value={newPassword} 
                                     onChange={(e) => {
                                         setNewPassword(e.target.value);
-                                        if (errors.new_password) {
+                                        if (errors.newPassword) {
                                             setErrors(prev => {
                                                 const newErrors = {...prev};
-                                                delete newErrors.new_password;
+                                                delete newErrors.newPassword;
                                                 return newErrors;
                                             });
                                         }
-                                    }} 
-                                    className={`${inputClasses} ${language === 'ar' ? 'pe-10' : 'ps-10'} ${errors.new_password ? 'border-red-500 focus:ring-red-500' : ''}`} 
+                                    }}
+                                    onBlur={() => blurField('newPassword')}
+                                    className={`${inputClasses} ${language === 'ar' ? 'pe-10' : 'ps-10'} ${errors.newPassword ? 'border-red-500 focus:ring-red-500' : ''}`} 
                                     required 
                                 />
                                 <button
@@ -215,12 +161,8 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                     <Icon name={showNewPassword ? "eye-off" : "eye"} className="w-5 h-5" />
                                 </button>
                             </div>
-                            {errors.new_password && (
-                                <div className="mt-1 space-y-1">
-                                    {errors.new_password.map((err, idx) => (
-                                        <p key={idx} className="text-sm text-red-500">{err}</p>
-                                    ))}
-                                </div>
+                            {errors.newPassword && (
+                                <p className="mt-1 text-sm text-red-500">{errors.newPassword}</p>
                             )}
                         </div>
                          <div>
@@ -232,15 +174,16 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                     value={confirmPassword} 
                                     onChange={(e) => {
                                         setConfirmPassword(e.target.value);
-                                        if (errors.confirm_password) {
+                                        if (errors.confirmPassword) {
                                             setErrors(prev => {
                                                 const newErrors = {...prev};
-                                                delete newErrors.confirm_password;
+                                                delete newErrors.confirmPassword;
                                                 return newErrors;
                                             });
                                         }
-                                    }} 
-                                    className={`${inputClasses} ${language === 'ar' ? 'pe-10' : 'ps-10'} ${errors.confirm_password ? 'border-red-500 focus:ring-red-500' : ''}`} 
+                                    }}
+                                    onBlur={() => blurField('confirmPassword')}
+                                    className={`${inputClasses} ${language === 'ar' ? 'pe-10' : 'ps-10'} ${errors.confirmPassword ? 'border-red-500 focus:ring-red-500' : ''}`} 
                                     required 
                                 />
                                 <button
@@ -251,12 +194,8 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({ isOpen, onClose
                                     <Icon name={showConfirmPassword ? "eye-off" : "eye"} className="w-5 h-5" />
                                 </button>
                             </div>
-                            {errors.confirm_password && (
-                                <div className="mt-1 space-y-1">
-                                    {errors.confirm_password.map((err, idx) => (
-                                        <p key={idx} className="text-sm text-red-500">{err}</p>
-                                    ))}
-                                </div>
+                            {errors.confirmPassword && (
+                                <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>
                             )}
                         </div>
                     </div>

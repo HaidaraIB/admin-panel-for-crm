@@ -33,7 +33,7 @@ const SettingsNav: React.FC<SettingsNavProps> = ({ items, activeId, onSelect }) 
     <>
       {/* Mobile / tablet chip bar */}
       <nav
-        className="md:hidden -mx-1 px-1 overflow-x-auto pb-1"
+        className="md:hidden -mx-1 overflow-x-auto overflow-y-hidden px-1 pb-1"
         aria-label="Settings sections"
       >
         <div className="flex gap-2 min-w-min">

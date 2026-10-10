@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import Icon from '../components/Icon';
+import LoadingButton from '../components/LoadingButton';
 import FilterButton from '../components/FilterButton';
 import RefreshButton from '../components/RefreshButton';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -16,6 +17,7 @@ import TenantsFilterDrawer, { TenantFilters, tenantFilterDefaults } from '../com
 import PaginationControls from '../components/PaginationControls';
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
 import { impersonateAPI } from '../services/api';
+import IconButton from '../components/IconButton';
 
 const statusColors: { [key in TenantStatus]: string } = {
     [TenantStatus.Active]: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
@@ -332,28 +334,10 @@ const Tenants: React.FC<TenantsProps> = ({
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center gap-3">
                                             {isSuperAdmin() && (
-                                                <button
-                                                    onClick={() => handleImpersonateClick(tenant)}
-                                                    className="p-2 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 transition-colors rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                                                    title={t('tenants.actions.impersonate')}
-                                                >
-                                                    <Icon name="impersonate" className="w-5 h-5" />
-                                                </button>
+                                                <IconButton icon="impersonate" label={t('tenants.actions.impersonate')} tone="warning" onClick={() => handleImpersonateClick(tenant)} />
                                             )}
-                                            <button 
-                                                onClick={() => handleViewDetails(tenant)} 
-                                                className="p-2 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-colors rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20" 
-                                                title={t('tenants.actions.view')}
-                                            >
-                                                <Icon name="view" className="w-5 h-5"/>
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteClick(tenant)}
-                                                className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                title={t('tenants.actions.delete')}
-                                            >
-                                                <Icon name="trash" className="w-5 h-5" />
-                                            </button>
+                                            <IconButton icon="view" label={t('tenants.actions.view')} onClick={() => handleViewDetails(tenant)} />
+                                            <IconButton icon="trash" label={t('tenants.actions.delete')} tone="danger" onClick={() => handleDeleteClick(tenant)} />
                                             <label 
                                                 className="relative inline-flex items-center cursor-pointer" 
                                                 title={(tenant.status === TenantStatus.Active || tenant.status === TenantStatus.Trial) ? t('tenants.actions.deactivate') : t('tenants.actions.activate')}
@@ -433,13 +417,7 @@ const Tenants: React.FC<TenantsProps> = ({
                             {tenantToImpersonate.name} — {tenantToImpersonate.owner_username || tenantToImpersonate.owner_email || `#${tenantToImpersonate.owner}`}
                         </p>
                         <div className={`flex gap-3 ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
-                            <button
-                                onClick={() => { setIsImpersonateConfirmOpen(false); setTenantToImpersonate(null); }}
-                                disabled={isImpersonating}
-                                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
-                            >
-                                {t('common.cancel')}
-                            </button>
+                            <LoadingButton variant="secondary" className="flex-1" onClick={() => { setIsImpersonateConfirmOpen(false); setTenantToImpersonate(null); }} disabled={isImpersonating}>{t('common.cancel')}</LoadingButton>
                             <button
                                 onClick={handleImpersonateConfirm}
                                 disabled={isImpersonating}
@@ -473,20 +451,8 @@ const Tenants: React.FC<TenantsProps> = ({
                             autoComplete="off"
                         />
                         <div className={`flex gap-3 ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
-                            <button
-                                onClick={() => { setIsDeleteConfirmOpen(false); setTenantToDelete(null); setDeleteConfirmName(''); }}
-                                disabled={isDeleting}
-                                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
-                            >
-                                {t('common.cancel')}
-                            </button>
-                            <button
-                                onClick={handleDeleteConfirm}
-                                disabled={isDeleting || deleteConfirmName !== tenantToDelete.name}
-                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isDeleting ? '...' : t('tenants.actions.delete')}
-                            </button>
+                            <LoadingButton variant="secondary" className="flex-1" onClick={() => { setIsDeleteConfirmOpen(false); setTenantToDelete(null); setDeleteConfirmName(''); }} disabled={isDeleting}>{t('common.cancel')}</LoadingButton>
+                            <LoadingButton variant="danger" className="flex-1" onClick={handleDeleteConfirm} disabled={isDeleting || deleteConfirmName !== tenantToDelete.name} isLoading={isDeleting}>{t('tenants.actions.delete')}</LoadingButton>
                         </div>
                     </div>
                 </div>

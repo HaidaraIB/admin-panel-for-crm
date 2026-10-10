@@ -4,6 +4,7 @@ import { GuideCategory } from '../types';
 import { useI18n } from '../context/i18n';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import {
   createGuideCategoryAPI,
   deleteGuideCategoryAPI,
@@ -34,7 +35,12 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
   onCategoriesChange,
 }) => {
   const { t, language } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const { showToast } = useToast();
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<GuideCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,6 +78,7 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
       ...emptyForm(),
       sort_order: categories.length > 0 ? Math.max(...categories.map((c) => c.sort_order)) + 1 : 0,
     });
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -82,6 +89,7 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
       name_ar: item.name_ar || '',
       sort_order: item.sort_order ?? 0,
     });
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -93,12 +101,26 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
 
   const categoryHasArticles = (item: GuideCategory) => (item.article_count ?? 0) > 0;
 
+  const catalogValues = () => ({
+    name_en: form.name_en,
+    name_ar: form.name_ar,
+  });
+
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('guide_category.upsert', catalogValues(), translate);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name_en.trim() || !form.name_ar.trim()) {
-      showToast(t('content.categories.namesRequired'), { variant: 'warning' });
-      return;
-    }
+    const next = catalogFieldErrors('guide_category.upsert', catalogValues(), translate);
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
     setSaving(true);
     try {
       const payload = {
@@ -117,7 +139,9 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
       await load();
       showToast(t('content.alerts.saved'), { variant: 'success' });
     } catch (error) {
-      showToast(translateAdminApiError(error, t) || t('content.errors.save'), {
+      const serverErrors = serverFieldErrors(error, 'guide_category.upsert', translate);
+      if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
+      else showToast(translateAdminApiError(error, t) || t('content.errors.save'), {
         variant: 'error',
       });
     } finally {
@@ -225,24 +249,29 @@ const GuideCategoriesPanel: React.FC<GuideCategoriesPanelProps> = ({
               </button>
             </div>
             <form onSubmit={(e) => void handleSave(e)} className="space-y-4 p-5">
+              {errors._general && <p className="text-sm text-red-600 dark:text-red-400">{errors._general}</p>}
               <div>
                 <label className={labelClasses}>{t('content.fields.nameEn')}</label>
                 <input
                   value={form.name_en}
                   onChange={(e) => setForm((prev) => ({ ...prev, name_en: e.target.value }))}
-                  className={inputClasses}
+                  onBlur={() => blurField('name')}
+                  className={`${inputClasses} ${errors.name ? 'border-red-500' : ''}`}
                   dir="ltr"
                   autoFocus
                 />
+                {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
               </div>
               <div>
                 <label className={labelClasses}>{t('content.fields.nameAr')}</label>
                 <input
                   value={form.name_ar}
                   onChange={(e) => setForm((prev) => ({ ...prev, name_ar: e.target.value }))}
-                  className={inputClasses}
+                  onBlur={() => blurField('nameAr')}
+                  className={`${inputClasses} ${errors.nameAr ? 'border-red-500' : ''}`}
                   dir="rtl"
                 />
+                {errors.nameAr && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.nameAr}</p>}
               </div>
               <div>
                 <label className={labelClasses}>{t('content.fields.sortOrder')}</label>

@@ -45,6 +45,7 @@ import SubscriptionsFilterDrawer, {
   subscriptionsFilterDefaults,
 } from '../components/SubscriptionsFilterDrawer';
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
+import IconButton from '../components/IconButton';
 
 function planIsDeletable(plan: Plan): boolean {
   const total =
@@ -241,7 +242,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
             showToast(t('subscriptions.plans.saveSuccess'), { variant: 'success' });
         } catch (error: any) {
             console.error('Error saving plan:', error);
-            showToast(translateAdminApiError(error, t) || t('errors.savePlan'), { variant: 'error' });
+            throw error;
         } finally {
             setIsSavingPlan(false);
         }
@@ -391,16 +392,9 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                                     )}
                                 </div>
                                 <div className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse justify-end' : 'justify-start'}`}>
-                                    <button type="button" onClick={() => handleOpenViewPlan(plan)} className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t('common.view')}><Icon name="view" className="w-5 h-5"/></button>
-                                    <button onClick={() => handleOpenModal(plan)} className="p-2 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t('subscriptions.plans.editPlan')}><Icon name="edit" className="w-5 h-5"/></button>
-                                    <button 
-                                        onClick={() => openDeleteDialog(plan)} 
-                                        disabled={!isDeletable}
-                                        className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-500"
-                                        title={isDeletable ? t('subscriptions.plans.deletePlan') : t('subscriptions.plans.deleteDisabledTooltip')}
-                                    >
-                                        <Icon name="trash" className="w-5 h-5"/>
-                                    </button>
+                                    <IconButton icon="view" label={t('common.view')} onClick={() => handleOpenViewPlan(plan)} />
+                                    <IconButton icon="edit" label={t('subscriptions.plans.editPlan')} onClick={() => handleOpenModal(plan)} />
+                                    <IconButton icon="trash" label={isDeletable ? t('subscriptions.plans.deletePlan') : t('subscriptions.plans.deleteDisabledTooltip')} tone="danger" onClick={() => openDeleteDialog(plan)} disabled={!isDeletable} />
                                 </div>
                             </div>
                         </div>
@@ -701,29 +695,13 @@ const PaymentsTab: React.FC = () => {
                                     <td className="px-6 py-4 text-center">{p.date}</td>
                                     <td className="px-6 py-4 text-center">
                                         <div className={`inline-flex items-center justify-center gap-1 ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
-                                            <button
-                                                type="button"
-                                                onClick={() => setDetailsPaymentId(Number(p.id))}
-                                                className="inline-flex items-center justify-center p-1.5 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                                                title={t('subscriptions.payments.viewDetails')}
-                                                aria-label={t('subscriptions.payments.viewDetails')}
-                                            >
-                                                <Icon name="eye" className="w-5 h-5" />
-                                            </button>
+                                            <IconButton icon="eye" label={t('subscriptions.payments.viewDetails')} onClick={() => setDetailsPaymentId(Number(p.id))} />
                                         {isQicardGatewayName(p.paymentMethodName) &&
                                         (p.status === PaymentStatus.Successful ||
                                             (p.status === PaymentStatus.Pending && p.gatewayTranRef)) ? (
                                             <>
                                                 {p.status === PaymentStatus.Successful ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => openRefundConfirm(p)}
-                                                        className="inline-flex items-center justify-center p-1.5 rounded text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
-                                                        title={t('subscriptions.payments.refund')}
-                                                        aria-label={t('subscriptions.payments.refund')}
-                                                    >
-                                                        <Icon name="restore" className="w-5 h-5" />
-                                                    </button>
+                                                    <IconButton icon="restore" label={t('subscriptions.payments.refund')} onClick={() => openRefundConfirm(p)} />
                                                 ) : null}
                                                 {p.status === PaymentStatus.Pending && p.gatewayTranRef ? (
                                                     <button
@@ -1039,7 +1017,7 @@ const InvoicesTab: React.FC = () => {
                                         <td className="px-6 py-4 text-center">{i.dueDate || '—'}</td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button type="button" onClick={() => handleViewInvoice(i)} className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title={t('subscriptions.invoices.viewInvoice')}><Icon name="view" className="w-5 h-5"/></button>
+                                                <IconButton icon="view" label={t('subscriptions.invoices.viewInvoice')} onClick={() => handleViewInvoice(i)} />
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDownloadPdf(i)}
@@ -1353,14 +1331,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void openSubscriptionView(sub.id)}
-                          className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                          title={t('common.view')}
-                        >
-                          <Icon name="view" className="w-5 h-5" />
-                        </button>
+                        <IconButton icon="view" label={t('common.view')} onClick={() => void openSubscriptionView(sub.id)} />
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input 
                             type="checkbox" 
@@ -1464,7 +1435,7 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
     { id: 'subscriptions', label: t('subscriptions.tabs.subscriptions') || 'Subscriptions' },
     { id: 'payments', label: t('subscriptions.tabs.payments') },
     { id: 'invoices', label: t('subscriptions.tabs.invoices') },
-  ];
+  ] as const;
 
   return (
     <div>

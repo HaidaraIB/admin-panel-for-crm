@@ -1,0 +1,24 @@
+---
+description: Shared catalog form validation
+globs: "**/*Modal*.tsx,**/pages/**/*.tsx,**/forms/**"
+alwaysApply: false
+---
+
+# Form validation
+
+The Django catalog is the source of truth. This app does not share code with CRM-project.
+
+## Required pattern
+
+- All forms — new and existing — use a catalog `formId` and call `catalogFieldErrors(formId, values, translate)` from `forms/` on submit and on blur, with `useI18n().t`, plus `serverFieldErrors` for `error.fields` in the `catch` block. This is the pattern every real form in this app uses; there is no separate react-hook-form-based API.
+- Add `validation.*` strings in both languages in `context/i18n.tsx`.
+- Inline errors under the field. Toasts are for success and network failures. Do not `JSON.parse` an error message to find field errors.
+
+## Anti-patterns
+
+- Do not hand-roll required, email, or password checks.
+- Do not reject a value the API already accepts. Put UI-only rules on the catalog as `client_only`.
+
+## After a schema change
+
+Re-export the catalog from `CRM-api-1` (`export_validation_catalog`) and run `npm test`.

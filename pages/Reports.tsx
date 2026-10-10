@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Icon from '../components/Icon';
+import LoadingButton from '../components/LoadingButton';
 import FilterButton from '../components/FilterButton';
 import RefreshButton from '../components/RefreshButton';
 import { useI18n } from '../context/i18n';
@@ -424,13 +425,15 @@ const SubscriberReports: React.FC<{
                 </p>
             </div>
              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                <button 
-                    onClick={handleExport} 
-                    className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center w-full sm:w-auto text-gray-900 dark:text-white"
+                <LoadingButton
+                    variant="secondary"
+                    onClick={handleExport}
                     disabled={isLoading || subscriberData.length === 0}
+                    icon="pdf"
+                    className="w-full sm:w-auto"
                 >
-                    <Icon name="pdf" className="w-5 h-5 mx-2"/> {t('reports.revenue.export')}
-                </button>
+                    {t('reports.revenue.export')}
+                </LoadingButton>
             </div>
         </div>
 

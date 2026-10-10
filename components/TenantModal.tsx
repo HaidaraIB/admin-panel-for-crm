@@ -4,6 +4,7 @@ import { Tenant, TenantStatus } from '../types';
 import { useI18n } from '../context/i18n';
 import Icon from './Icon';
 import { withLatinDigits } from '../utils/latinNumerals';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 
 interface TenantModalProps {
   tenant: Tenant | null;
@@ -15,13 +16,35 @@ interface TenantModalProps {
 
 const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose, onSave }) => {
   const { t, language } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const [formData, setFormData] = useState<Tenant | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (tenant) {
       setFormData({ ...tenant });
+      setErrors({});
     }
   }, [tenant]);
+
+  const catalogValues = () => ({
+    name: formData?.name ?? '',
+    domain: formData?.domain ?? '',
+    specialization: formData?.specialization ?? '',
+  });
+
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('tenant.upsert', catalogValues(), translate);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
 
   if (!isOpen || !tenant || !formData) return null;
 
@@ -37,9 +60,16 @@ const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose
     setFormData(prev => (prev ? { ...prev, freeTrialConsumed: checked } : null));
   };
 
-  const handleSave = () => {
-    if (formData) {
-      onSave(formData);
+  const handleSave = async () => {
+    if (!formData) return;
+    const next = catalogFieldErrors('tenant.upsert', catalogValues(), translate);
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    try {
+      await onSave(formData);
+    } catch (error) {
+      const serverErrors = serverFieldErrors(error, 'tenant.upsert', translate);
+      if (Object.keys(serverErrors).length > 0) setErrors((prev) => ({ ...prev, ...serverErrors }));
     }
   };
 
@@ -112,27 +142,32 @@ const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose
             <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 pb-2 mb-4 border-b-2 border-gray-200 dark:border-gray-600">
               {t('tenants.filters.general')}
             </h3>
+            {errors._general && (
+              <p className="text-sm text-red-600 dark:text-red-400">{errors._general}</p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className={labelClasses}>{t('tenants.table.companyName')}</label>
                 {isEditMode ? (
-                  <input name="name" value={formData.name} onChange={handleChange} className={inputClasses} />
+                  <input name="name" value={formData.name} onChange={handleChange} onBlur={() => blurField('name')} className={`${inputClasses} ${errors.name ? 'border-red-500' : ''}`} />
                 ) : (
                   <p className={valueClasses}>{tenant.name}</p>
                 )}
+                {isEditMode && errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
               </div>
               <div>
                 <label className={labelClasses}>{t('tenants.table.subdomain')}</label>
                 {isEditMode ? (
-                  <input name="domain" value={formData.domain} onChange={handleChange} className={inputClasses} />
+                  <input name="domain" value={formData.domain} onChange={handleChange} onBlur={() => blurField('domain')} className={`${inputClasses} ${errors.domain ? 'border-red-500' : ''}`} />
                 ) : (
                   <p className={valueClasses}>{tenant.domain}</p>
                 )}
+                {isEditMode && errors.domain && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.domain}</p>}
               </div>
               <div>
                 <label className={labelClasses}>{t('tenants.modal.specialization')}</label>
                 {isEditMode ? (
-                  <select name="specialization" value={formData.specialization} onChange={handleChange} className={inputClasses}>
+                  <select name="specialization" value={formData.specialization} onChange={handleChange} onBlur={() => blurField('specialization')} className={`${inputClasses} ${errors.specialization ? 'border-red-500' : ''}`}>
                     <option value="real_estate">{t('specialization.real_estate')}</option>
                     <option value="services">{t('specialization.services')}</option>
                     <option value="products">{t('specialization.products')}</option>
@@ -141,6 +176,7 @@ const TenantModal: React.FC<TenantModalProps> = ({ tenant, mode, isOpen, onClose
                 ) : (
                   <p className={valueClasses}>{t(`specialization.${formData.specialization}`) || formData.specialization}</p>
                 )}
+                {isEditMode && errors.specialization && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.specialization}</p>}
               </div>
               <div>
                 <label className={labelClasses}>{t('tenants.modal.createdAt')}</label>

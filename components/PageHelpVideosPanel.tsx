@@ -3,6 +3,7 @@ import LoadingButton from './LoadingButton';
 import { useI18n } from '../context/i18n';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import {
   getPageHelpVideoKeysAPI,
   getPageHelpVideosAPI,
@@ -13,6 +14,7 @@ import {
 import LoadingSpinner from './LoadingSpinner';
 import Icon from './Icon';
 import AlertDialog from './AlertDialog';
+import IconButton from './IconButton';
 
 type RowState = {
   page_key: string;
@@ -28,8 +30,13 @@ type RowState = {
 
 const PageHelpVideosPanel: React.FC = () => {
   const { t } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const { showToast } = useToast();
   const [rows, setRows] = useState<RowState[]>([]);
+  const [rowErrors, setRowErrors] = useState<Record<string, Record<string, string>>>({});
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<RowState | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -79,9 +86,28 @@ const PageHelpVideosPanel: React.FC = () => {
     );
   };
 
+  const valuesFor = (row: RowState) => ({
+    page_key: row.page_key,
+    youtube_url: row.youtube_url,
+    title_en: row.title_en,
+  });
+
+  const blurRowField = (row: RowState, field: string) => {
+    const next = catalogFieldErrors('page_help_video.upsert', valuesFor(row), translate);
+    setRowErrors((prev) => {
+      const current = { ...(prev[row.page_key] || {}) };
+      if (next[field]) current[field] = next[field];
+      else delete current[field];
+      return { ...prev, [row.page_key]: current };
+    });
+  };
+
   const saveRow = async (pageKey: string) => {
     const row = rows.find((r) => r.page_key === pageKey);
     if (!row) return;
+    const next = catalogFieldErrors('page_help_video.upsert', valuesFor(row), translate);
+    setRowErrors((prev) => ({ ...prev, [pageKey]: next }));
+    if (Object.keys(next).length > 0) return;
     setRows((prev) =>
       prev.map((r) => (r.page_key === pageKey ? { ...r, saving: true } : r)),
     );
@@ -108,7 +134,12 @@ const PageHelpVideosPanel: React.FC = () => {
       setRows((prev) =>
         prev.map((r) => (r.page_key === pageKey ? { ...r, saving: false } : r)),
       );
-      showToast(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
+      const serverErrors = serverFieldErrors(error, 'page_help_video.upsert', translate);
+      if (Object.keys(serverErrors).length > 0) {
+        setRowErrors((prev) => ({ ...prev, [pageKey]: { ...(prev[pageKey] || {}), ...serverErrors } }));
+      } else {
+        showToast(translateAdminApiError(error, t) || t('content.errors.save'), { variant: 'error' });
+      }
     }
   };
 
@@ -186,7 +217,14 @@ const PageHelpVideosPanel: React.FC = () => {
                       value={row.youtube_url}
                       placeholder="https://www.youtube.com/watch?v=..."
                       onChange={(e) => updateRow(row.page_key, { youtube_url: e.target.value })}
+                      onBlur={(e) => blurRowField({ ...row, youtube_url: e.target.value }, 'youtubeUrl')}
                     />
+                    {rowErrors[row.page_key]?.youtubeUrl && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">{rowErrors[row.page_key].youtubeUrl}</p>
+                    )}
+                    {rowErrors[row.page_key]?._general && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">{rowErrors[row.page_key]._general}</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 min-w-[140px]">
                     <input
@@ -194,7 +232,11 @@ const PageHelpVideosPanel: React.FC = () => {
                       dir="ltr"
                       value={row.title_en}
                       onChange={(e) => updateRow(row.page_key, { title_en: e.target.value })}
+                      onBlur={(e) => blurRowField({ ...row, title_en: e.target.value }, 'title')}
                     />
+                    {rowErrors[row.page_key]?.title && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">{rowErrors[row.page_key].title}</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 min-w-[140px]">
                     <input
@@ -218,14 +260,7 @@ const PageHelpVideosPanel: React.FC = () => {
                         {t('common.save')}
                       </LoadingButton>
                       {row.persisted ? (
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(row)}
-                          className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400"
-                          title={t('common.delete')}
-                        >
-                          <Icon name="trash" className="w-4 h-4" />
-                        </button>
+                        <IconButton icon="trash" label={t('common.delete')} tone="danger" onClick={() => setDeleteTarget(row)} />
                       ) : null}
                     </div>
                   </td>

@@ -14,6 +14,9 @@ interface NumberInputProps {
     className?: string;
     required?: boolean;
     disabled?: boolean;
+    onBlur?: React.FocusEventHandler<HTMLInputElement>;
+    'aria-invalid'?: boolean;
+    'aria-describedby'?: string;
 }
 
 export const NumberInput: React.FC<NumberInputProps> = ({
@@ -28,6 +31,9 @@ export const NumberInput: React.FC<NumberInputProps> = ({
     className = '',
     required,
     disabled,
+    onBlur,
+    'aria-invalid': ariaInvalid,
+    'aria-describedby': ariaDescribedBy,
 }) => {
     const { language, t } = useI18n();
     const uiIsRtl = language === 'ar';
@@ -102,7 +108,9 @@ export const NumberInput: React.FC<NumberInputProps> = ({
     // Extract border classes from className if provided (parity with CRM-project)
     const borderClass = className.includes('border-red')
         ? 'border border-red-500 dark:border-red-500'
-        : 'border border-gray-300 dark:border-gray-700';
+        : ariaInvalid
+          ? 'border border-red-500 dark:border-red-500'
+          : 'border border-gray-300 dark:border-gray-700';
     const baseClassName = className.replace(/border-\S+/g, '').trim();
 
     return (
@@ -114,12 +122,15 @@ export const NumberInput: React.FC<NumberInputProps> = ({
                 inputMode="numeric"
                 value={value}
                 onChange={handleInputChange}
+                onBlur={onBlur}
                 placeholder={placeholder}
                 required={required}
                 disabled={disabled}
+                aria-invalid={ariaInvalid || undefined}
+                aria-describedby={ariaDescribedBy}
                 dir={fieldDir}
                 className={`
-                    w-full px-3 py-2 pe-14
+                    h-10 w-full px-3 py-2 pe-14
                     bg-gray-50 dark:bg-gray-800
                     ${borderClass}
                     rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500
@@ -147,7 +158,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
                         flex-1 w-10 bg-primary-600 hover:bg-primary-700 active:bg-primary-800
                         disabled:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed
                         transition-colors flex items-center justify-center
-                        rounded-tr-md
+                        rounded-se-md
                     "
                     aria-label={t('numberInputIncrease')}
                 >
@@ -166,7 +177,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
                         flex-1 w-10 bg-primary-600 hover:bg-primary-700 active:bg-primary-800
                         disabled:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed
                         transition-colors flex items-center justify-center
-                        rounded-br-md
+                        rounded-ee-md
                     "
                     aria-label={t('numberInputDecrease')}
                 >

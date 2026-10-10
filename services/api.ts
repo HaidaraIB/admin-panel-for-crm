@@ -130,7 +130,7 @@ function getCached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 }
 
 /** Call after create/update/delete on companies, plans, or subscriptions so list views stay fresh. */
-export function invalidateListCache(resource?: 'companies' | 'plans' | 'subscriptions'): void {
+export function invalidateListCache(resource?: 'companies' | 'plans' | 'subscriptions' | 'trial-codes'): void {
   if (resource) {
     for (const key of listCache.keys()) {
       if (key.startsWith(resource)) listCache.delete(key);

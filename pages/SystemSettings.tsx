@@ -26,7 +26,9 @@ import AlertDialog from '../components/AlertDialog';
 import PhoneInput from '../components/PhoneInput';
 import { getSystemBackupsAPI, createSystemBackupAPI, deleteSystemBackupAPI, restoreSystemBackupAPI, getSystemBackupDownloadResponse, getSystemSettingsAPI, updateSystemSettingsAPI, getPlatformTwilioSettingsAPI, updatePlatformTwilioSettingsAPI, getPlatformOtpiqSettingsAPI, updatePlatformOtpiqSettingsAPI, getPlatformWhatsAppSettingsAPI, updatePlatformWhatsAppSettingsAPI, sendPlatformWhatsAppTestOtpAPI, getLimitedAdminsAPI, createLimitedAdminAPI, updateLimitedAdminAPI, deleteLimitedAdminAPI, toggleLimitedAdminActiveAPI, getCompaniesAPI, getPhoneOtpRequirementAPI, updatePhoneOtpRequirementAPI, getRegistrationEmailRequirementAPI, updateRegistrationEmailRequirementAPI, type PhoneOtpChannel, getBillingSettingsAPI, updateBillingSettingsAPI } from '../services/api';
 import { withLatinDigits } from '../utils/latinNumerals';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import { usePersistedTab } from '../hooks/usePersistedTab';
+import IconButton from '../components/IconButton';
 
 type BackupSchedule = 'daily' | 'weekly' | 'monthly';
 
@@ -167,7 +169,7 @@ const CompanyOverrideEditor: React.FC<{
                 </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <FormSelect
                     value={pendingCompanyId}
                     onChange={(e) => setPendingCompanyId(e.target.value)}
@@ -187,15 +189,9 @@ const CompanyOverrideEditor: React.FC<{
                         </option>
                     ))}
                 </FormSelect>
-                <button
-                    type="button"
-                    onClick={addCompany}
-                    disabled={!pendingCompanyId}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                >
-                    <Icon name="plus" className="w-4 h-4" />
+                <LoadingButton onClick={addCompany} disabled={!pendingCompanyId} icon="plus" size="toolbar">
                     {globalEnabled ? labels.addDeny : labels.addAllow}
-                </button>
+                </LoadingButton>
             </div>
 
             {listedIds.length === 0 ? (
@@ -213,16 +209,7 @@ const CompanyOverrideEditor: React.FC<{
                                 <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                     {companyName(id)}
                                 </span>
-                                <button
-                                    type="button"
-                                    onClick={() => removeCompany(id)}
-                                    title={labels.remove}
-                                    aria-label={labels.remove}
-                                    className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 shrink-0"
-                                >
-                                    <Icon name="x" className="w-4 h-4" />
-                                    {labels.remove}
-                                </button>
+                                <IconButton icon="trash" label={labels.remove} tone="danger" onClick={() => removeCompany(id)} />
                             </div>
                             {globalEnabled && (
                                 <FormInput
@@ -991,23 +978,8 @@ const SecurityBackups: React.FC = () => {
                                             <td className="px-6 py-4 text-center whitespace-nowrap">{t(`settings.security.initiator.${backup.initiator.toLowerCase()}`)}</td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center space-x-2 rtl:space-x-reverse">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setBackupToView(backup)}
-                                                        disabled={restoringId === backup.id}
-                                                        className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-40"
-                                                        title={t('common.view')}
-                                                    >
-                                                        <Icon name="view" className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDownloadBackup(backup)}
-                                                        disabled={restoringId === backup.id}
-                                                        className="p-1 text-primary-600 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        title={t('settings.security.actions.download')}
-                                                    >
-                                                        <Icon name="download" className="w-5 h-5" />
-                                                    </button>
+                                                    <IconButton icon="view" label={t('common.view')} onClick={() => setBackupToView(backup)} disabled={restoringId === backup.id} />
+                                                    <IconButton icon="download" label={t('settings.security.actions.download')} onClick={() => handleDownloadBackup(backup)} disabled={restoringId === backup.id} />
                                                     <button
                                                         onClick={() => handleRestoreBackup(backup)}
                                                         disabled={restoringId === backup.id}
@@ -1022,14 +994,7 @@ const SecurityBackups: React.FC = () => {
                                                             <Icon name="restore" className="w-5 h-5" />
                                                         )}
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleDeleteBackup(backup)}
-                                                        disabled={restoringId === backup.id}
-                                                        className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        title={t('settings.security.actions.delete')}
-                                                    >
-                                                        <Icon name="trash" className="w-5 h-5" />
-                                                    </button>
+                                                    <IconButton icon="trash" label={t('settings.security.actions.delete')} tone="danger" onClick={() => handleDeleteBackup(backup)} disabled={restoringId === backup.id} />
                                                 </div>
                                             </td>
                                         </tr>
@@ -2079,14 +2044,7 @@ const AuditLog: React.FC = () => {
                             <td className="px-6 py-4 text-center">{formatAction(log.action)}</td>
                             <td className="px-6 py-4 text-center">{new Date(log.timestamp).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US', withLatinDigits({ dateStyle: 'medium', timeStyle: 'short' }))}</td>
                             <td className="px-6 py-4 text-center">
-                                <button
-                                    type="button"
-                                    onClick={() => setViewingLog(log)}
-                                    className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                                    title={t('common.view')}
-                                >
-                                    <Icon name="view" className="w-5 h-5" />
-                                </button>
+                                <IconButton icon="view" label={t('common.view')} onClick={() => setViewingLog(log)} />
                             </td>
                         </tr>
                     ))}
@@ -2229,7 +2187,7 @@ const LimitedAdmins: React.FC = () => {
             showToast(t('limitedAdmins.saveSuccess'), { variant: 'success' });
         } catch (error: any) {
             console.error('Error saving limited admin:', error);
-            showToast(translateAdminApiError(error, t) || t('errors.saveLimitedAdmin'), { variant: 'error' });
+            throw error;
         } finally {
             setIsSaving(false);
         }
@@ -2363,13 +2321,7 @@ const LimitedAdmins: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button
-                                                    onClick={() => handleOpenModal(admin)}
-                                                    className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                                                    title={t('limitedAdmins.actions.edit') || 'Edit'}
-                                                >
-                                                    <Icon name="edit" className="w-5 h-5" />
-                                                </button>
+                                                <IconButton icon="edit" label={t('limitedAdmins.actions.edit') || 'Edit'} onClick={() => handleOpenModal(admin)} />
                                                 <label className="relative inline-flex items-center cursor-pointer">
                                                     <input
                                                         type="checkbox"
@@ -2379,16 +2331,10 @@ const LimitedAdmins: React.FC = () => {
                                                     />
                                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
                                                 </label>
-                                                <button
-                                                    onClick={() => {
+                                                <IconButton icon="trash" label={t('limitedAdmins.actions.delete') || 'Delete'} tone="danger" onClick={() => {
                                                         setAdminToDelete(admin);
                                                         setIsDeleteDialogOpen(true);
-                                                    }}
-                                                    className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                                                    title={t('limitedAdmins.actions.delete') || 'Delete'}
-                                                >
-                                                    <Icon name="trash" className="w-5 h-5" />
-                                                </button>
+                                                    }} />
                                             </div>
                                         </td>
                                     </tr>
@@ -2434,9 +2380,11 @@ const LimitedAdmins: React.FC = () => {
 
 const BillingInvoiceSettings: React.FC = () => {
     const { t } = useI18n();
+    const translate = (key: string) => {
+        const value = t(key);
+        return value && value !== key ? value : undefined;
+    };
     const { showToast } = useToast();
-    const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
-    const ALLOWED_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [issuerName, setIssuerName] = useState('');
@@ -2448,28 +2396,23 @@ const BillingInvoiceSettings: React.FC = () => {
     const [paymentInstructions, setPaymentInstructions] = useState('');
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [logoFile, setLogoFile] = useState<File | null>(null);
-    const [fieldErrors, setFieldErrors] = useState<{ issuerEmail?: string; logo?: string }>({});
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-    const validateIssuerEmail = useCallback((value: string): string | undefined => {
-        const v = value.trim();
-        if (!v) return undefined;
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(v)) {
-            return t('settings.billing.validation.emailInvalid') || 'Please enter a valid email address.';
-        }
-        return undefined;
-    }, [t]);
+    const billingValues = (name = issuerName, email = issuerEmail, file: File | null = logoFile) => ({
+        issuer_name: name,
+        issuer_email: email,
+        logo: file,
+    });
 
-    const validateLogoFile = useCallback((file: File | null): string | undefined => {
-        if (!file) return undefined;
-        if (!ALLOWED_LOGO_MIME_TYPES.has(file.type.toLowerCase())) {
-            return t('settings.billing.validation.logoType') || 'Logo must be PNG, JPG, GIF, or WEBP.';
-        }
-        if (file.size > MAX_LOGO_SIZE_BYTES) {
-            return t('settings.billing.validation.logoSize') || 'Logo must be 2MB or smaller.';
-        }
-        return undefined;
-    }, [t]);
+    const blurBillingField = (field: string, name = issuerName, email = issuerEmail, file: File | null = logoFile) => {
+        const next = catalogFieldErrors('billing_settings.update', billingValues(name, email, file), translate);
+        setFieldErrors((prev) => {
+            const copy = { ...prev };
+            if (next[field]) copy[field] = next[field];
+            else delete copy[field];
+            return copy;
+        });
+    };
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -2497,26 +2440,28 @@ const BillingInvoiceSettings: React.FC = () => {
     }, [load]);
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const f = e.target.files?.[0];
-        const logoError = validateLogoFile(f || null);
-        if (logoError) {
+        const f = e.target.files?.[0] || null;
+        const next = catalogFieldErrors('billing_settings.update', billingValues(issuerName, issuerEmail, f), translate);
+        if (next.logo) {
             setLogoFile(null);
-            setFieldErrors((prev) => ({ ...prev, logo: logoError }));
+            setFieldErrors((prev) => ({ ...prev, logo: next.logo }));
             e.target.value = '';
             return;
         }
-        setFieldErrors((prev) => ({ ...prev, logo: undefined }));
-        setLogoFile(f || null);
+        setFieldErrors((prev) => {
+            const copy = { ...prev };
+            delete copy.logo;
+            return copy;
+        });
+        setLogoFile(f);
         if (f) setLogoPreview(URL.createObjectURL(f));
     };
 
     const handleSave = async () => {
-        const emailError = validateIssuerEmail(issuerEmail);
-        const logoError = validateLogoFile(logoFile);
-        const errors = { issuerEmail: emailError, logo: logoError };
+        const errors = catalogFieldErrors('billing_settings.update', billingValues(), translate);
         setFieldErrors(errors);
-        if (errors.issuerEmail || errors.logo) {
-            showToast(t('settings.billing.validation.fixErrors') || 'Please fix validation errors before saving.', { variant: 'error' });
+        if (Object.keys(errors).length > 0) {
+            showToast(t('settings.billing.validation.fixErrors'), { variant: 'error' });
             return;
         }
 
@@ -2535,7 +2480,9 @@ const BillingInvoiceSettings: React.FC = () => {
             showToast(t('settings.billing.saveSuccess'), { variant: 'success' });
             await load();
         } catch (error: any) {
-            showToast(translateAdminApiError(error, t) || t('settings.billing.saveError'), { variant: 'error' });
+            const serverErrors = serverFieldErrors(error, 'billing_settings.update', translate);
+            if (Object.keys(serverErrors).length > 0) setFieldErrors((prev) => ({ ...prev, ...serverErrors }));
+            else showToast(translateAdminApiError(error, t) || t('settings.billing.saveError'), { variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -2557,7 +2504,7 @@ const BillingInvoiceSettings: React.FC = () => {
                     description={t('settings.billing.description')}
                     onSave={handleSave}
                     isSaving={saving}
-                    saveDisabled={Boolean(fieldErrors.issuerEmail || fieldErrors.logo)}
+                    saveDisabled={Boolean(fieldErrors.issuerName || fieldErrors.issuerEmail || fieldErrors.logo)}
                     saveLabel={t('settings.billing.save')}
                     savingLabel={t('settings.billing.saving')}
                 />
@@ -2566,7 +2513,14 @@ const BillingInvoiceSettings: React.FC = () => {
             <div className="space-y-4 max-w-2xl">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerName')}</label>
-                    <FormInput value={issuerName} onChange={(e) => setIssuerName(e.target.value)} />
+                    <FormInput
+                        value={issuerName}
+                        onChange={(e) => setIssuerName(e.target.value)}
+                        onBlur={() => blurBillingField('issuerName')}
+                    />
+                    {fieldErrors.issuerName ? (
+                        <p className="mt-1 text-xs text-red-500">{fieldErrors.issuerName}</p>
+                    ) : null}
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.issuerAddress')}</label>
@@ -2578,11 +2532,8 @@ const BillingInvoiceSettings: React.FC = () => {
                         <FormInput
                             type="email"
                             value={issuerEmail}
-                            onChange={(e) => {
-                                const next = e.target.value;
-                                setIssuerEmail(next);
-                                setFieldErrors((prev) => ({ ...prev, issuerEmail: validateIssuerEmail(next) }));
-                            }}
+                            onChange={(e) => setIssuerEmail(e.target.value)}
+                            onBlur={(e) => blurBillingField('issuerEmail', issuerName, e.target.value, logoFile)}
                         />
                         {fieldErrors.issuerEmail ? (
                             <p className="mt-1 text-xs text-red-500">{fieldErrors.issuerEmail}</p>
@@ -2608,7 +2559,7 @@ const BillingInvoiceSettings: React.FC = () => {
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.billing.logo')}</label>
                     {logoPreview ? <img src={logoPreview} alt="" className="h-16 object-contain mb-2 rounded border border-gray-200 dark:border-gray-600" /> : null}
-                    <input type="file" accept="image/*" onChange={handleLogoChange} className="text-sm" />
+                    <input type="file" accept="image/*" onChange={handleLogoChange} onBlur={() => blurBillingField('logo')} className="text-sm" />
                     {fieldErrors.logo ? (
                         <p className="mt-1 text-xs text-red-500">{fieldErrors.logo}</p>
                     ) : null}

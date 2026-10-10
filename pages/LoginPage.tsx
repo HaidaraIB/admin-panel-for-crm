@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Icon from '../components/Icon';
 import { loginAPI } from '../services/api';
 import { useUser } from '../context/UserContext';
+import { catalogFieldErrors, serverFieldErrors } from '../forms';
 
 interface LoginPageProps {
   onLoginSuccess?: () => void;
@@ -19,8 +20,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const { t, language, setLanguage } = useI18n();
+  const translate = (key: string) => {
+    const value = t(key);
+    return value && value !== key ? value : undefined;
+  };
   const [colorTheme, toggleTheme] = useDarkMode();
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark');
@@ -95,9 +101,28 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     return t('login.invalidCredentials') || 'Invalid username or password';
   };
 
+  const catalogValues = () => ({ username, password });
+
+  const blurField = (field: string) => {
+    const next = catalogFieldErrors('auth.login', catalogValues(), translate);
+    setFieldErrors((prev) => {
+      const copy = { ...prev };
+      if (next[field]) copy[field] = next[field];
+      else delete copy[field];
+      return copy;
+    });
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
+
+    const next = catalogFieldErrors('auth.login', catalogValues(), translate);
+    setFieldErrors(next);
+    if (Object.keys(next).length > 0) {
+      setError(next._general || '');
+      return;
+    }
 
     setIsLoading(true);
     setError('');
@@ -121,8 +146,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       // Navigate to dashboard
       navigate('/dashboard');
     } catch (error: any) {
-      const errorMessage = error.message || '';
-      setError(translateLoginError(errorMessage, error));
+      const serverErrors = serverFieldErrors(error, 'auth.login', translate);
+      if (Object.keys(serverErrors).length > 0) {
+        setFieldErrors(serverErrors);
+        setError(serverErrors._general || '');
+      } else {
+        setFieldErrors({});
+        setError(translateLoginError(error.message || '', error));
+      }
       setIsLoading(false);
     }
   };
@@ -190,7 +221,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     placeholder={t('login.username')}
                     value={username}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                    onBlur={() => blurField('username')}
                 />
+                {fieldErrors.username && <p className="mt-1 text-sm text-red-600">{fieldErrors.username}</p>}
                 </div>
                 <div className="mt-4 relative">
                 <label htmlFor="password-input" className="sr-only">
@@ -207,6 +240,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     placeholder={t('login.password')}
                     value={password}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                    onBlur={() => blurField('password')}
                 />
                 <button
                     type="button"
@@ -224,6 +258,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     )}
                 </button>
                 </div>
+                {fieldErrors.password && <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>}
             </div>
 
             {error && (
