@@ -49,10 +49,48 @@ function clearAuthStorage(): void {
   sessionStorage.removeItem('isAuthenticated');
 }
 
+/** One redirect per page load. Parallel 401s must not each call location.replace. */
+let sessionRedirecting = false;
+
 /**
- * Refresh tokens without using adminHttp response chain (avoids interceptor loops).
+ * Drop the session and leave for login once.
+ * Skipped when already on /login so a failed refresh cannot bounce with the dashboard route.
  */
-export async function refreshTokensViaFetch(): Promise<void> {
+export function expireAdminSession(): void {
+  clearAuthStorage();
+  if (typeof window === 'undefined') return;
+  if (sessionRedirecting) return;
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/login') return;
+  sessionRedirecting = true;
+  window.location.replace('/login');
+}
+
+const ACCESS_TOKEN_REFRESH_LEAD_SECONDS = 60;
+
+/** Shared so concurrent 401s rotate the refresh token once. A second refresh blacklists it. */
+let refreshInFlight: Promise<void> | null = null;
+
+function jwtExpSeconds(token: string): number | null {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const padded = part.replace(/-/g, '+').replace(/_/g, '/');
+    const json = atob(padded.padEnd(padded.length + ((4 - (padded.length % 4)) % 4), '='));
+    const payload = JSON.parse(json) as { exp?: number };
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+function accessTokenExpiresWithinSeconds(token: string, withinSec: number): boolean {
+  const exp = jwtExpSeconds(token);
+  if (exp == null) return false;
+  return exp * 1000 <= Date.now() + withinSec * 1000;
+}
+
+async function performTokenRefresh(): Promise<void> {
   const refreshToken = localStorage.getItem('refreshToken');
   if (!refreshToken) throw new Error('No refresh token available');
 
@@ -74,13 +112,61 @@ export async function refreshTokensViaFetch(): Promise<void> {
   if (data?.refresh) localStorage.setItem('refreshToken', data.refresh);
 }
 
+/**
+ * Refresh tokens without using adminHttp response chain (avoids interceptor loops).
+ * Callers share one in-flight request so rotation + blacklist cannot wipe the new token.
+ */
+export async function refreshTokensViaFetch(): Promise<void> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = performTokenRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+/** Renew the access token shortly before it expires. Failures are left for the 401 path. */
+async function ensureAccessTokenFresh(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const token = localStorage.getItem('accessToken');
+  const refresh = localStorage.getItem('refreshToken');
+  if (!token || !refresh) return;
+  if (!accessTokenExpiresWithinSeconds(token, ACCESS_TOKEN_REFRESH_LEAD_SECONDS)) return;
+  await refreshTokensViaFetch();
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void ensureAccessTokenFresh().catch(() => {
+        /* refresh failure handled on the next 401 */
+      });
+    }
+  });
+}
+
+function isAuthNoRetryPath(path: string): boolean {
+  return (
+    path.includes('auth/login') ||
+    path.includes('auth/refresh') ||
+    path.includes('auth/impersonate-exchange')
+  );
+}
+
 export const adminHttp = axios.create({
   baseURL: ADMIN_API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: false,
 });
 
-adminHttp.interceptors.request.use((config) => {
+adminHttp.interceptors.request.use(async (config) => {
+  const path = config.url || '';
+  if (!isAuthNoRetryPath(path)) {
+    try {
+      await ensureAccessTokenFresh();
+    } catch {
+      /* refresh failure handled on the next 401 */
+    }
+  }
   Object.assign(config.headers, authHeaderParts());
   // Default instance header is application/json; FormData must use multipart with boundary.
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
@@ -93,14 +179,6 @@ adminHttp.interceptors.request.use((config) => {
   }
   return config;
 });
-
-function isAuthNoRetryPath(path: string): boolean {
-  return (
-    path.includes('auth/login') ||
-    path.includes('auth/refresh') ||
-    path.includes('auth/impersonate-exchange')
-  );
-}
 
 adminHttp.interceptors.response.use(
   (response) => {
@@ -120,12 +198,16 @@ adminHttp.interceptors.response.use(
     const path = originalRequest?.url || '';
 
     if (status === 401 && originalRequest && !originalRequest._retry && !isAuthNoRetryPath(path)) {
+      const code = parseErrorPayload(error.response?.data, status).code;
+      if (code === 'missing_api_key' || code === 'invalid_api_key') {
+        throwApiError(status, error.response?.data);
+      }
       originalRequest._retry = true;
       try {
         await refreshTokensViaFetch();
         return adminHttp.request(originalRequest);
       } catch {
-        clearAuthStorage();
+        expireAdminSession();
         throw new Error('Session expired. Please login again.');
       }
     }

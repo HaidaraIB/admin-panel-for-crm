@@ -88,6 +88,9 @@ const App: React.FC = () => {
   };
   
   const activePage = getActivePageFromRoute(location.pathname);
+  const hasSessionToken = !!(
+    localStorage.getItem('accessToken') || localStorage.getItem('refreshToken')
+  );
   useWebPush(Boolean(isAuthenticated && user));
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [isLoadingTenants, setIsLoadingTenants] = useState(false);
@@ -280,29 +283,8 @@ const App: React.FC = () => {
       setTenants(mappedTenants);
     } catch (error: any) {
       console.error('Error loading tenants:', error);
-      const status = error?.status as number | undefined;
-      const code = error?.code as string | undefined;
-      const errorMessage = error?.message || '';
-      if (
-        status === 401 ||
-        status === 403 ||
-        code === 'permission_denied' ||
-        code === 'authentication_failed' ||
-        errorMessage.includes('Forbidden') ||
-        errorMessage.includes('403') ||
-        errorMessage.includes('Session expired') ||
-        errorMessage.includes('401') ||
-        errorMessage.includes('Unauthorized')
-      ) {
-        // Clear auth and redirect to login
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('isAuthenticated');
-        sessionStorage.removeItem('isAuthenticated');
-        setIsAuthenticated(false);
-        navigate('/login');
-      }
-      // Set empty array on error to show "no tenants" message
+      // Session expiry redirects from the HTTP client. Navigating here as well
+      // stacks a /login ↔ /dashboard replace loop while isAuthenticated is still true.
       setTenants([]);
       setTenantsTotalCount(0);
     } finally {
@@ -556,7 +538,7 @@ const App: React.FC = () => {
       {isAuthenticated && user ? <WebPushPrompt /> : null}
     <Routes>
       <Route path="/login" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
+        isAuthenticated && hasSessionToken ? <Navigate to="/dashboard" replace /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
       } />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route

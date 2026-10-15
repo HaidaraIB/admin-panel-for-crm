@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 
-import { refreshTokensViaFetch } from '../services/httpClient';
+import { expireAdminSession, refreshTokensViaFetch } from '../services/httpClient';
 
 const REALTIME_ENABLED =
   String(import.meta.env.VITE_REALTIME_ENABLED ?? '').toLowerCase() === 'true';
@@ -187,7 +187,8 @@ export function RealtimeProvider({
               connect();
             })
             .catch(() => {
-              scheduleRetry();
+              if (disposed) return;
+              expireAdminSession();
             });
           return;
         }
