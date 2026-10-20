@@ -6,7 +6,7 @@ import { useDarkMode } from '../hooks/useDarkMode';
 import { useUser } from '../context/UserContext';
 import { useSupportChatUnreadBadge } from '../hooks/useSupportChatUnread';
 
-type PermissionKey = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_content' | 'can_manage_demo_bookings' | 'can_manage_settings' | 'can_manage_support_tickets';
+type PermissionKey = 'can_view_dashboard' | 'can_manage_tenants' | 'can_manage_subscriptions' | 'can_manage_payment_gateways' | 'can_view_reports' | 'can_manage_communication' | 'can_manage_content' | 'can_manage_demo_bookings' | 'can_manage_telephony' | 'can_manage_settings' | 'can_manage_support_tickets';
 
 interface SidebarProps {
   activePage: string;
@@ -26,7 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
   const canAccess = (permission: PermissionKey) => isSuperAdmin() || hasPermission(permission);
   const supportChatUnread = useSupportChatUnreadBadge(isSuperAdmin());
 
-  const allMenuItems: { path: string; labelKey: string; icon: string; permission: PermissionKey }[] = [
+  const allMenuItems: { path: string; labelKey: string; icon: string; permission: PermissionKey | PermissionKey[] }[] = [
     { path: '/dashboard', labelKey: 'sidebar.dashboard', icon: 'dashboard', permission: 'can_view_dashboard' },
     { path: '/tenants', labelKey: 'sidebar.tenants', icon: 'tenants', permission: 'can_manage_tenants' },
     { path: '/tenant-whatsapp', labelKey: 'sidebar.tenantWhatsapp', icon: 'communication', permission: 'can_manage_tenants' },
@@ -37,6 +37,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
     { path: '/content', labelKey: 'sidebar.content', icon: 'content', permission: 'can_manage_content' },
     { path: '/support-tickets', labelKey: 'sidebar.supportTickets', icon: 'supportTickets', permission: 'can_manage_support_tickets' },
     { path: '/demo-bookings', labelKey: 'sidebar.demoBookings', icon: 'calendar', permission: 'can_manage_demo_bookings' },
+    // Tenant managers see the console read-only (the API lets them read, not change).
+    { path: '/telephony', labelKey: 'sidebar.telephony', icon: 'phone', permission: ['can_manage_telephony', 'can_manage_tenants'] },
   ];
 
   const supportChatItem = {
@@ -46,7 +48,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, isSidebarOpen, setIsSideb
     permission: 'can_view_dashboard' as PermissionKey,
   };
 
-  const menuItems = allMenuItems.filter((item) => canAccess(item.permission));
+  const menuItems = allMenuItems.filter((item) =>
+    (Array.isArray(item.permission) ? item.permission : [item.permission]).some((p) => canAccess(p)));
   const showSupportChat = isSuperAdmin();
   const canAccessSettings = canAccess('can_manage_settings');
   

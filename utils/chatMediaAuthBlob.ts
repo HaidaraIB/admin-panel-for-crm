@@ -1,4 +1,5 @@
-import { buildAdminFetchHeaders } from '../services/httpClient';
+import { isApiOriginUrl } from '../services/apiOrigin';
+import { ADMIN_API_BASE_URL, buildAdminFetchHeaders } from '../services/httpClient';
 
 export function chatMediaBinaryUrlIdentity(absoluteUrl: string): string {
   try {
@@ -41,7 +42,10 @@ export function chatMediaBlobCacheTouch(identity: string, objectUrl: string) {
 }
 
 export async function fetchChatMediaBlob(url: string): Promise<Blob> {
-  const r = await fetch(url, { headers: buildAdminFetchHeaders() });
+  // API URLs get the token (and may redirect to a presigned R2 URL, which the
+  // browser follows without it); a URL that is already presigned gets none.
+  const headers = isApiOriginUrl(url, ADMIN_API_BASE_URL) ? buildAdminFetchHeaders() : undefined;
+  const r = await fetch(url, { headers });
   if (!r.ok) throw new Error(`media_fetch_failed_${r.status}`);
   return r.blob();
 }

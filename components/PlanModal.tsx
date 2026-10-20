@@ -43,6 +43,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
     integration_otpiq: true,
     integration_openai: true,
     integration_mujeb: true,
+    telephony: false,
   },
   entitlementsLimits: {
     max_employees: 10,
@@ -161,6 +162,35 @@ const PlanModal: React.FC<PlanModalProps> = ({
     if (!v) return null;
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
+  };
+
+  /** Phone-system quotas: blank removes the key so the platform default applies (never "unlimited" by accident). */
+  const PBX_DEFAULTS: Record<string, string> = {
+    max_pbx_extensions: '10', max_pbx_trunks: '2', max_pbx_concurrent_calls: '5', max_pbx_cps: '1',
+    max_pbx_recording_bytes: '5',
+  };
+  const handlePbxLimitChange = (key: string, raw: string, unitBytes = 1) => {
+    const parsed = parseNullableNumber(raw);
+    setFormData(prev => {
+      const limits = { ...(prev.entitlementsLimits || {}) } as Record<string, number | 'unlimited' | null>;
+      if (parsed == null) delete limits[key];
+      else limits[key] = Math.max(0, Math.round(parsed * unitBytes));
+      return { ...prev, entitlementsLimits: limits };
+    });
+  };
+  const handlePbxMinutesChange = (raw: string) => {
+    const parsed = parseNullableNumber(raw);
+    setFormData(prev => {
+      const usage = { ...(prev.entitlementsUsageLimitsMonthly || {}) } as Record<string, number | 'unlimited' | null>;
+      if (parsed == null) delete usage.monthly_pbx_minutes;
+      else usage.monthly_pbx_minutes = Math.max(0, Math.round(parsed));
+      return { ...prev, entitlementsUsageLimitsMonthly: usage };
+    });
+  };
+  const pbxLimitValue = (key: string, unitBytes = 1): string => {
+    const v = (formData.entitlementsLimits as Record<string, unknown> | undefined)?.[key];
+    if (typeof v !== 'number') return '';
+    return unitBytes === 1 ? String(v) : bytesToDisplayUnit(v, unitBytes);
   };
 
   const handleExtraLimitChange = (key: string, value: string) => {
@@ -531,8 +561,44 @@ const PlanModal: React.FC<PlanModalProps> = ({
                       onChange={(e) => handleEntFeatureToggle('integration_mujeb', e.target.checked)}
                       label={t('settings.integrations.platform.mujeb') || 'Mujeb'}
                     />
+                    <Checkbox
+                      id="feature_telephony"
+                      checked={!!(formData.entitlementsFeatures || {}).telephony}
+                      onChange={(e) => handleEntFeatureToggle('telephony', e.target.checked)}
+                      label={t('subscriptions.plans.telephony')}
+                    />
                   </div>
                 </div>
+                {(formData.entitlementsFeatures || {}).telephony ? (
+                  <div>
+                    <div className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{t('subscriptions.plans.pbxQuotas')}</div>
+                    <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">{t('subscriptions.plans.pbxQuotasHint')}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {(['max_pbx_extensions', 'max_pbx_trunks', 'max_pbx_concurrent_calls', 'max_pbx_cps'] as const).map((key) => (
+                        <div key={key}>
+                          <label htmlFor={`plan_${key}`} className={labelClasses}>{t(`subscriptions.plans.${key}`)}</label>
+                          <input id={`plan_${key}`} className={inputClasses} inputMode="numeric" dir="ltr"
+                            value={pbxLimitValue(key)} placeholder={PBX_DEFAULTS[key]}
+                            onChange={(e) => handlePbxLimitChange(key, e.target.value.replace(/[^0-9]/g, ''))} />
+                        </div>
+                      ))}
+                      <div>
+                        <label htmlFor="plan_max_pbx_recording_bytes" className={labelClasses}>{t('subscriptions.plans.max_pbx_recording_bytes')}</label>
+                        <input id="plan_max_pbx_recording_bytes" className={inputClasses} inputMode="decimal" dir="ltr"
+                          value={pbxLimitValue('max_pbx_recording_bytes', 1024 * 1024 * 1024)} placeholder={PBX_DEFAULTS.max_pbx_recording_bytes}
+                          onChange={(e) => handlePbxLimitChange('max_pbx_recording_bytes', e.target.value.replace(/[^0-9.]/g, ''), 1024 * 1024 * 1024)} />
+                      </div>
+                      <div>
+                        <label htmlFor="plan_monthly_pbx_minutes" className={labelClasses}>{t('subscriptions.plans.monthly_pbx_minutes')}</label>
+                        <input id="plan_monthly_pbx_minutes" className={inputClasses} inputMode="numeric" dir="ltr"
+                          value={typeof (formData.entitlementsUsageLimitsMonthly || {}).monthly_pbx_minutes === 'number'
+                            ? String((formData.entitlementsUsageLimitsMonthly || {}).monthly_pbx_minutes) : ''}
+                          placeholder={t('subscriptions.plans.unlimited') || 'Unlimited'}
+                          onChange={(e) => handlePbxMinutesChange(e.target.value.replace(/[^0-9]/g, ''))} />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 

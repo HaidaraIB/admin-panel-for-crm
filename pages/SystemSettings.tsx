@@ -2150,6 +2150,7 @@ const LimitedAdmins: React.FC = () => {
                     can_manage_communication: editingAdmin.can_manage_communication,
                     can_manage_content: editingAdmin.can_manage_content,
                     can_manage_demo_bookings: editingAdmin.can_manage_demo_bookings,
+                    can_manage_telephony: editingAdmin.can_manage_telephony,
                     can_manage_settings: editingAdmin.can_manage_settings,
                     can_manage_limited_admins: editingAdmin.can_manage_limited_admins,
                 };
@@ -2165,6 +2166,7 @@ const LimitedAdmins: React.FC = () => {
                     can_manage_communication: adminData.can_manage_communication,
                     can_manage_content: adminData.can_manage_content,
                     can_manage_demo_bookings: adminData.can_manage_demo_bookings,
+                    can_manage_telephony: adminData.can_manage_telephony,
                     can_manage_settings: adminData.can_manage_settings,
                     can_manage_limited_admins: adminData.can_manage_limited_admins,
                 };
@@ -2312,6 +2314,7 @@ const LimitedAdmins: React.FC = () => {
                                                     can_manage_communication: admin.can_manage_communication,
                                                     can_manage_content: admin.can_manage_content,
                                                     can_manage_demo_bookings: admin.can_manage_demo_bookings,
+                                                    can_manage_telephony: admin.can_manage_telephony,
                                                     can_manage_settings: admin.can_manage_settings,
                                                     can_manage_limited_admins: admin.can_manage_limited_admins,
                                                 }).filter(Boolean).length === 0 && (

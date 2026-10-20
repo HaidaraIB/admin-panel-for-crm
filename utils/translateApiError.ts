@@ -15,6 +15,7 @@ const API_MESSAGE_TO_KEY: Record<string, string> = {
   'You do not have permission to manage platform content.': 'errors.permissionManageContent',
   'You do not have permission to manage settings.': 'errors.permissionManageSettings',
   'You do not have permission to manage limited admins.': 'errors.permissionManageLimitedAdmins',
+  'You do not have permission to manage the phone system.': 'errors.permissionManageTelephony',
   'You do not have permission to perform this action.': 'errors.permissionPerformAction',
   'Your subscription is not active or has expired. Please contact support or Complete Your Payment to access the system.': 'errors.subscriptionExpired',
   'Validation failed.': 'errors.validationFailed',

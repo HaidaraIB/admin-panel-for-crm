@@ -1884,3 +1884,161 @@ export const deleteDemoBookingBlockedDateAPI = async (id: number) => {
   });
 };
 
+
+// ==================== Telephony (Loop Cloud PBX platform console) ====================
+
+export type PbxNodeStatus = 'active' | 'draining' | 'offline';
+
+export interface PbxNode {
+  id: string;
+  name: string;
+  region: string;
+  control_url: string;
+  status: PbxNodeStatus;
+  max_tenants: number;
+  tenant_count: number;
+  gateway_wg_public_key: string;
+  gateway_wg_endpoint: string;
+  gateway_wg_address: string;
+  last_seen_at: string | null;
+  asterisk_version: string;
+  /** Only in the create / rotate-tokens response, shown once. */
+  node_token?: string;
+  crm_token?: string;
+}
+
+export interface PbxFraudLimits {
+  max_calls_per_hour: number;
+  max_new_destinations_per_hour: number;
+  max_international_share: number;
+  min_calls_for_share: number;
+  home_prefixes: string[];
+  premium_prefixes: string[];
+  action: 'block' | 'alert';
+}
+
+export interface PbxTenant {
+  id: string;
+  company: number;
+  company_name: string;
+  tag: string;
+  status: 'pending' | 'active' | 'failed' | 'suspended' | 'deprovisioned';
+  home_node: string | null;
+  home_node_name: string | null;
+  draining_node: string | null;
+  draining_node_name: string | null;
+  outbound_suspended: boolean;
+  outbound_blocked_on_node: boolean;
+  suspended_reason: string;
+  config_version: number;
+  applied_version: number | null;
+  last_apply_error: string;
+  recording_mode: 'off' | 'external' | 'all';
+  recording_retention_days: number;
+  recording_legal_hold: boolean;
+  recording_paused_quota: boolean;
+  fraud_limits: Partial<PbxFraudLimits>;
+  effective_fraud_limits: PbxFraudLimits;
+  open_fraud_alerts: number;
+}
+
+export interface PbxJob {
+  id: string;
+  kind: string;
+  status: string;
+  target_version: number | null;
+  attempts: number;
+  last_error: string;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface PbxAdminNumber {
+  id: string;
+  e164: string;
+  label: string;
+  company: number;
+  company_name: string;
+  trunk: string;
+  trunk_name: string;
+  trunk_kind: 'sip' | 'gsm_gateway';
+  verified: boolean;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export interface PbxFraudAlert {
+  id: string;
+  company: number;
+  company_name: string;
+  rule: 'calls_per_hour' | 'new_destinations' | 'international_share' | 'premium_prefix';
+  severity: 'warning' | 'critical';
+  action_taken: 'none' | 'outbound_suspended';
+  observed: number | null;
+  threshold: number | null;
+  destination: string;
+  occurred_at: string;
+  resolved_at: string | null;
+  resolved_by_name: string | null;
+  resolution_note: string;
+  tenant_outbound_suspended: boolean;
+}
+
+export interface PbxHealth {
+  nodes: {
+    id: string;
+    name: string;
+    status: PbxNodeStatus;
+    tenant_count: number;
+    max_tenants: number;
+    last_seen_at: string | null;
+    asterisk_version: string;
+    worker: { ari: boolean; redis: boolean; buffer_depth: number; oldest_unsent_s: number } | null;
+  }[];
+  open_fraud_alerts: number;
+  numbers_to_verify: number;
+  failed_tenants: number;
+}
+
+const TEL = '/admin/telephony';
+const rowsOf = <T,>(body: T[] | PaginatedResponse<T>): T[] => (Array.isArray(body) ? body : body.results || []);
+
+export const getPbxHealthAPI = () => apiRequest<PbxHealth>(`${TEL}/health/`);
+export const getPbxNodesAPI = async () => rowsOf(await apiRequest<PbxNode[] | PaginatedResponse<PbxNode>>(`${TEL}/nodes/?page_size=200`));
+export const createPbxNodeAPI = (data: Partial<PbxNode>) =>
+  apiRequest<PbxNode>(`${TEL}/nodes/`, { method: 'POST', body: JSON.stringify(data) });
+export const updatePbxNodeAPI = (id: string, data: Partial<PbxNode>) =>
+  apiRequest<PbxNode>(`${TEL}/nodes/${id}/`, { method: 'PATCH', body: JSON.stringify(data) });
+export const rotatePbxNodeTokensAPI = (id: string) =>
+  apiRequest<{ node_token: string; crm_token: string }>(`${TEL}/nodes/${id}/rotate-tokens/`, { method: 'POST' });
+
+export const getPbxTenantsAPI = async (search?: string) =>
+  rowsOf(await apiRequest<PbxTenant[] | PaginatedResponse<PbxTenant>>(`${TEL}/tenants/${buildQueryString({ search, page_size: 200 })}`));
+export const provisionPbxTenantAPI = (companyId: number) =>
+  apiRequest<{ tenant: PbxTenant; job: PbxJob }>(`${TEL}/tenants/${companyId}/provision/`, { method: 'POST' });
+export const suspendPbxTenantAPI = (companyId: number, reason: string) =>
+  apiRequest<{ tenant: PbxTenant; job: PbxJob }>(`${TEL}/tenants/${companyId}/suspend/`, { method: 'POST', body: JSON.stringify({ reason }) });
+export const resumePbxTenantAPI = (companyId: number) =>
+  apiRequest<{ tenant: PbxTenant; job: PbxJob }>(`${TEL}/tenants/${companyId}/resume/`, { method: 'POST' });
+export const migratePbxTenantAPI = (companyId: number, node: string) =>
+  apiRequest<{ tenant: PbxTenant; job: PbxJob; gateways_moved: number }>(
+    `${TEL}/tenants/${companyId}/migrate-node/`, { method: 'POST', body: JSON.stringify({ node }) });
+export const repushPbxTenantAPI = (companyId: number) =>
+  apiRequest<{ paused_agents: number; failed_agents: string[]; outbound: string | null }>(
+    `${TEL}/tenants/${companyId}/repush/`, { method: 'POST' });
+export const updatePbxTenantAPI = (companyId: number, data: { fraud_limits?: Partial<PbxFraudLimits>; recording_legal_hold?: boolean }) =>
+  apiRequest<PbxTenant>(`${TEL}/tenants/${companyId}/`, { method: 'PATCH', body: JSON.stringify(data) });
+export const getPbxTenantJobsAPI = (companyId: number) => apiRequest<PbxJob[]>(`${TEL}/tenants/${companyId}/jobs/`);
+
+export const getPbxNumbersAPI = async (params: { verified?: 'true' | 'false'; search?: string }) =>
+  rowsOf(await apiRequest<PbxAdminNumber[] | PaginatedResponse<PbxAdminNumber>>(
+    `${TEL}/numbers/${buildQueryString({ ...params, page_size: 200 })}`));
+export const verifyPbxNumberAPI = (id: string, verified: boolean) =>
+  apiRequest<{ id: string; e164: string; verified_at: string | null }>(
+    `${TEL}/numbers/${id}/verify/`, { method: 'POST', body: JSON.stringify({ verified }) });
+
+export const getPbxFraudAlertsAPI = async (open: boolean) =>
+  rowsOf(await apiRequest<PbxFraudAlert[] | PaginatedResponse<PbxFraudAlert>>(
+    `${TEL}/fraud-alerts/${buildQueryString({ open: open ? 'true' : undefined, page_size: 200 })}`));
+export const resolvePbxFraudAlertAPI = (id: string, note: string) =>
+  apiRequest<PbxFraudAlert>(`${TEL}/fraud-alerts/${id}/resolve/`, { method: 'POST', body: JSON.stringify({ note }) });

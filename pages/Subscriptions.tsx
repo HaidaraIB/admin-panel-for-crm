@@ -87,12 +87,16 @@ const CANONICAL_PLAN_FEATURE_KEYS = [
   'integration_openai',
   'integration_api',
   'integration_mujeb',
+  'telephony',
 ] as const;
+
+// Paid add-ons: a plan that never set them does not get them (the API's default too).
+const DEFAULT_OFF_PLAN_FEATURES = new Set<string>(['telephony']);
 
 function sanitizePlanFeatures(raw: unknown): Record<string, boolean> {
   const source = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
   return Object.fromEntries(
-    CANONICAL_PLAN_FEATURE_KEYS.map((key) => [key, source[key] === undefined ? true : !!source[key]])
+    CANONICAL_PLAN_FEATURE_KEYS.map((key) => [key, source[key] === undefined ? !DEFAULT_OFF_PLAN_FEATURES.has(key) : !!source[key]])
   ) as Record<string, boolean>;
 }
 
