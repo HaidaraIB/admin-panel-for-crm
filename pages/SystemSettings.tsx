@@ -58,7 +58,7 @@ const persistSchedule = (schedule: BackupSchedule) => {
     localStorage.setItem(BACKUP_SCHEDULE_STORAGE_KEY, schedule);
 };
 
-type IntegrationPlatformKey = 'meta' | 'meta_inbox' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'mujeb';
+type IntegrationPlatformKey = 'meta' | 'meta_inbox' | 'tiktok' | 'whatsapp' | 'twilio' | 'otpiq' | 'openai' | 'mujeb' | 'telephony';
 type IntegrationPolicyState = Record<IntegrationPlatformKey, {
     global_enabled: boolean;
     global_message: string;
@@ -74,6 +74,7 @@ const DEFAULT_INTEGRATION_POLICIES: IntegrationPolicyState = {
     otpiq: { global_enabled: true, global_message: '', company_overrides: {} },
     openai: { global_enabled: true, global_message: '', company_overrides: {} },
     mujeb: { global_enabled: true, global_message: '', company_overrides: {} },
+    telephony: { global_enabled: false, global_message: '', company_overrides: {} },
 };
 
 type FeaturePolicyKey = 'field_visit';
@@ -427,6 +428,7 @@ const IntegrationsControlSettings: React.FC = () => {
         otpiq: t('settings.integrations.platform.otpiq') || 'OTPIQ (SMS)',
         openai: t('settings.integrations.platform.openai') || 'OpenAI (ChatGPT)',
         mujeb: t('settings.integrations.platform.mujeb') || 'Mujeb',
+        telephony: t('settings.integrations.platform.telephony') || 'Loop Cloud PBX',
     };
     const overrideLabels = {
         allowTitle: t('settings.integrations.allowTitle') || 'Allowed company exceptions',
@@ -457,6 +459,12 @@ const IntegrationsControlSettings: React.FC = () => {
                     otpiq: { ...DEFAULT_INTEGRATION_POLICIES.otpiq, ...(incoming.otpiq || {}), company_overrides: incoming.otpiq?.company_overrides || {} },
                     openai: { ...DEFAULT_INTEGRATION_POLICIES.openai, ...(incoming.openai || {}), company_overrides: incoming.openai?.company_overrides || {} },
                     mujeb: { ...DEFAULT_INTEGRATION_POLICIES.mujeb, ...(incoming.mujeb || {}), company_overrides: incoming.mujeb?.company_overrides || {} },
+                    telephony: {
+                        ...DEFAULT_INTEGRATION_POLICIES.telephony,
+                        ...(incoming.telephony || {}),
+                        global_enabled: false,
+                        company_overrides: incoming.telephony?.company_overrides || {},
+                    },
                 });
                 const list = ((companiesResponse?.results || []) as Array<{ id: number; name: string }>).map((c) => ({ id: c.id, name: c.name }));
                 setCompanies(list);
@@ -501,8 +509,9 @@ const IntegrationsControlSettings: React.FC = () => {
                         {t('settings.integrations.help') || 'Configure global and per-company integration activation. When globally disabled, allow exceptions for specific companies. When globally enabled, block specific companies.'}
                     </p>
                     <div className="space-y-4">
-                        {(['meta', 'meta_inbox', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'mujeb'] as IntegrationPlatformKey[]).map((platform) => {
+                        {(['telephony', 'meta', 'meta_inbox', 'tiktok', 'whatsapp', 'twilio', 'otpiq', 'openai', 'mujeb'] as IntegrationPlatformKey[]).map((platform) => {
                             const policy = integrationPolicies[platform];
+                            const pilotOnly = platform === 'telephony';
                             return (
                                 <div key={platform} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
                                     <div className="flex items-center justify-between gap-3">
@@ -510,7 +519,8 @@ const IntegrationsControlSettings: React.FC = () => {
                                         <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 shrink-0">
                                             <input
                                                 type="checkbox"
-                                                checked={policy.global_enabled}
+                                                checked={pilotOnly ? false : policy.global_enabled}
+                                                disabled={pilotOnly}
                                                 onChange={(e) => setIntegrationPolicies((prev) => ({
                                                     ...prev,
                                                     [platform]: { ...prev[platform], global_enabled: e.target.checked },
@@ -519,6 +529,11 @@ const IntegrationsControlSettings: React.FC = () => {
                                             {t('settings.integrations.globalActive') || 'Global Active'}
                                         </label>
                                     </div>
+                                    {pilotOnly ? (
+                                        <p role="note" className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+                                            {t('settings.integrations.telephonyPilotOnly') || 'Pilot only: global activation is locked. Add one approved company below. This does not deploy PBX services or enable call recording.'}
+                                        </p>
+                                    ) : null}
                                     <FormTextarea
                                         value={policy.global_message}
                                         onChange={(e) => setIntegrationPolicies((prev) => ({
