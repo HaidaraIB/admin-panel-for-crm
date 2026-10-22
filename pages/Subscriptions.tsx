@@ -653,7 +653,7 @@ const PaymentsTab: React.FC = () => {
             </div>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                 <div className="overflow-x-auto">
-                    <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
+                    <table className={`w-full text-sm text-center text-gray-500 dark:text-gray-400`}>
                          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
                                 <th className="px-6 py-3 text-center">{t('subscriptions.payments.table.transactionId')}</th>
@@ -981,7 +981,7 @@ const InvoicesTab: React.FC = () => {
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                      <div className="overflow-x-auto">
-                         <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
+                         <table className={`w-full text-sm text-center text-gray-500 dark:text-gray-400`}>
                              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
                                     <th className="px-6 py-3 text-center">{t('subscriptions.invoices.table.invoiceNo')}</th>
@@ -1277,7 +1277,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
       </div>
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+          <table className="w-full text-sm text-center text-gray-500 dark:text-gray-400">
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
               <tr>
                 <th className="px-6 py-3 text-center">{t('subscriptions.subscriptions.table.companyName')}</th>

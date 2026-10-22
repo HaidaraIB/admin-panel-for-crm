@@ -360,7 +360,7 @@ const TrialCodesTab: React.FC = () => {
 
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
         <div className="overflow-x-auto">
-          <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
+          <table className={`w-full text-sm text-center text-gray-500 dark:text-gray-400`}>
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
               <tr>
                 <th scope="col" className="px-6 py-3 text-center">{t('trialCodes.colCode')}</th>

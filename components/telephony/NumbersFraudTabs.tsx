@@ -8,9 +8,11 @@ import {
   type PbxAdminNumber,
   type PbxFraudAlert,
 } from '../../services/api';
+import { DataTable, TableBody, TableHead, TableMessageRow, TableRow, Td, Th } from '../DataTable';
 import FieldError from '../FieldError';
+import { FormInput } from '../settings/FormFields';
 import LoadingButton from '../LoadingButton';
-import { Badge, Ltr, ModalShell, inputClass, labelClass, tdClass, thClass, useApiErrorText, useCatalogForm, when } from './shared';
+import { Badge, Ltr, ModalShell, labelClass, useApiErrorText, useCatalogForm, when } from './shared';
 
 const Toggle: React.FC<{ value: boolean; onChange: (v: boolean) => void; labels: [string, string]; id: string }> = ({ value, onChange, labels, id }) => (
   <div role="tablist" aria-label={id} className="mb-3 inline-flex rounded-lg bg-gray-100 p-1 dark:bg-gray-700">
@@ -52,28 +54,26 @@ export const NumbersTab: React.FC<{
         labels={[t('telephony.numbers.pending'), t('telephony.numbers.all')]} />
       <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{t('telephony.numbers.hint')}</p>
       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-        <table className="w-full text-sm text-gray-600 dark:text-gray-300">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-            <tr>
-              <th className={thClass}>{t('telephony.numbers.number')}</th>
-              <th className={thClass}>{t('telephony.tenants.company')}</th>
-              <th className={thClass}>{t('telephony.numbers.trunk')}</th>
-              <th className={thClass}>{t('telephony.numbers.added')}</th>
-              <th className={thClass}>{t('telephony.numbers.status')}</th>
-              <th className={thClass}>{t('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+        <DataTable>
+          <TableHead>
+            <Th>{t('telephony.numbers.number')}</Th>
+            <Th>{t('telephony.tenants.company')}</Th>
+            <Th>{t('telephony.numbers.trunk')}</Th>
+            <Th>{t('telephony.numbers.added')}</Th>
+            <Th>{t('telephony.numbers.status')}</Th>
+            <Th>{t('common.actions')}</Th>
+          </TableHead>
+          <TableBody>
             {numbers.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">{t(pendingOnly ? 'telephony.numbers.emptyPending' : 'telephony.numbers.empty')}</td></tr>
+              <TableMessageRow colSpan={6}>{t(pendingOnly ? 'telephony.numbers.emptyPending' : 'telephony.numbers.empty')}</TableMessageRow>
             ) : numbers.map((row) => (
-              <tr key={row.id} data-number={row.e164}>
-                <td className={tdClass}><Ltr className="font-medium text-gray-900 dark:text-white">{row.e164}</Ltr>{row.label ? <p className="text-xs text-gray-500">{row.label}</p> : null}</td>
-                <td className={tdClass}>{row.company_name}</td>
-                <td className={tdClass}>{row.trunk_name} <span className="text-xs text-gray-500">· {t(`telephony.numbers.kind_${row.trunk_kind}`)}</span></td>
-                <td className={tdClass}><span className="text-xs">{when(row.created_at, language)}</span></td>
-                <td className={tdClass}>{row.verified ? <Badge tone="green">{t('telephony.numbers.verified')}</Badge> : <Badge tone="amber">{t('telephony.numbers.pending')}</Badge>}</td>
-                <td className={tdClass}>
+              <TableRow key={row.id} data-number={row.e164}>
+                <Td><Ltr className="font-medium text-gray-900 dark:text-white">{row.e164}</Ltr>{row.label ? <p className="text-xs text-gray-500">{row.label}</p> : null}</Td>
+                <Td>{row.company_name}</Td>
+                <Td>{row.trunk_name} <span className="text-xs text-gray-500">· {t(`telephony.numbers.kind_${row.trunk_kind}`)}</span></Td>
+                <Td><span className="text-xs">{when(row.created_at, language)}</span></Td>
+                <Td>{row.verified ? <Badge tone="green">{t('telephony.numbers.verified')}</Badge> : <Badge tone="amber">{t('telephony.numbers.pending')}</Badge>}</Td>
+                <Td>
                   {readOnly ? <span className="text-xs text-gray-400">—</span> : row.verified ? (
                     <LoadingButton size="sm" variant="secondary" isLoading={busy === row.id} disabled={busy !== null} onClick={() => set(row, false)}>
                       {t('telephony.numbers.unverify')}
@@ -83,11 +83,11 @@ export const NumbersTab: React.FC<{
                       {t('telephony.numbers.verify')}
                     </LoadingButton>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </DataTable>
       </div>
     </div>
   );
@@ -120,7 +120,7 @@ const ResolveModal: React.FC<{ alert: PbxFraudAlert; onClose: () => void; onDone
         {form.errors._general ? <p role="alert" className="text-sm text-red-600">{form.errors._general}</p> : null}
         <div>
           <label htmlFor="pbx-resolve-note" className={labelClass}>{t('telephony.fraud.note')}</label>
-          <input id="pbx-resolve-note" className={inputClass} value={note} onChange={(e) => setNote(e.target.value)} />
+          <FormInput id="pbx-resolve-note" value={note} onChange={(e) => setNote(e.target.value)} />
           <FieldError>{form.errors.note}</FieldError>
         </div>
         <div className="flex justify-end gap-2">
@@ -148,34 +148,32 @@ export const FraudTab: React.FC<{
     <div>
       <Toggle id="pbx-fraud-filter" value={openOnly} onChange={onOpenOnly} labels={[t('telephony.fraud.open'), t('telephony.fraud.all')]} />
       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-        <table className="w-full text-sm text-gray-600 dark:text-gray-300">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-            <tr>
-              <th className={thClass}>{t('telephony.fraud.when')}</th>
-              <th className={thClass}>{t('telephony.tenants.company')}</th>
-              <th className={thClass}>{t('telephony.fraud.rule')}</th>
-              <th className={thClass}>{t('telephony.fraud.observed')}</th>
-              <th className={thClass}>{t('telephony.fraud.destination')}</th>
-              <th className={thClass}>{t('telephony.fraud.actionTaken')}</th>
-              <th className={thClass}>{t('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+        <DataTable>
+          <TableHead>
+            <Th>{t('telephony.fraud.when')}</Th>
+            <Th>{t('telephony.tenants.company')}</Th>
+            <Th>{t('telephony.fraud.rule')}</Th>
+            <Th>{t('telephony.fraud.observed')}</Th>
+            <Th>{t('telephony.fraud.destination')}</Th>
+            <Th>{t('telephony.fraud.actionTaken')}</Th>
+            <Th>{t('common.actions')}</Th>
+          </TableHead>
+          <TableBody>
             {alerts.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t(openOnly ? 'telephony.fraud.emptyOpen' : 'telephony.fraud.empty')}</td></tr>
+              <TableMessageRow colSpan={7}>{t(openOnly ? 'telephony.fraud.emptyOpen' : 'telephony.fraud.empty')}</TableMessageRow>
             ) : alerts.map((a) => (
-              <tr key={a.id} data-alert={a.id}>
-                <td className={tdClass}><span className="text-xs">{when(a.occurred_at, language)}</span></td>
-                <td className={tdClass}>{a.company_name}</td>
-                <td className={tdClass}>
+              <TableRow key={a.id} data-alert={a.id}>
+                <Td><span className="text-xs">{when(a.occurred_at, language)}</span></Td>
+                <Td>{a.company_name}</Td>
+                <Td>
                   <Badge tone={a.severity === 'critical' ? 'red' : 'amber'}>{t(`telephony.fraud.rule_${a.rule}`)}</Badge>
-                </td>
-                <td className={tdClass}><Ltr>{value(a.rule, a.observed)} / {value(a.rule, a.threshold)}</Ltr></td>
-                <td className={tdClass}>{a.destination ? <Ltr>{a.destination}</Ltr> : '—'}</td>
-                <td className={tdClass}>{a.action_taken === 'outbound_suspended'
+                </Td>
+                <Td><Ltr>{value(a.rule, a.observed)} / {value(a.rule, a.threshold)}</Ltr></Td>
+                <Td>{a.destination ? <Ltr>{a.destination}</Ltr> : '—'}</Td>
+                <Td>{a.action_taken === 'outbound_suspended'
                   ? <Badge tone="red">{t('telephony.fraud.suspendedAction')}</Badge>
-                  : <Badge tone="gray">{t('telephony.fraud.alertOnly')}</Badge>}</td>
-                <td className={tdClass}>
+                  : <Badge tone="gray">{t('telephony.fraud.alertOnly')}</Badge>}</Td>
+                <Td>
                   {a.resolved_at ? (
                     <span className="text-xs text-gray-500">{t('telephony.fraud.resolvedBy').replace('{name}', a.resolved_by_name || '—')}</span>
                   ) : readOnly ? (
@@ -183,11 +181,11 @@ export const FraudTab: React.FC<{
                   ) : (
                     <LoadingButton size="sm" variant="secondary" onClick={() => setResolving(a)}>{t('telephony.fraud.resolve')}</LoadingButton>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </DataTable>
       </div>
       {resolving ? (
         <ResolveModal alert={resolving} onClose={() => setResolving(null)}

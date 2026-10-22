@@ -29,13 +29,13 @@ type ChatRow = {
   whatsapp_message_id?: string | null;
 };
 
-function formatSendError(e: unknown, fallback: string): string {
+function formatSendError(e: unknown, fallback: string, t: (key: string) => string): string {
   const err = e as ApiError;
   if (err?.code === 'platform_whatsapp_not_configured') {
-    return 'Platform WhatsApp is not configured. Open Settings → Platform WhatsApp.';
+    return t('tenantWhatsapp.errors.notConfigured');
   }
   if (err?.code === 'owner_phone_missing') {
-    return 'Company owner has no phone number.';
+    return t('tenantWhatsapp.errors.ownerPhoneMissing');
   }
   if (err?.details && typeof err.details === 'object') {
     const d = err.details as Record<string, unknown>;
@@ -43,7 +43,7 @@ function formatSendError(e: unknown, fallback: string): string {
       const msg = typeof d.message === 'string' ? d.message : null;
       if (msg) return msg;
       if (d.error === 'platform_whatsapp_token_invalid') {
-        return 'Platform WhatsApp access token is invalid. Paste a Meta System User token in Settings → Platform WhatsApp.';
+        return t('tenantWhatsapp.errors.tokenInvalid');
       }
       const graph = d.error;
       if (graph && typeof graph === 'object') {
@@ -124,7 +124,7 @@ const TenantWhatsAppChat: React.FC = () => {
       }
       await loadMessages(selectedId);
     } catch (e: unknown) {
-      showToast(formatSendError(e, t('tenantWhatsapp.sendFailed')), { variant: 'error' });
+      showToast(formatSendError(e, t('tenantWhatsapp.sendFailed'), t), { variant: 'error' });
     } finally {
       setSending(false);
     }

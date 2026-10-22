@@ -190,7 +190,7 @@ const PageHelpVideosPanel: React.FC = () => {
       <p className="text-sm text-gray-600 dark:text-gray-300">{hint}</p>
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-start text-gray-500 dark:text-gray-400">
+          <table className="w-full text-sm text-center text-gray-500 dark:text-gray-400">
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
               <tr>
                 <th className="px-4 py-3">{t('content.tutorials.page')}</th>

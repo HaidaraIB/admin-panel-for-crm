@@ -217,7 +217,7 @@ const CompanyOverrideEditor: React.FC<{
                                     type="text"
                                     value={overrides[id]?.message || ''}
                                     onChange={(e) => updateMessage(id, e.target.value)}
-                                    className="text-sm !py-1.5 !px-2.5"
+                                    className="text-sm"
                                     placeholder={labels.messagePlaceholder}
                                 />
                             )}
@@ -955,7 +955,7 @@ const SecurityBackups: React.FC = () => {
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 bg-white dark:bg-gray-900/40">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.security.historyTitle')}</h4>
                  <div className="overflow-x-auto">
-                    <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-600 dark:text-gray-300`}>
+                    <table className={`w-full text-sm text-center text-gray-600 dark:text-gray-300`}>
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800 dark:text-gray-300">
                             <tr>
                                 <th scope="col" className="px-6 py-3 text-center">{t('settings.security.table.id')}</th>
@@ -2043,7 +2043,7 @@ const AuditLog: React.FC = () => {
             header={<SettingsSectionHeader title={t('settings.audit.title')} />}
         >
             <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+            <table className="w-full text-sm text-center text-gray-500 dark:text-gray-400">
                 <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
                         <th className="px-6 py-3 text-center">{t('settings.audit.table.user')}</th>
@@ -2262,7 +2262,7 @@ const LimitedAdmins: React.FC = () => {
         >
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                 <div className="overflow-x-auto">
-                    <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
+                    <table className={`w-full text-sm text-center text-gray-500 dark:text-gray-400`}>
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
                                 <th className="px-6 py-3 text-center">{t('limitedAdmins.table.name') || 'Name'}</th>

@@ -1,0 +1,44 @@
+---
+description: Data tables reuse components/DataTable and center every header and cell (LTR and RTL)
+globs: "**/*.tsx"
+alwaysApply: true
+---
+
+# Data tables
+
+Every value sits centered under its column header, in English and Arabic. Build new tables from the shared primitives in `components/DataTable.tsx`. Do not write local `thClass`/`tdClass` strings or `TH`/`TD` helpers.
+
+```tsx
+import { DataTable, TableActions, TableBody, TableHead, TableMessageRow, TableRow, Td, Th } from '../components/DataTable';
+
+<div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+  <DataTable>
+    <TableHead>
+      <Th>{t('telephony.nodes.name')}</Th>
+      <Th>{t('common.actions')}</Th>
+    </TableHead>
+    <TableBody>
+      {rows.length === 0 ? (
+        <TableMessageRow colSpan={2}>{t('telephony.nodes.empty')}</TableMessageRow>
+      ) : rows.map((row) => (
+        <TableRow key={row.id}>
+          <Td>{row.name}</Td>
+          <Td>
+            <TableActions>
+              <IconButton icon="edit" label={t('common.edit')} onClick={() => edit(row)} />
+            </TableActions>
+          </Td>
+        </TableRow>
+      ))}
+    </TableBody>
+  </DataTable>
+</div>
+```
+
+## Rules
+
+- `Th` and `Td` are `text-center`. Never add `text-start`, `text-left`, `text-right` or a `language === 'ar' ? 'text-right' : 'text-left'` switch to a table, header or cell.
+- Content that is a flex or block layout inside a cell must center itself as well: `TableActions` for row actions, `justify-center` for badge groups, `mx-auto` for images.
+- Use `TableMessageRow` for loading, empty and no-results rows.
+- Form fields inside table pages and modals use `FormInput` / `FormSelect` (`components/settings/FormFields.tsx`), not raw inputs with a local class string.
+- Older pages with hand-written `<table>` markup already center every cell. Keep them that way when you edit them, and move them onto `DataTable` when you rework them.

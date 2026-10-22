@@ -13,10 +13,12 @@ import {
   type PbxNode,
   type PbxTenant,
 } from '../../services/api';
+import { DataTable, TableActions, TableBody, TableHead, TableMessageRow, TableRow, Td, Th } from '../DataTable';
 import FieldError from '../FieldError';
+import { FormInput, FormSelect } from '../settings/FormFields';
 import IconButton from '../IconButton';
 import LoadingButton from '../LoadingButton';
-import { Badge, Ltr, ModalShell, inputClass, labelClass, tdClass, thClass, useApiErrorText, useCatalogForm } from './shared';
+import { Badge, Ltr, ModalShell, labelClass, useApiErrorText, useCatalogForm } from './shared';
 
 const STATUS_TONE = { pending: 'blue', active: 'green', failed: 'red', suspended: 'amber', deprovisioned: 'gray' } as const;
 
@@ -49,7 +51,7 @@ const SuspendModal: React.FC<{ tenant: PbxTenant; onClose: () => void; onDone: (
         {form.errors._general ? <p role="alert" className="text-sm text-red-600">{form.errors._general}</p> : null}
         <div>
           <label htmlFor="pbx-suspend-reason" className={labelClass}>{t('telephony.tenants.reason')}</label>
-          <input id="pbx-suspend-reason" className={inputClass} value={reason} onChange={(e) => setReason(e.target.value)} />
+          <FormInput id="pbx-suspend-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
           <FieldError>{form.errors.reason}</FieldError>
         </div>
         <div className="flex justify-end gap-2">
@@ -89,10 +91,10 @@ const MigrateModal: React.FC<{ tenant: PbxTenant; nodes: PbxNode[]; onClose: () 
         {form.errors._general ? <p role="alert" className="text-sm text-red-600">{form.errors._general}</p> : null}
         <div>
           <label htmlFor="pbx-migrate-node" className={labelClass}>{t('telephony.tenants.targetNode')} *</label>
-          <select id="pbx-migrate-node" className={inputClass} value={node} onChange={(e) => setNode(e.target.value)}>
+          <FormSelect id="pbx-migrate-node" value={node} onChange={(e) => setNode(e.target.value)}>
             <option value="">{t('telephony.tenants.chooseNode')}</option>
             {targets.map((n) => <option key={n.id} value={n.id}>{n.name} ({n.tenant_count}/{n.max_tenants})</option>)}
-          </select>
+          </FormSelect>
           <FieldError>{form.errors.node}</FieldError>
         </div>
         <div className="flex justify-end gap-2">
@@ -155,24 +157,24 @@ const SettingsModal: React.FC<{ tenant: PbxTenant; onClose: () => void; onDone: 
             {LIMIT_NUMBERS.map((key) => (
               <div key={key}>
                 <label htmlFor={`pbx-fraud-${key}`} className={labelClass}>{t(`telephony.fraud.${key}`)}</label>
-                <input id={`pbx-fraud-${key}`} dir="ltr" inputMode="decimal" className={inputClass} value={limits[key]}
+                <FormInput id={`pbx-fraud-${key}`} dir="ltr" inputMode="decimal" value={limits[key]}
                   onChange={(e) => setLimits((prev) => ({ ...prev, [key]: e.target.value.replace(/[^0-9.]/g, '') }))} />
               </div>
             ))}
             {(['home_prefixes', 'premium_prefixes'] as const).map((key) => (
               <div key={key}>
                 <label htmlFor={`pbx-fraud-${key}`} className={labelClass}>{t(`telephony.fraud.${key}`)}</label>
-                <input id={`pbx-fraud-${key}`} dir="ltr" className={inputClass} value={limits[key]} placeholder="+964"
+                <FormInput id={`pbx-fraud-${key}`} dir="ltr" value={limits[key]} placeholder="+964"
                   onChange={(e) => setLimits((prev) => ({ ...prev, [key]: e.target.value }))} />
               </div>
             ))}
             <div>
               <label htmlFor="pbx-fraud-action" className={labelClass}>{t('telephony.fraud.action')}</label>
-              <select id="pbx-fraud-action" className={inputClass} value={limits.action}
+              <FormSelect id="pbx-fraud-action" value={limits.action}
                 onChange={(e) => setLimits((prev) => ({ ...prev, action: e.target.value }))}>
                 <option value="block">{t('telephony.fraud.action_block')}</option>
                 <option value="alert">{t('telephony.fraud.action_alert')}</option>
-              </select>
+              </FormSelect>
             </div>
           </div>
         </fieldset>
@@ -229,35 +231,33 @@ export const TenantsTab: React.FC<{
     <div>
       <div className="mb-3 max-w-sm">
         <label htmlFor="pbx-tenant-search" className="sr-only">{t('telephony.tenants.search')}</label>
-        <input id="pbx-tenant-search" className={inputClass} placeholder={t('telephony.tenants.search')} value={search}
+        <FormInput id="pbx-tenant-search" placeholder={t('telephony.tenants.search')} value={search}
           onChange={(e) => onSearch(e.target.value)} />
       </div>
       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-        <table className="w-full text-sm text-gray-600 dark:text-gray-300">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-            <tr>
-              <th className={thClass}>{t('telephony.tenants.company')}</th>
-              <th className={thClass}>{t('telephony.tenants.status')}</th>
-              <th className={thClass}>{t('telephony.tenants.node')}</th>
-              <th className={thClass}>{t('telephony.tenants.config')}</th>
-              <th className={thClass}>{t('telephony.tenants.flags')}</th>
-              <th className={thClass}>{t('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+        <DataTable>
+          <TableHead>
+            <Th>{t('telephony.tenants.company')}</Th>
+            <Th>{t('telephony.tenants.status')}</Th>
+            <Th>{t('telephony.tenants.node')}</Th>
+            <Th>{t('telephony.tenants.config')}</Th>
+            <Th>{t('telephony.tenants.flags')}</Th>
+            <Th>{t('common.actions')}</Th>
+          </TableHead>
+          <TableBody>
             {tenants.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">{t('telephony.tenants.empty')}</td></tr>
+              <TableMessageRow colSpan={6}>{t('telephony.tenants.empty')}</TableMessageRow>
             ) : tenants.map((tenant) => (
-              <tr key={tenant.id} data-tenant={tenant.company}>
-                <td className={tdClass}>
+              <TableRow key={tenant.id} data-tenant={tenant.company}>
+                <Td>
                   <p className="font-medium text-gray-900 dark:text-white">{tenant.company_name}</p>
                   <p className="font-mono text-xs text-gray-500"><Ltr>{tenant.tag}</Ltr></p>
-                </td>
-                <td className={tdClass}>
+                </Td>
+                <Td>
                   <Badge tone={STATUS_TONE[tenant.status]}>{t(`telephony.tenants.status_${tenant.status}`)}</Badge>
                   {tenant.last_apply_error ? <p className="mt-1 max-w-xs truncate text-xs text-red-600" title={tenant.last_apply_error}>{tenant.last_apply_error}</p> : null}
-                </td>
-                <td className={tdClass}>
+                </Td>
+                <Td>
                   {tenant.home_node_name || '—'}
                   {tenant.draining_node_name ? (
                     <p className="text-xs text-amber-700 dark:text-amber-300">
@@ -267,22 +267,22 @@ export const TenantsTab: React.FC<{
                       ))}
                     </p>
                   ) : null}
-                </td>
-                <td className={tdClass}>
+                </Td>
+                <Td>
                   <Ltr>{tenant.applied_version != null ? `v${tenant.applied_version}` : '—'} / v{tenant.config_version}</Ltr>
-                </td>
-                <td className={tdClass}>
-                  <div className="flex flex-wrap gap-1">
+                </Td>
+                <Td>
+                  <div className="flex flex-wrap justify-center gap-1">
                     {tenant.outbound_suspended ? <Badge tone="amber">{t('telephony.tenants.outboundSuspended')}</Badge> : null}
                     {tenant.outbound_blocked_on_node ? <Badge tone="red">{t('telephony.tenants.blockedOnNode')}</Badge> : null}
                     {tenant.open_fraud_alerts ? <Badge tone="red">{t('telephony.tenants.openAlerts').replace('{n}', String(tenant.open_fraud_alerts))}</Badge> : null}
                     {tenant.recording_legal_hold ? <Badge tone="blue">{t('telephony.tenants.legalHold')}</Badge> : null}
                     {tenant.recording_paused_quota ? <Badge tone="amber">{t('telephony.tenants.recordingFull')}</Badge> : null}
                   </div>
-                </td>
-                <td className={tdClass}>
+                </Td>
+                <Td>
                   {readOnly ? <span className="text-xs text-gray-400">—</span> : (
-                  <div className="flex items-center gap-1">
+                  <TableActions>
                     {tenant.status === 'failed' || tenant.status === 'deprovisioned' ? (
                       <IconButton icon="restore" label={t('telephony.tenants.provision')} disabled={busy !== null}
                         onClick={() => act(`p${tenant.id}`, () => provisionPbxTenantAPI(tenant.company), t('telephony.tenants.provisioned'))} />
@@ -299,13 +299,13 @@ export const TenantsTab: React.FC<{
                     <IconButton icon="send" label={t('telephony.tenants.repush')} disabled={busy !== null}
                       onClick={() => act(`s${tenant.id}`, () => repushPbxTenantAPI(tenant.company), t('telephony.tenants.repushed'))} />
                     <IconButton icon="settings" label={t('telephony.tenants.settings')} onClick={() => setDialog({ kind: 'settings', tenant })} />
-                  </div>
+                  </TableActions>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </DataTable>
       </div>
       {dialog?.kind === 'suspend' ? (
         <SuspendModal tenant={dialog.tenant} onClose={() => setDialog(null)} onDone={() => done(t('telephony.tenants.suspended'))} />

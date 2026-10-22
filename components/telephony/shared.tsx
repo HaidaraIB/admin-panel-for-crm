@@ -10,11 +10,7 @@ import { useI18n } from '../../context/i18n';
 import { translateAdminApiError } from '../../utils/translateApiError';
 import Icon from '../Icon';
 
-export const inputClass =
-  'w-full h-10 px-3 border border-gray-300 rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500';
 export const labelClass = 'block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300';
-export const thClass = 'px-4 py-3 text-start font-semibold';
-export const tdClass = 'px-4 py-3 align-top';
 
 export const ModalShell: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }> = ({
   title,

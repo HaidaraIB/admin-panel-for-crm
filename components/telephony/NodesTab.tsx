@@ -9,10 +9,12 @@ import {
   type PbxHealth,
   type PbxNode,
 } from '../../services/api';
+import { DataTable, TableActions, TableBody, TableHead, TableMessageRow, TableRow, Td, Th } from '../DataTable';
 import FieldError from '../FieldError';
+import { FormInput, FormSelect } from '../settings/FormFields';
 import IconButton from '../IconButton';
 import LoadingButton from '../LoadingButton';
-import { Badge, Ltr, ModalShell, inputClass, labelClass, tdClass, thClass, useApiErrorText, useCatalogForm, when } from './shared';
+import { Badge, Ltr, ModalShell, labelClass, useApiErrorText, useCatalogForm, when } from './shared';
 
 const NODE_TONE = { active: 'green', draining: 'amber', offline: 'gray' } as const;
 
@@ -49,11 +51,11 @@ const NodeModal: React.FC<{ node: PbxNode | null; onClose: () => void; onSaved: 
   const field = (name: (typeof FIELDS)[number], ltr = true) => (
     <div>
       <label htmlFor={`pbx-node-${name}`} className={labelClass}>{t(`telephony.nodes.${name}`)}{name === 'name' ? ' *' : ''}</label>
-      <input
+      <FormInput
         id={`pbx-node-${name}`}
         dir={ltr ? 'ltr' : undefined}
         inputMode={name === 'max_tenants' ? 'numeric' : undefined}
-        className={`${inputClass} ${form.errors[name] ? 'border-red-500' : ''}`}
+        aria-invalid={Boolean(form.errors[name])}
         value={values[name]}
         onChange={(e) => setValues((prev) => ({ ...prev, [name]: name === 'max_tenants' ? e.target.value.replace(/[^0-9]/g, '') : e.target.value }))}
       />
@@ -70,10 +72,10 @@ const NodeModal: React.FC<{ node: PbxNode | null; onClose: () => void; onSaved: 
           {field('control_url')}
           <div>
             <label htmlFor="pbx-node-status" className={labelClass}>{t('telephony.nodes.status')}</label>
-            <select id="pbx-node-status" className={inputClass} value={values.status}
+            <FormSelect id="pbx-node-status" value={values.status}
               onChange={(e) => setValues((prev) => ({ ...prev, status: e.target.value as PbxNode['status'] }))}>
               {(['active', 'draining', 'offline'] as const).map((s) => <option key={s} value={s}>{t(`telephony.nodes.status_${s}`)}</option>)}
-            </select>
+            </FormSelect>
           </div>
           {field('max_tenants')}
         </div>
@@ -148,62 +150,60 @@ export const NodesTab: React.FC<{ nodes: PbxNode[]; health: PbxHealth | undefine
         </div>
       )}
       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-        <table className="w-full text-sm text-gray-600 dark:text-gray-300">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-            <tr>
-              <th className={thClass}>{t('telephony.nodes.name')}</th>
-              <th className={thClass}>{t('telephony.nodes.status')}</th>
-              <th className={thClass}>{t('telephony.nodes.tenants')}</th>
-              <th className={thClass}>{t('telephony.nodes.worker')}</th>
-              <th className={thClass}>{t('telephony.nodes.gatewayLink')}</th>
-              <th className={thClass}>{t('telephony.nodes.lastSeen')}</th>
-              <th className={thClass}>{t('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+        <DataTable>
+          <TableHead>
+            <Th>{t('telephony.nodes.name')}</Th>
+            <Th>{t('telephony.nodes.status')}</Th>
+            <Th>{t('telephony.nodes.tenants')}</Th>
+            <Th>{t('telephony.nodes.worker')}</Th>
+            <Th>{t('telephony.nodes.gatewayLink')}</Th>
+            <Th>{t('telephony.nodes.lastSeen')}</Th>
+            <Th>{t('common.actions')}</Th>
+          </TableHead>
+          <TableBody>
             {nodes.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t('telephony.nodes.empty')}</td></tr>
+              <TableMessageRow colSpan={7}>{t('telephony.nodes.empty')}</TableMessageRow>
             ) : nodes.map((node) => {
               const worker = workerOf(node.id);
               return (
-                <tr key={node.id} data-node={node.name}>
-                  <td className={tdClass}>
+                <TableRow key={node.id} data-node={node.name}>
+                  <Td>
                     <p className="font-medium text-gray-900 dark:text-white">{node.name}</p>
                     <p className="text-xs text-gray-500"><Ltr>{node.control_url || '—'}</Ltr>{node.region ? ` · ${node.region}` : ''}</p>
-                  </td>
-                  <td className={tdClass}><Badge tone={NODE_TONE[node.status]}>{t(`telephony.nodes.status_${node.status}`)}</Badge></td>
-                  <td className={tdClass}><Ltr>{node.tenant_count} / {node.max_tenants}</Ltr></td>
-                  <td className={tdClass}>
+                  </Td>
+                  <Td><Badge tone={NODE_TONE[node.status]}>{t(`telephony.nodes.status_${node.status}`)}</Badge></Td>
+                  <Td><Ltr>{node.tenant_count} / {node.max_tenants}</Ltr></Td>
+                  <Td>
                     {worker ? (
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap justify-center gap-1">
                         <Badge tone={worker.ari ? 'green' : 'red'}>ARI</Badge>
                         <Badge tone={worker.redis ? 'green' : 'red'}>Redis</Badge>
                         <Badge tone={worker.buffer_depth > 100 ? 'amber' : 'gray'}>{t('telephony.nodes.buffer')} <Ltr>{worker.buffer_depth}</Ltr></Badge>
                       </div>
                     ) : <Badge tone="red">{t('telephony.nodes.unreachable')}</Badge>}
-                  </td>
-                  <td className={tdClass}>
+                  </Td>
+                  <Td>
                     {node.gateway_wg_public_key && node.gateway_wg_endpoint
                       ? <Ltr className="font-mono text-xs">{node.gateway_wg_endpoint}</Ltr>
                       : <Badge tone="amber">{t('telephony.nodes.gatewayNotSet')}</Badge>}
-                  </td>
-                  <td className={tdClass}>
+                  </Td>
+                  <Td>
                     <p className="text-xs">{when(node.last_seen_at, language)}</p>
                     {node.asterisk_version ? <p className="text-xs text-gray-500">Asterisk <Ltr>{node.asterisk_version}</Ltr></p> : null}
-                  </td>
-                  <td className={tdClass}>
+                  </Td>
+                  <Td>
                     {readOnly ? <span className="text-xs text-gray-400">—</span> : (
-                      <div className="flex items-center gap-1">
+                      <TableActions>
                         <IconButton icon="edit" label={t('telephony.nodes.edit')} onClick={() => setEditing(node)} />
                         <IconButton icon="refresh" label={t('telephony.nodes.rotate')} tone="warning" onClick={() => setConfirmRotate(node)} />
-                      </div>
+                      </TableActions>
                     )}
-                  </td>
-                </tr>
+                  </Td>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </DataTable>
       </div>
       {editing ? (
         <NodeModal
