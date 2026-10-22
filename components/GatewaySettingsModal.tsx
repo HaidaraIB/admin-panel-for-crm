@@ -61,6 +61,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
         payBaseUrl: config.payBaseUrl || '',
         currency: config.currency || '',
         apiBaseUrl: config.apiBaseUrl || '',
+        publicKey: config.publicKey || '',
       });
       setTestStatus('idle'); // Reset test status when modal opens or gateway changes
       setTestPassed(false); // Reset test passed flag
@@ -88,6 +89,26 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
     if (credentialFields.includes(name)) {
       setTestPassed(false); // Reset test passed flag when credentials change
     }
+  };
+
+  const handlePublicKeyChange = (value: string) => {
+    setFormData(prev => prev ? { ...prev, publicKey: value } : null);
+  };
+
+  const handlePublicKeyFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result.trim() : '';
+      if (!text.includes('BEGIN PUBLIC KEY')) {
+        showToast(t('paymentGateways.modal.qicardPublicKeyInvalid'), { variant: 'error' });
+        return;
+      }
+      handlePublicKeyChange(text);
+    };
+    reader.readAsText(file);
   };
 
   const failTest = (message: string) => {
@@ -316,7 +337,9 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                 </button>
             </div>
             
-            <fieldset disabled={readOnly} className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0 border-0 m-0 min-w-0">
+            {/* Scroll on a div: Chrome does not clip a scrolling <fieldset>'s content. */}
+            <div className="overflow-y-auto flex-1 min-h-0">
+            <fieldset disabled={readOnly} className="p-8 space-y-6 border-0 m-0 min-w-0">
                 {isPaytabs ? (
                     <>
                         <div>
@@ -492,11 +515,34 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                                 value={formData.apiBaseUrl || ''}
                                 onChange={handleChange}
                                 className={inputClasses}
-                                placeholder="https://uat-sandbox-3ds-api.qi.iq"
+                                placeholder="https://3ds-api.qi.iq"
                                 autoComplete="off"
                                 dir="ltr"
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('paymentGateways.modal.qicardApiBaseUrlHint')}</p>
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <label htmlFor="publicKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('paymentGateways.modal.qicardPublicKey')}</label>
+                                <label className="text-xs font-medium text-primary-600 dark:text-primary-400 cursor-pointer hover:underline">
+                                    {t('paymentGateways.modal.qicardPublicKeyUpload')}
+                                    <input type="file" accept=".pem,.pub,.txt" className="hidden" onChange={handlePublicKeyFile} />
+                                </label>
+                            </div>
+                            <textarea
+                                id="publicKey"
+                                name="publicKey"
+                                rows={5}
+                                wrap="off"
+                                value={formData.publicKey || ''}
+                                onChange={e => handlePublicKeyChange(e.target.value)}
+                                className={inputClasses + ' font-mono text-xs'}
+                                placeholder="-----BEGIN PUBLIC KEY-----"
+                                autoComplete="off"
+                                spellCheck={false}
+                                dir="ltr"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('paymentGateways.modal.qicardPublicKeyHint')}</p>
                         </div>
                     </>
                 ) : isFib ? (
@@ -753,6 +799,7 @@ const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({ gateway, is
                 </div>
                 )}
             </fieldset>
+            </div>
 
             <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg flex-shrink-0">
                 {readOnly ? (

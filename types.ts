@@ -325,6 +325,8 @@ export interface PaymentGateway {
     username?: string;
     password?: string;
     apiBaseUrl?: string;
+    /** QiCard RSA public key (PEM) used to verify webhook X-Signature. */
+    publicKey?: string;
     // FIB (First Iraqi Bank) / Al Qaseh OAuth-style credentials
     clientId?: string;
     clientSecret?: string;
