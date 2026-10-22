@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useI18n } from '../../context/i18n';
 import { useToast } from '../../context/ToastContext';
 import {
+  getPbxProvisionCandidatesAPI,
   migratePbxTenantAPI,
   provisionPbxTenantAPI,
   repushPbxTenantAPI,
@@ -11,6 +12,7 @@ import {
   updatePbxTenantAPI,
   type PbxFraudLimits,
   type PbxNode,
+  type PbxProvisionCandidate,
   type PbxTenant,
 } from '../../services/api';
 import { DataTable, TableActions, TableBody, TableHead, TableMessageRow, TableRow, Td, Th } from '../DataTable';
@@ -24,7 +26,66 @@ const STATUS_TONE = { pending: 'blue', active: 'green', failed: 'red', suspended
 
 type Dialog =
   | { kind: 'suspend' | 'migrate' | 'settings'; tenant: PbxTenant }
+  | { kind: 'provision' }
   | null;
+
+/** First provision: only companies approved for the PBX pilot that have no tenant yet. */
+const ProvisionModal: React.FC<{ onClose: () => void; onDone: () => void }> = ({ onClose, onDone }) => {
+  const { t } = useI18n();
+  const errorText = useApiErrorText();
+  const [rows, setRows] = useState<PbxProvisionCandidate[] | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState<number | null>(null);
+  useEffect(() => {
+    let live = true;
+    getPbxProvisionCandidatesAPI()
+      .then((list) => { if (live) setRows(list); })
+      .catch((err) => { if (live) setError(errorText(err)); });
+    return () => { live = false; };
+  }, [errorText]);
+  const provision = async (company: number) => {
+    setBusy(company);
+    setError('');
+    try {
+      await provisionPbxTenantAPI(company);
+      onDone();
+    } catch (err) {
+      setError(errorText(err));
+      setBusy(null);
+    }
+  };
+  return (
+    <ModalShell title={t('telephony.tenants.addTitle')} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 dark:text-gray-300">{t('telephony.tenants.addHint')}</p>
+        {error ? <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+        {rows === null && !error ? <p className="text-sm text-gray-500">{t('common.loading')}</p> : null}
+        {rows?.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">{t('telephony.tenants.addEmpty')}</p> : null}
+        {rows?.length ? (
+          <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+            {rows.map((row) => (
+              <li key={row.company} data-candidate={row.company} className="flex items-center justify-between gap-3 p-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-gray-900 dark:text-white">{row.company_name}</p>
+                  {row.eligible ? null : (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">{t('telephony.tenants.notEligible')}</p>
+                  )}
+                </div>
+                <LoadingButton size="sm" onClick={() => provision(row.company)} isLoading={busy === row.company}
+                  disabled={!row.eligible || busy !== null}>
+                  {t('telephony.tenants.setUp')}
+                </LoadingButton>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="flex justify-end">
+          <LoadingButton variant="secondary" onClick={onClose} disabled={busy !== null}>{t('common.cancel')}</LoadingButton>
+        </div>
+      </div>
+    </ModalShell>
+  );
+};
 
 const SuspendModal: React.FC<{ tenant: PbxTenant; onClose: () => void; onDone: () => void }> = ({ tenant, onClose, onDone }) => {
   const { t } = useI18n();
@@ -229,10 +290,15 @@ export const TenantsTab: React.FC<{
 
   return (
     <div>
-      <div className="mb-3 max-w-sm">
-        <label htmlFor="pbx-tenant-search" className="sr-only">{t('telephony.tenants.search')}</label>
-        <FormInput id="pbx-tenant-search" placeholder={t('telephony.tenants.search')} value={search}
-          onChange={(e) => onSearch(e.target.value)} />
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="w-full max-w-sm">
+          <label htmlFor="pbx-tenant-search" className="sr-only">{t('telephony.tenants.search')}</label>
+          <FormInput id="pbx-tenant-search" placeholder={t('telephony.tenants.search')} value={search}
+            onChange={(e) => onSearch(e.target.value)} />
+        </div>
+        {readOnly ? null : (
+          <LoadingButton icon="plus" onClick={() => setDialog({ kind: 'provision' })}>{t('telephony.tenants.add')}</LoadingButton>
+        )}
       </div>
       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
         <DataTable>
@@ -307,6 +373,9 @@ export const TenantsTab: React.FC<{
           </TableBody>
         </DataTable>
       </div>
+      {dialog?.kind === 'provision' ? (
+        <ProvisionModal onClose={() => setDialog(null)} onDone={() => done(t('telephony.tenants.provisioned'))} />
+      ) : null}
       {dialog?.kind === 'suspend' ? (
         <SuspendModal tenant={dialog.tenant} onClose={() => setDialog(null)} onDone={() => done(t('telephony.tenants.suspended'))} />
       ) : null}

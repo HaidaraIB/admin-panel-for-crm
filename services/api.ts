@@ -2014,6 +2014,15 @@ export const rotatePbxNodeTokensAPI = (id: string) =>
 
 export const getPbxTenantsAPI = async (search?: string) =>
   rowsOf(await apiRequest<PbxTenant[] | PaginatedResponse<PbxTenant>>(`${TEL}/tenants/${buildQueryString({ search, page_size: 200 })}`));
+/** A pilot-approved company with no phone system yet; `eligible` is the provision gate's verdict. */
+export interface PbxProvisionCandidate {
+  company: number;
+  company_name: string;
+  eligible: boolean;
+  message: string;
+}
+
+export const getPbxProvisionCandidatesAPI = () => apiRequest<PbxProvisionCandidate[]>(`${TEL}/tenants/candidates/`);
 export const provisionPbxTenantAPI = (companyId: number) =>
   apiRequest<{ tenant: PbxTenant; job: PbxJob }>(`${TEL}/tenants/${companyId}/provision/`, { method: 'POST' });
 export const suspendPbxTenantAPI = (companyId: number, reason: string) =>
