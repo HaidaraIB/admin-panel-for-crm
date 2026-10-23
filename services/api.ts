@@ -3,7 +3,7 @@
  * /api/v1/, X-API-Key (admin), JWT, envelope unwrap.
  */
 
-import type { LimitedAdmin, SystemBackup } from '../types';
+import type { LimitedAdmin, Promotion, SystemBackup } from '../types';
 import { messageFromParsedErrorBody, isApiNotFoundError } from './apiEnvelope';
 import {
   adminHttp,
@@ -460,6 +460,32 @@ export const deletePlanAPI = async (id: number) => {
   });
   invalidateListCache('plans');
 };
+
+// ==================== Promotions (pricing news bar) APIs ====================
+
+export type PromotionPayload = Partial<Omit<Promotion, 'id' | 'status' | 'created_at' | 'updated_at'>>;
+
+/** GET /api/promotions/?status=live|scheduled|ended|paused */
+export const getPromotionsAPI = async (params?: { status?: string; search?: string }) => {
+  const query = buildQueryString(params ?? {});
+  const data = await apiRequest<Promotion[] | PaginatedResponse<Promotion>>(`/promotions/${query}`);
+  return Array.isArray(data) ? data : data?.results ?? [];
+};
+
+/** POST /api/promotions/ */
+export const createPromotionAPI = (payload: PromotionPayload) =>
+  apiRequest<Promotion>('/promotions/', { method: 'POST', body: JSON.stringify(payload) });
+
+/** PATCH /api/promotions/{id}/ */
+export const updatePromotionAPI = (id: number, payload: PromotionPayload) =>
+  apiRequest<Promotion>(`/promotions/${id}/`, { method: 'PATCH', body: JSON.stringify(payload) });
+
+/** DELETE /api/promotions/{id}/ */
+export const deletePromotionAPI = (id: number) => apiRequest<void>(`/promotions/${id}/`, { method: 'DELETE' });
+
+/** POST /api/promotions/{id}/duplicate/ — the copy starts paused. */
+export const duplicatePromotionAPI = (id: number) =>
+  apiRequest<Promotion>(`/promotions/${id}/duplicate/`, { method: 'POST' });
 
 // ==================== Trial codes APIs ====================
 

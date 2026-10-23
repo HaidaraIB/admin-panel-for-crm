@@ -46,6 +46,9 @@ import SubscriptionsFilterDrawer, {
 } from '../components/SubscriptionsFilterDrawer';
 import { hasActiveFilters as filtersAreActive } from '../components/filters';
 import IconButton from '../components/IconButton';
+import PromotionsTab from '../components/PromotionsTab';
+import { planOfferFromApi, planOfferToApi } from '../utils/planOffer';
+import PlanAdminCard from '../components/PlanAdminCard';
 
 function planIsDeletable(plan: Plan): boolean {
   const total =
@@ -118,6 +121,7 @@ function planToApiPayload(plan: Omit<Plan, 'id'> & { id?: number }): Record<stri
     usage_limits_monthly: plan.entitlementsUsageLimitsMonthly || {},
     visible: plan.visible,
     tier: plan.tier ?? 0,
+    ...planOfferToApi(plan),
   };
 }
 
@@ -177,6 +181,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                 pendingSubscriptionCount: plan.pending_subscription_count ?? 0,
                 trialCodeCount: plan.trial_code_count ?? 0,
                 targetPaymentCount: plan.target_payment_count ?? 0,
+                ...planOfferFromApi(plan),
             }));
             setPlans(apiPlans);
         } catch (error) {
@@ -238,6 +243,7 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     usage_limits_monthly: planToSave.entitlementsUsageLimitsMonthly || {}, // API field: usage_limits_monthly (JSON)
                     visible: planToSave.visible !== false, // API field: visible
                     tier: planToSave.tier ?? 0,
+                    ...planOfferToApi(planToSave),
                 });
                 addLog('audit.log.planCreated', { planName: planToSave.name });
             }
@@ -327,83 +333,17 @@ const PlansTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
                     <p className="text-gray-500 dark:text-gray-400 text-lg">{t('subscriptions.plans.noPlans') || 'No plans found. Create your first plan to get started.'}</p>
                 </div>
             ) : (
-                plans.map(plan => {
-                    const planDescription = language === 'ar' && (plan.featuresAr?.trim()?.length)
-                        ? plan.featuresAr
-                        : plan.features;
-                    const planNameForDisplay = language === 'ar' && (plan.nameAr?.trim()?.length)
-                        ? plan.nameAr
-                        : plan.name;
-                    const isDeletable = planIsDeletable(plan);
-                    return (
-                        <div key={plan.id} className="bg-primary-50 dark:bg-gray-800 rounded-lg shadow-md p-6 border-t-4 border-primary-500 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{planNameForDisplay}</h3>
-                            
-                            <div className="my-4">
-                                {plan.type === 'Paid' ? (
-                                    <p className="text-4xl font-extrabold text-gray-900 dark:text-white">${plan.priceMonthly}<span className="text-base font-normal text-gray-500 dark:text-gray-400">/{t('common.month')}</span></p>
-                                ) : (
-                                    <p className="text-4xl font-extrabold text-gray-900 dark:text-white">{t(`subscriptions.plans.type.${plan.type}`)}</p>
-                                )}
-                                {plan.type === 'Paid' && <p className="text-sm text-gray-500 dark:text-gray-400">${plan.priceYearly}/{t('common.year')}</p>}
-                            </div>
-
-                            {planDescription && (
-                                <div className="mb-4">
-                                    <p
-                                        className={`text-sm text-gray-600 dark:text-gray-300 line-clamp-3 ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                                        dir={language === 'ar' ? 'rtl' : 'ltr'}
-                                    >
-                                        {planDescription}
-                                    </p>
-                                </div>
-                            )}
-                            <ul className="space-y-2 text-gray-600 dark:text-gray-300 flex-grow mb-6">
-                                <li className="flex items-center">
-                                    <Icon name="users" className="w-4 h-4 mr-2 text-primary-600 dark:text-primary-400" />
-                                    <span className="font-semibold">{plan.users === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.users}</span>
-                                    <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.users')}</span>
-                                </li>
-                                <li className="flex items-center">
-                                    <Icon name="users" className="w-4 h-4 mr-2 text-primary-600 dark:text-primary-400" />
-                                    <span className="font-semibold">{plan.clients === 'unlimited' ? t('subscriptions.plans.unlimited') || 'Unlimited' : plan.clients}</span>
-                                    <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.clients')}</span>
-                                </li>
-                                {plan.trialDays > 0 && (
-                                    <li className="flex items-center">
-                                        <Icon name="clock" className="w-4 h-4 mr-2 text-primary-600 dark:text-primary-400" />
-                                        <span className="font-semibold">{plan.trialDays}</span>
-                                        <span className={language === 'ar' ? 'mr-1' : 'ml-1'}>{t('subscriptions.plans.trialDays') || 'Trial Days'}</span>
-                                    </li>
-                                )}
-                            </ul>
-
-                            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                                <div className={`flex items-center mb-4 ${language === 'ar' ? 'flex-row-reverse text-right' : 'justify-between gap-3'}`}>
-                                    {language !== 'ar' && (
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 text-left" dir="rtl">
-                                            {t('subscriptions.plans.show')}
-                                        </span>
-                                    )}
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked={plan.visible} onChange={() => openVisibilityDialog(plan)} className="sr-only peer" />
-                                        <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                                    </label>
-                                    {language === 'ar' && (
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 ml-3 text-right">
-                                            {t('subscriptions.plans.show')}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse justify-end' : 'justify-start'}`}>
-                                    <IconButton icon="view" label={t('common.view')} onClick={() => handleOpenViewPlan(plan)} />
-                                    <IconButton icon="edit" label={t('subscriptions.plans.editPlan')} onClick={() => handleOpenModal(plan)} />
-                                    <IconButton icon="trash" label={isDeletable ? t('subscriptions.plans.deletePlan') : t('subscriptions.plans.deleteDisabledTooltip')} tone="danger" onClick={() => openDeleteDialog(plan)} disabled={!isDeletable} />
-                                </div>
-                            </div>
-                        </div>
-                    )
-                })
+                plans.map(plan => (
+                    <PlanAdminCard
+                        key={plan.id}
+                        plan={plan}
+                        isDeletable={planIsDeletable(plan)}
+                        onView={() => handleOpenViewPlan(plan)}
+                        onEdit={() => handleOpenModal(plan)}
+                        onDelete={() => openDeleteDialog(plan)}
+                        onToggleVisibility={() => openVisibilityDialog(plan)}
+                    />
+                ))
             )}
         </div>
         <PlanModal 
@@ -1426,7 +1366,7 @@ const SubscriptionsTab: React.FC<SubscriptionsProps> = ({ tenants }) => {
 
 const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
   const { t } = useI18n();
-  const SUBSCRIPTION_TABS = ['plans', 'trialCodes', 'subscriptions', 'payments', 'invoices'] as const;
+  const SUBSCRIPTION_TABS = ['plans', 'promotions', 'trialCodes', 'subscriptions', 'payments', 'invoices'] as const;
   const [activeTab, setActiveTab] = usePersistedTab(
     'subscriptions',
     SUBSCRIPTION_TABS,
@@ -1435,6 +1375,7 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
   );
   const tabs = [
     { id: 'plans', label: t('subscriptions.tabs.plans') },
+    { id: 'promotions', label: t('subscriptions.tabs.promotions') },
     { id: 'trialCodes', label: t('subscriptions.tabs.trialCodes') },
     { id: 'subscriptions', label: t('subscriptions.tabs.subscriptions') || 'Subscriptions' },
     { id: 'payments', label: t('subscriptions.tabs.payments') },
@@ -1463,6 +1404,7 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ tenants }) => {
       </div>
       
       {activeTab === 'plans' && <PlansTab tenants={tenants} />}
+      {activeTab === 'promotions' && <PromotionsTab />}
       {activeTab === 'trialCodes' && <TrialCodesTab />}
       {activeTab === 'subscriptions' && <SubscriptionsTab tenants={tenants} />}
       {activeTab === 'payments' && <PaymentsTab />}

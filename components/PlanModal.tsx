@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plan } from '../types';
-import { useI18n } from '../context/i18n';
+import { translateIn, useI18n } from '../context/i18n';
 import { useToast } from '../context/ToastContext';
 import { translateAdminApiError } from '../utils/translateApiError';
 import Icon from './Icon';
@@ -9,6 +9,8 @@ import { catalogFieldErrors, serverFieldErrors } from '../forms';
 import LoadingButton from './LoadingButton';
 import { NumberInput } from './NumberInput';
 import { Checkbox } from './Checkbox';
+import PlanOfferFields from './pricing/PlanOfferFields';
+import PlanCardPreview from './pricing/PlanCardPreview';
 
 interface PlanModalProps {
   planToEdit: Plan | null;
@@ -55,6 +57,17 @@ const emptyPlan: Omit<Plan, 'id'> = {
   entitlementsUsageLimitsMonthly: {},
   tier: 0,
   visible: true,
+  salePriceMonthly: null,
+  salePriceYearly: null,
+  saleStartsAt: null,
+  saleEndsAt: null,
+  badge: '',
+  badgeText: '',
+  badgeTextAr: '',
+  isFeatured: false,
+  offerNote: '',
+  offerNoteAr: '',
+  sortOrder: 0,
 };
 
 const PlanModal: React.FC<PlanModalProps> = ({
@@ -75,6 +88,8 @@ const PlanModal: React.FC<PlanModalProps> = ({
   };
   const [formData, setFormData] = useState(planToEdit || emptyPlan);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [previewCycle, setPreviewCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [previewLang, setPreviewLang] = useState<'en' | 'ar'>(language === 'ar' ? 'ar' : 'en');
 
   useEffect(() => {
     setFormData(planToEdit ? { ...planToEdit } : { ...emptyPlan });
@@ -95,6 +110,13 @@ const PlanModal: React.FC<PlanModalProps> = ({
   const handleTypeChange = (type: Plan['type']) => {
     if (isPlanTypeDisabled(type)) return;
     const newFormData = { ...formData, type };
+    if (type !== 'Paid') {
+      // Only paid plans can be on sale.
+      newFormData.salePriceMonthly = null;
+      newFormData.salePriceYearly = null;
+      newFormData.saleStartsAt = null;
+      newFormData.saleEndsAt = null;
+    }
     if (type === 'Trial') {
       newFormData.priceMonthly = 0;
       newFormData.priceYearly = 0;
@@ -208,9 +230,19 @@ const PlanModal: React.FC<PlanModalProps> = ({
     name_ar: formData.nameAr || '',
     description: formData.features || '',
     description_ar: formData.featuresAr || '',
-    monthly_price: formData.priceMonthly,
-    yearly_price: formData.priceYearly,
+    price_monthly: formData.priceMonthly,
+    price_yearly: formData.priceYearly,
     trial_days: formData.trialDays,
+    sale_price_monthly: formData.salePriceMonthly ?? null,
+    sale_price_yearly: formData.salePriceYearly ?? null,
+    sale_starts_at: formData.saleStartsAt ?? null,
+    sale_ends_at: formData.saleEndsAt ?? null,
+    badge: formData.badge || '',
+    badge_text: formData.badgeText || '',
+    badge_text_ar: formData.badgeTextAr || '',
+    offer_note: formData.offerNote || '',
+    offer_note_ar: formData.offerNoteAr || '',
+    sort_order: formData.sortOrder ?? 0,
   });
 
   const blurField = (field: string) => {
@@ -249,7 +281,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl lg:max-w-6xl transform transition-all" onClick={e => e.stopPropagation()}>
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -264,6 +296,7 @@ const PlanModal: React.FC<PlanModalProps> = ({
             </button>
           </div>
 
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px]">
           <fieldset disabled={readOnly} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto border-0 m-0 min-w-0">
             {errors._general && <p className="text-sm text-red-600 dark:text-red-400">{errors._general}</p>}
             <div>
@@ -366,6 +399,8 @@ const PlanModal: React.FC<PlanModalProps> = ({
                   </div>
               </div>
             )}
+
+            <PlanOfferFields formData={formData} setFormData={setFormData} errors={errors} onBlurField={blurField} />
 
             <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
               <h3 className="font-medium mb-3">{t('subscriptions.plans.resourceLimits')}</h3>
@@ -633,6 +668,45 @@ const PlanModal: React.FC<PlanModalProps> = ({
               {errors.descriptionAr && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.descriptionAr}</p>}
             </div>
           </fieldset>
+
+          <aside
+            aria-label={t('subscriptions.plans.preview.title')}
+            className="border-t border-gray-200 bg-gray-100/70 p-6 dark:border-gray-700 dark:bg-gray-900/40 lg:max-h-[70vh] lg:overflow-y-auto lg:border-t-0 lg:border-s"
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('subscriptions.plans.preview.title')}</h3>
+              <div className="flex gap-1">
+                {(['monthly', 'yearly'] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-pressed={previewCycle === c}
+                    onClick={() => setPreviewCycle(c)}
+                    className={`rounded-md px-2 py-1 text-xs font-medium transition ${previewCycle === c ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+                  >
+                    {t(c === 'monthly' ? 'subscriptions.plans.preview.monthly' : 'subscriptions.plans.preview.yearly')}
+                  </button>
+                ))}
+                <span className="mx-1 w-px bg-gray-300 dark:bg-gray-600" aria-hidden="true" />
+                {(['en', 'ar'] as const).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    aria-pressed={previewLang === l}
+                    onClick={() => setPreviewLang(l)}
+                    className={`rounded-md px-2 py-1 text-xs font-medium uppercase transition ${previewLang === l ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="pt-3">
+              <PlanCardPreview plan={formData} cycle={previewCycle} language={previewLang} t={(key) => translateIn(previewLang, key)} />
+            </div>
+            <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">{t('subscriptions.plans.preview.hint')}</p>
+          </aside>
+          </div>
 
           <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-4 rtl:space-x-reverse bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
             {readOnly ? (

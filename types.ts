@@ -101,6 +101,21 @@ export interface Plan {
     /** Higher = higher tier; used for upgrade/downgrade rules on the API. */
     tier?: number;
     visible: boolean;
+    /** Optional sale price per cycle (null = no sale on that cycle). */
+    salePriceMonthly?: number | null;
+    salePriceYearly?: number | null;
+    /** ISO UTC; null start = live immediately, null end = runs until removed. */
+    saleStartsAt?: string | null;
+    saleEndsAt?: string | null;
+    badge?: PlanBadgeKey;
+    badgeText?: string;
+    badgeTextAr?: string;
+    isFeatured?: boolean;
+    offerNote?: string;
+    offerNoteAr?: string;
+    sortOrder?: number;
+    /** Server-computed, read-only. */
+    saleStatus?: PlanSaleStatus;
     subscriptionCount?: number;
     pendingSubscriptionCount?: number;
     trialCodeCount?: number;
@@ -335,4 +350,36 @@ export interface PaymentGateway {
     payBaseUrl?: string;
     currency?: string;
   };
+}
+export type PlanBadgeKey = '' | 'most_popular' | 'best_value' | 'recommended' | 'new' | 'limited_offer' | 'custom';
+export type PlanSaleStatus = 'none' | 'scheduled' | 'live' | 'ended';
+
+export type PromotionTheme = 'sale' | 'brand' | 'dark' | 'amber';
+export type PromotionAudience = 'public' | 'dashboard' | 'mobile';
+export type PromotionStatus = 'live' | 'scheduled' | 'ended' | 'paused';
+
+export interface PromotionMessage {
+    en: string;
+    ar: string;
+}
+
+/** Promotion bar shown on pricing surfaces (API shape, snake_case kept). */
+export interface Promotion {
+    id: number;
+    name: string;
+    messages: PromotionMessage[];
+    cta_label: string;
+    cta_label_ar: string;
+    cta_url: string;
+    theme: PromotionTheme;
+    starts_at: string;
+    ends_at: string | null;
+    show_countdown: boolean;
+    audiences: PromotionAudience[];
+    dismissible: boolean;
+    is_active: boolean;
+    priority: number;
+    status: PromotionStatus;
+    created_at?: string;
+    updated_at?: string;
 }
