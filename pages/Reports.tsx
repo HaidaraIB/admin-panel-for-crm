@@ -522,12 +522,13 @@ const Reports: React.FC = () => {
     REPORT_TABS,
     'revenue',
     ['reports_activeTab'],
-  );  const [filters, setFilters] = useState<ReportsFilters>(reportsFilterDefaults);
+  );
+  const [filters, setFilters] = useState<ReportsFilters>(reportsFilterDefaults);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [tabLoading, setTabLoading] = useState(false);
 
-  const tabs = [
+  const tabs: { id: (typeof REPORT_TABS)[number]; label: string }[] = [
     { id: 'revenue', label: t('reports.tabs.revenue') },
     { id: 'subscribers', label: t('reports.tabs.subscribers') },
   ];

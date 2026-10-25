@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useI18n } from '../context/i18n';
 import { catalogFieldErrors } from '../forms';
+import Icon from './Icon';
 
 interface AdminUserModalProps {
   isOpen: boolean;

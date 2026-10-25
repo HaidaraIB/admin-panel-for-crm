@@ -109,7 +109,7 @@ const DemoBookings: React.FC = () => {
     'reservations',
     ['demoBookings.activeTab'],
   );
-  const tabs = [
+  const tabs: { id: (typeof DEMO_TABS)[number]; label: string }[] = [
     { id: 'reservations', label: t('demoBookings.tabs.reservations') },
     { id: 'availability', label: t('demoBookings.tabs.availability') },
   ];
